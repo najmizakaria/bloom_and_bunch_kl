@@ -12,6 +12,7 @@ class OrderModel {
   final String deliveryAddress;
   final DateTime deliveryDate;
   final String deliveryTimeSlot;
+  final Map<String, dynamic> bouquetDetails; // Stores stems, wrapper, ribbon, and card note
   final DateTime createdAt;
 
   OrderModel({
@@ -26,6 +27,7 @@ class OrderModel {
     required this.deliveryAddress,
     required this.deliveryDate,
     required this.deliveryTimeSlot,
+    required this.bouquetDetails,
     required this.createdAt,
   });
 
@@ -42,6 +44,7 @@ class OrderModel {
       'deliveryAddress': deliveryAddress,
       'deliveryDate': Timestamp.fromDate(deliveryDate),
       'deliveryTimeSlot': deliveryTimeSlot,
+      'bouquetDetails': bouquetDetails,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }
@@ -58,7 +61,8 @@ class OrderModel {
       recipientPhone: map['recipientPhone'] ?? '',
       deliveryAddress: map['deliveryAddress'] ?? '',
       deliveryDate: (map['deliveryDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      deliveryTimeSlot: map['deliveryTimeSlot'] ?? '',
+      deliveryTimeSlot: map['deliveryTimeSlot'] ?? '10:00 AM - 2:00 PM',
+      bouquetDetails: map['bouquetDetails'] ?? {},
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }

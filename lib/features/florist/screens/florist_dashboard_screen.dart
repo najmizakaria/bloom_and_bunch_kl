@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/services/auth_service.dart';
+import '../../../core/services/auth_service.dart';
 
 class FloristDashboardScreen extends StatelessWidget {
   const FloristDashboardScreen({super.key});

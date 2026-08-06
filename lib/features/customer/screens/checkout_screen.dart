@@ -54,8 +54,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'recipientName': _nameController.text.trim(),
         'deliveryAddress': _addressController.text.trim(),
         'recipientPhone': _phoneController.text.trim(),
-        'totalPrice': widget.totalPrice,
-        'status': 'Pending', // Order states: Pending, Processing, Delivering, Completed
+        'totalAmount': widget.totalPrice,
+        'orderStatus': 'Pending',
+        'deliveryDate': Timestamp.now(),
+        'deliveryTimeSlot': '10:00 AM - 2:00 PM',
         'bouquetDetails': {
           'stems': validStems,
           'wrapper': widget.wrapper,
