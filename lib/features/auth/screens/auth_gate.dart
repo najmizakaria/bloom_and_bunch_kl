@@ -6,7 +6,7 @@ import '../../../models/user_model.dart';
 import 'login_screen.dart';
 
 // Placeholder dashboards (we will replace these with full features in later sprints)
-import '../../customer/customer_home_screen.dart';
+import '../../customer/screens/customer_home_screen.dart';
 import '../../florist/florist_dashboard_screen.dart';
 import '../../rider/rider_dashboard_screen.dart';
 import '../../admin/admin_dashboard_screen.dart';
