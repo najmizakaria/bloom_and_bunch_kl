@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/flower_model.dart';
+import 'checkout_screen.dart';
 
 class BouquetBuilderScreen extends StatefulWidget {
   const BouquetBuilderScreen({super.key});
@@ -250,6 +251,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                         ),
                       ],
                     ),
+                    // ✅ UPDATED BUTTON
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFD87093),
@@ -257,17 +259,23 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       ),
                       icon: const Icon(Icons.shopping_bag),
-                      label: const Text('Add Bouquet', style: TextStyle(fontSize: 16)),
+                      label: const Text('Checkout', style: TextStyle(fontSize: 16)),
                       onPressed: totalPrice > (_wrapperPrice + _ribbonPrice)
                           ? () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Custom Bouquet added! Total: RM ${totalPrice.toStringAsFixed(2)}'),
-                                  backgroundColor: Colors.green,
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CheckoutScreen(
+                                    totalPrice: totalPrice,
+                                    stemCounts: _stemCounts,
+                                    wrapper: _selectedWrapper,
+                                    ribbon: _selectedRibbon,
+                                    cardNote: _cardNoteController.text,
+                                  ),
                                 ),
                               );
                             }
-                          : null, // Disabled if no stems selected!
+                          : null,
                     ),
                   ],
                 ),
