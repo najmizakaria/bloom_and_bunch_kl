@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "467512389115",
+    "project_id": "bloom-and-bunch-kl",
+    "storage_bucket": "bloom-and-bunch-kl.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:467512389115:android:58a843b318815641272f5e",
+        "android_client_info": {
+          "package_name": "com.example.bloom_and_bunch_kl"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxIHGhP1h_oNNN4qjDbdzx8UbHxM8lYww"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
