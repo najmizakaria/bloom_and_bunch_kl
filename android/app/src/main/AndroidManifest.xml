@@ -3,6 +3,11 @@
         android:label="bloom_and_bunch_kl"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- API KEY -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyBglDBsrPL32o_glEV89G09d-7FfLff5Xw" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

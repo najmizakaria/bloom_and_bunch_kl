@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:geocoding/geocoding.dart'; 
 import '../../../models/order_model.dart';
 
 class RiderOrderDetailScreen extends StatefulWidget {
@@ -14,26 +16,49 @@ class RiderOrderDetailScreen extends StatefulWidget {
 
 class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
   bool _isLoading = false;
+  
+  LatLng? _deliveryLocation;
+  bool _isLoadingMap = true;
+  late GoogleMapController _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCoordinates(); 
+  }
+
+  Future<void> _fetchCoordinates() async {
+    try {
+      // 🌟 Updated for geocoding 5.0.0+
+      final geocoding = Geocoding();
+      List<Location> locations = await geocoding.locationFromAddress(widget.order.deliveryAddress);
+
+      if (locations.isNotEmpty) {
+        setState(() {
+          _deliveryLocation = LatLng(locations.first.latitude, locations.first.longitude);
+          _isLoadingMap = false;
+        });
+      }
+    } catch (e) {
+      setState(() => _isLoadingMap = false);
+    }
+  }
 
   Future<void> _acceptDelivery() async {
     setState(() => _isLoading = true);
     try {
-      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-      
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
       await FirebaseFirestore.instance.collection('orders').doc(widget.order.orderId).update({
-        'riderId': currentUserId,
         'orderStatus': 'Out for Delivery',
+        'riderId': currentUserId,
       });
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Delivery Accepted! Drive safe! 🛵'), backgroundColor: Colors.green),
-      );
-      Navigator.pop(context); // Go back to dashboard
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -43,22 +68,18 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
       await FirebaseFirestore.instance.collection('orders').doc(widget.order.orderId).update({
         'orderStatus': 'Delivered',
       });
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Awesome job! Order Delivered. 🎉'), backgroundColor: Colors.green),
-      );
-      Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Determine which button to show based on status
     final isAvailable = widget.order.orderStatus == 'Ready for Delivery';
     final isOutForDelivery = widget.order.orderStatus == 'Out for Delivery';
 
@@ -69,73 +90,99 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Card
-            Card(
-              color: isAvailable ? Colors.orange.shade50 : Colors.blue.shade50,
-              child: ListTile(
-                title: const Text('Current Status', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(widget.order.orderStatus, style: TextStyle(color: isAvailable ? Colors.orange : Colors.blue, fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
+            SizedBox(
+              height: 250, 
+              width: double.infinity,
+              child: _isLoadingMap
+                  ? const Center(child: CircularProgressIndicator())
+                  : _deliveryLocation == null
+                      ? Container(
+                          color: Colors.grey.shade200,
+                          child: const Center(
+                            child: Text('Could not pinpoint address on map.\nPlease check the address details.', textAlign: TextAlign.center),
+                          ),
+                        )
+                      : GoogleMap(
+                          initialCameraPosition: CameraPosition(
+                            target: _deliveryLocation!,
+                            zoom: 16.0,
+                          ),
+                          onMapCreated: (controller) => _mapController = controller,
+                          markers: {
+                            Marker(
+                              markerId: const MarkerId('delivery_dropoff'),
+                              position: _deliveryLocation!,
+                              infoWindow: InfoWindow(title: widget.order.recipientName),
+                              icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+                            ),
+                          },
+                        ),
             ),
-            const SizedBox(height: 20),
+            
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Card(
+                    color: isAvailable ? Colors.orange.shade50 : Colors.blue.shade50,
+                    child: ListTile(
+                      title: const Text('Current Status', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(widget.order.orderStatus, style: TextStyle(color: isAvailable ? Colors.orange : Colors.blue, fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
-            // Delivery Information
-            const Text('Drop-off Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const Divider(),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.person, color: Colors.deepOrange),
-              title: Text(widget.order.recipientName),
-              subtitle: const Text('Recipient'),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.phone, color: Colors.deepOrange),
-              title: Text(widget.order.recipientPhone),
-              subtitle: const Text('Phone Number'),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.location_on, color: Colors.deepOrange),
-              title: Text(widget.order.deliveryAddress),
-              subtitle: const Text('Full Address'),
-            ),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.access_time, color: Colors.deepOrange),
-              title: Text(widget.order.deliveryTimeSlot),
-              subtitle: const Text('Requested Time Slot'),
+                  const Text('Drop-off Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Divider(),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.location_on, color: Colors.deepOrange),
+                    title: Text(widget.order.deliveryAddress),
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.person, color: Colors.deepOrange),
+                    title: Text(widget.order.recipientName),
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.phone, color: Colors.deepOrange),
+                    title: Text(widget.order.recipientPhone),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, offset: const Offset(0, -5))],
-        ),
-        child: _isLoading 
-            ? const Center(child: CircularProgressIndicator(color: Colors.deepOrange))
-            : ElevatedButton(
+      bottomNavigationBar: isAvailable || isOutForDelivery
+          ? Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, -5))],
+              ),
+              child: ElevatedButton(
+                onPressed: _isLoading
+                    ? null
+                    : (isAvailable ? _acceptDelivery : _markAsDelivered),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isAvailable ? Colors.deepOrange : Colors.green,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onPressed: isAvailable 
-                    ? _acceptDelivery 
-                    : (isOutForDelivery ? _markAsDelivered : null),
-                child: Text(
-                  isAvailable ? 'Accept Delivery' : 'Mark as Delivered',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
+                child: _isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : Text(
+                        isAvailable ? 'Accept Delivery' : 'Mark as Delivered',
+                        style: const TextStyle(fontSize: 18, color: Colors.white),
+                      ),
               ),
-      ),
+            )
+          : null,
     );
   }
 }

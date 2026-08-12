@@ -43,13 +43,14 @@ dependencies:
   firebase_messaging: ^15.2.4
 
   # Maps & Location
-  google_maps_flutter: ^2.10.1
+  google_maps_flutter: ^2.18.0
   geolocator: ^13.0.2
 
   # State Management & Helpers
   provider: ^6.1.2       # Or flutter_riverpod / flutter_bloc depending on your preference
   intl: ^0.20.2           # For formatting dates and currency (MYR)
   google_fonts: ^6.2.1    # Custom floral app typography
+  geocoding: ^5.0.0
 
 dev_dependencies:
   flutter_test:
