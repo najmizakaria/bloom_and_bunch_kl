@@ -25,7 +25,15 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () {
+            onPressed: () async {
+              try {
+                await AuthService().signOut();
+                // The AuthGate will automatically detect the logout and kick you back to the Login Screen!
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Error logging out: $e')),
+                );
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const FlowerCatalogueScreen()),

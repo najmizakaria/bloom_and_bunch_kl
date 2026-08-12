@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../models/flower_model.dart';
+import 'bouquet_builder_screen.dart';
 
 class FlowerDetailScreen extends StatelessWidget {
   final FlowerModel flower;
@@ -86,15 +87,14 @@ class FlowerDetailScreen extends StatelessWidget {
                   backgroundColor: const Color(0xFFD87093),
                   foregroundColor: Colors.white,
                 ),
-                onPressed: flower.isAvailable
-                    ? () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Proceed to Sprint 3: Custom Bouquet Builder! ⭐'),
-                          ),
-                        );
-                      }
-                    : null,
+                onPressed:() {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                       builder: (context) => const BouquetBuilderScreen(),
+                    ),
+                  );
+                },
                 child: const Text('Use in Custom Bouquet', style: TextStyle(fontSize: 16)),
               ),
             ),

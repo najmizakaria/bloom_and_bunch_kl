@@ -3,12 +3,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../models/user_model.dart';
+import '../../rider/screens/rider_home_screen.dart';
 import 'login_screen.dart';
 
 // Placeholder dashboards (we will replace these with full features in later sprints)
 import '../../customer/screens/customer_home_screen.dart';
-import '../../florist/screens/florist_dashboard_screen.dart';
-import '../../rider/rider_dashboard_screen.dart';
+import '../../florist/screens/florist_home_screen.dart';
+import '../../rider/screens/rider_home_screen.dart';
 import '../../admin/admin_dashboard_screen.dart';
 
 class AuthGate extends StatelessWidget {
@@ -53,9 +54,9 @@ class AuthGate extends StatelessWidget {
             // 4. Role-based Navigation
             switch (user.role) {
               case 'florist':
-                return const FloristDashboardScreen();
+                return const FloristHomeScreen();
               case 'rider':
-                return const RiderDashboardScreen();
+                return const RiderHomeScreen();
               case 'admin':
                 return const AdminDashboardScreen();
               case 'customer':

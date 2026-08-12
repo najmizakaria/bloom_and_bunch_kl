@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/services/auth_service.dart';
+import '../../../core/services/auth_service.dart';
 
 class RiderDashboardScreen extends StatelessWidget {
   const RiderDashboardScreen({super.key});
