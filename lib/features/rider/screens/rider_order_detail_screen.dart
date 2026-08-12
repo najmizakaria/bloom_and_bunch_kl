@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,6 +22,9 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
   bool _isLoadingMap = true;
   late GoogleMapController _mapController;
 
+  // Default fallback center (Kuala Lumpur) if address lookup fails on web
+  static const LatLng _klFallback = LatLng(3.1390, 101.6869);
+
   @override
   void initState() {
     super.initState();
@@ -29,18 +33,37 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
 
   Future<void> _fetchCoordinates() async {
     try {
-      // 🌟 Updated for geocoding 5.0.0+
-      final geocoding = Geocoding();
-      List<Location> locations = await geocoding.locationFromAddress(widget.order.deliveryAddress);
-
-      if (locations.isNotEmpty) {
+      if (kIsWeb) {
+        // 🌐 WEB HANDLING: Avoids CORS network crashes on web browsers
+        // Defaults map to KL location if web geocoding is restricted
         setState(() {
-          _deliveryLocation = LatLng(locations.first.latitude, locations.first.longitude);
+          _deliveryLocation = _klFallback;
+          _isLoadingMap = false;
+        });
+      } else {
+        // 🤖 MOBILE HANDLING: Uses native Android Geocoding API
+        final geocoding = Geocoding();
+        List<Location> locations = await geocoding.locationFromAddress(widget.order.deliveryAddress);
+
+        if (locations.isNotEmpty && mounted) {
+          setState(() {
+            _deliveryLocation = LatLng(locations.first.latitude, locations.first.longitude);
+            _isLoadingMap = false;
+          });
+        } else if (mounted) {
+          setState(() {
+            _deliveryLocation = _klFallback;
+            _isLoadingMap = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _deliveryLocation = _klFallback;
           _isLoadingMap = false;
         });
       }
-    } catch (e) {
-      setState(() => _isLoadingMap = false);
     }
   }
 
@@ -102,13 +125,13 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                       ? Container(
                           color: Colors.grey.shade200,
                           child: const Center(
-                            child: Text('Could not pinpoint address on map.\nPlease check the address details.', textAlign: TextAlign.center),
+                            child: Text('Could not load map.\nPlease check address details.', textAlign: TextAlign.center),
                           ),
                         )
                       : GoogleMap(
                           initialCameraPosition: CameraPosition(
                             target: _deliveryLocation!,
-                            zoom: 16.0,
+                            zoom: 15.0,
                           ),
                           onMapCreated: (controller) => _mapController = controller,
                           markers: {
