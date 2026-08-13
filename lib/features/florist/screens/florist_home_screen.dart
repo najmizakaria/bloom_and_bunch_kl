@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/auth_service.dart';
 import '../../../../models/order_model.dart';
 import '../screens/florist_order_detail_screen.dart';
+import 'florist_inventory_screen.dart';
 
 class FloristHomeScreen extends StatelessWidget {
   const FloristHomeScreen({super.key});
@@ -15,6 +16,16 @@ class FloristHomeScreen extends StatelessWidget {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
+          // 👇 NEW: Inventory Button
+          IconButton(
+            icon: const Icon(Icons.inventory_2_outlined),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FloristInventoryScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => AuthService().signOut(),
