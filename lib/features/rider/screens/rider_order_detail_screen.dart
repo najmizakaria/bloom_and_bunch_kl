@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../models/order_model.dart';
 
 class RiderOrderDetailScreen extends StatefulWidget {
@@ -19,17 +20,17 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     setState(() => _isLoading = true);
     try {
       final currentUserId = FirebaseAuth.instance.currentUser?.uid;
-      
+
       await FirebaseFirestore.instance.collection('orders').doc(widget.order.orderId).update({
         'riderId': currentUserId,
         'orderStatus': 'Out for Delivery',
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Delivery Accepted! Drive safe! 🛵'), backgroundColor: Colors.green),
       );
-      Navigator.pop(context); // Go back to dashboard
+      Navigator.pop(context);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
     } finally {
@@ -43,7 +44,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
       await FirebaseFirestore.instance.collection('orders').doc(widget.order.orderId).update({
         'orderStatus': 'Delivered',
       });
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Awesome job! Order Delivered. 🎉'), backgroundColor: Colors.green),
@@ -56,9 +57,22 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     }
   }
 
+  Future<void> _openInGoogleMaps(String address) async {
+    final encodedAddress = Uri.encodeComponent(address);
+    final googleMapsUrl = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+
+    if (await canLaunchUrl(googleMapsUrl)) {
+      await launchUrl(googleMapsUrl, mode: LaunchMode.externalApplication);
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open maps. Is Google Maps installed?'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Determine which button to show based on status
     final isAvailable = widget.order.orderStatus == 'Ready for Delivery';
     final isOutForDelivery = widget.order.orderStatus == 'Out for Delivery';
 
@@ -78,7 +92,14 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
               color: isAvailable ? Colors.orange.shade50 : Colors.blue.shade50,
               child: ListTile(
                 title: const Text('Current Status', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text(widget.order.orderStatus, style: TextStyle(color: isAvailable ? Colors.orange : Colors.blue, fontSize: 18, fontWeight: FontWeight.bold)),
+                subtitle: Text(
+                  widget.order.orderStatus,
+                  style: TextStyle(
+                    color: isAvailable ? Colors.orange : Colors.blue,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -103,6 +124,11 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
               leading: const Icon(Icons.location_on, color: Colors.deepOrange),
               title: Text(widget.order.deliveryAddress),
               subtitle: const Text('Full Address'),
+              trailing: IconButton(
+                icon: const Icon(Icons.directions, color: Colors.blue, size: 32),
+                tooltip: 'Get Directions',
+                onPressed: () => _openInGoogleMaps(widget.order.deliveryAddress),
+              ),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -119,7 +145,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
           color: Colors.white,
           boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 10, offset: const Offset(0, -5))],
         ),
-        child: _isLoading 
+        child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Colors.deepOrange))
             : ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -127,8 +153,8 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                onPressed: isAvailable 
-                    ? _acceptDelivery 
+                onPressed: isAvailable
+                    ? _acceptDelivery
                     : (isOutForDelivery ? _markAsDelivered : null),
                 child: Text(
                   isAvailable ? 'Accept Delivery' : 'Mark as Delivered',

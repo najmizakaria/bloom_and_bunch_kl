@@ -50,6 +50,7 @@ dependencies:
   provider: ^6.1.2       # Or flutter_riverpod / flutter_bloc depending on your preference
   intl: ^0.20.2           # For formatting dates and currency (MYR)
   google_fonts: ^6.2.1    # Custom floral app typography
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:
