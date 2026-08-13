@@ -83,11 +83,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _selectedRole,
                   decoration: const InputDecoration(labelText: 'Select Role', border: OutlineInputBorder()),
+                  // 👇 The Admin role is completely removed from this list for security!
                   items: const [
                     DropdownMenuItem(value: 'customer', child: Text('Customer')),
                     DropdownMenuItem(value: 'florist', child: Text('Florist')),
                     DropdownMenuItem(value: 'rider', child: Text('Rider')),
-                    DropdownMenuItem(value: 'admin', child: Text('Administrator')),
                   ],
                   onChanged: (val) => setState(() => _selectedRole = val!),
                 ),
