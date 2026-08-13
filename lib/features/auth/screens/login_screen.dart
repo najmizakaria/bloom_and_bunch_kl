@@ -15,6 +15,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   void _login() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -25,11 +32,14 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
-      // Success: StreamBuilder in AuthGate handles redirect automatically
+      // Success: AuthGate automatically detects auth change and shows Home Screen!
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
+          SnackBar(
+            content: Text('Login failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -67,12 +77,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Email Input
                 TextFormField(
                   controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
                     labelText: 'Email Address',
                     prefixIcon: Icon(Icons.email_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) => (value == null || value.isEmpty) ? 'Enter email' : null,
+                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter email' : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -85,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     prefixIcon: Icon(Icons.lock_outline),
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) => (value == null || value.isEmpty) ? 'Enter password' : null,
+                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter password' : null,
                 ),
                 const SizedBox(height: 24),
 
@@ -125,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),

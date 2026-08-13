@@ -69,21 +69,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       if (!mounted) return;
 
-      // Show success message and return to Home Screen
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order Placed Successfully! 🎉'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Order Placed Successfully! 🎉'), 
+          backgroundColor: Colors.green,
+        ),
       );
       
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-        (route) => false,
-      );
+      // 🌟 FIX: Pop back to the root route (AuthGate). 
+      // This keeps AuthGate alive so logging out works smoothly later!
+      if (context.mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
     } catch (e) {
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error placing order: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error placing order: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
