@@ -249,7 +249,7 @@ class FloristInventoryScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.grey[200],
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.teal.withOpacity(0.3)),
+                            border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
                           ),
                           child: flower.imageUrl.isNotEmpty
                               ? ClipRRect(
@@ -275,7 +275,7 @@ class FloristInventoryScreen extends StatelessWidget {
                                 Switch(
                                   value: flower.isAvailable,
                                   onChanged: (val) => _toggleAvailability(flower.flowerId, flower.isAvailable),
-                                  activeColor: Colors.teal,
+                                  activeThumbColor: Colors.teal,
                                 ),
                               ],
                             )

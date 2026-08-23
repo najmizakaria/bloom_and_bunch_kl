@@ -200,7 +200,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                         flower.imageUrl,
                                         width: double.infinity,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.local_florist, size: 50),
+                                        errorBuilder: (_, _, _) => const Icon(Icons.local_florist, size: 50),
                                       )
                                     : const Icon(Icons.local_florist, size: 50),
                               ),

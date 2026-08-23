@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../models/user_model.dart';
 import 'firestore_service.dart';
 
@@ -6,13 +8,19 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirestoreService _firestoreService = FirestoreService();
 
+  AuthService() {
+    if (!kIsWeb) {
+      GoogleSignIn.instance.initialize();
+    }
+  }
+
   // Get current user stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
   // Get current user
   User? get currentUser => _auth.currentUser;
 
-  // Register New User
+  // Register New User (email/password)
   Future<UserCredential?> signUp({
     required String name,
     required String email,
@@ -20,46 +28,84 @@ class AuthService {
     required String phone,
     String role = 'customer',
   }) async {
-    try {
-      UserCredential result = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+    UserCredential result = await _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
-      if (result.user != null) {
-        UserModel newUser = UserModel(
-          uid: result.user!.uid,
-          name: name,
-          email: email,
-          phone: phone,
-          role: role,
-          createdAt: DateTime.now(),
-        );
-        await _firestoreService.saveUserData(newUser);
-      }
-      return result;
-    } catch (e) {
-      rethrow;
+    if (result.user != null) {
+      UserModel newUser = UserModel(
+        uid: result.user!.uid,
+        name: name,
+        email: email,
+        phone: phone,
+        role: role,
+        createdAt: DateTime.now(),
+      );
+      await _firestoreService.saveUserData(newUser);
     }
+    return result;
   }
 
-  // Login User
+  // Login User (email/password)
   Future<UserCredential?> signIn({
     required String email,
     required String password,
   }) async {
-    try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
+    return await _auth.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
+  }
+
+  // Google Sign-In
+  Future<UserCredential?> signInWithGoogle() async {
+    UserCredential? result;
+
+    if (kIsWeb) {
+      // Web uses popup — avoids DWDS hangs / manual client ID setup
+      final GoogleAuthProvider authProvider = GoogleAuthProvider();
+      result = await _auth.signInWithPopup(authProvider);
+    } else {
+      final GoogleSignInAccount? googleUser =
+          await GoogleSignIn.instance.authenticate();
+      if (googleUser == null) return null; // user cancelled
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
       );
-    } catch (e) {
-      rethrow;
+
+      result = await _auth.signInWithCredential(credential);
     }
+
+    // First-time Google sign-in: create their Firestore profile if missing
+    if (result?.user != null) {
+      final existing = await _firestoreService.getUserData(result!.user!.uid);
+      if (existing == null) {
+        await _firestoreService.saveUserData(
+          UserModel(
+            uid: result.user!.uid,
+            name: result.user!.displayName ?? 'New User',
+            email: result.user!.email ?? '',
+            phone: result.user!.phoneNumber ?? '',
+            role: 'customer',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+    }
+
+    return result;
   }
 
   // Sign Out
   Future<void> signOut() async {
+    if (!kIsWeb) {
+      await GoogleSignIn.instance.signOut();
+    }
     await _auth.signOut();
   }
 }

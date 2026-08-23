@@ -155,7 +155,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       const Text('2. Choose Wrapping Paper', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
-                        value: _selectedWrapper,
+                        initialValue: _selectedWrapper,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -181,7 +181,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       const Text('3. Choose Ribbon Style', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       DropdownButtonFormField<String>(
-                        value: _selectedRibbon,
+                        initialValue: _selectedRibbon,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

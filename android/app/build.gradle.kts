@@ -1,3 +1,12 @@
+import java.util.Properties
+import java.io.FileInputStream
+
+val envProperties = Properties()
+val envFile = rootProject.file("../.env")
+if (envFile.exists()) {
+    envProperties.load(FileInputStream(envFile))
+}
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -19,6 +28,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        manifestPlaceholders["mapsApiKey"] = envProperties.getProperty("MAPS_API_KEY_ANDROID", "")
         applicationId = "com.example.bloom_and_bunch_kl"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
