@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../core/services/auth_service.dart';
-import '../../../models/flower_model.dart';
-import 'flower_catalogue_screen.dart';
-import 'flower_detail_screen.dart';
+import '../../../core/services/location_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../models/bouquet_model.dart';
 import 'bouquet_builder_screen.dart';
+
+enum DeliveryMode { readyNow, preOrder }
 
 class CustomerHomeScreen extends StatefulWidget {
   const CustomerHomeScreen({super.key});
@@ -14,22 +15,172 @@ class CustomerHomeScreen extends StatefulWidget {
 }
 
 class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
-  final List<String> categories = ['All', 'Roses', 'Tulips', 'Lilies', 'Sunflowers'];
+  final List<String> categories = ['All', 'Birthday', 'Anniversary', 'Sympathy', 'Romance'];
   String selectedCategory = 'All';
+  DeliveryMode deliveryMode = DeliveryMode.readyNow;
+
+  String _address = 'Detecting location...';
+  bool _locatingGPS = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectLocation();
+  }
+
+  Future<void> _detectLocation() async {
+    setState(() => _locatingGPS = true);
+    try {
+      final address = await LocationService().getCurrentAddress();
+      if (mounted) setState(() => _address = address);
+    } catch (e) {
+      if (mounted) setState(() => _address = 'Set delivery address');
+    } finally {
+      if (mounted) setState(() => _locatingGPS = false);
+    }
+  }
+
+  void _openAddressSheet() {
+    final controller = TextEditingController();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Delivery Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'Enter address, e.g. Jalan Song, Kuching',
+                filled: true,
+                fillColor: AppColors.inputFill,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryRosewood,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                onPressed: () {
+                  if (controller.text.trim().isNotEmpty) {
+                    setState(() => _address = controller.text.trim());
+                  }
+                  Navigator.pop(context);
+                },
+                child: const Text('Confirm Address'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              icon: const Icon(Icons.my_location, size: 18),
+              label: const Text('Use current GPS location'),
+              onPressed: () {
+                Navigator.pop(context);
+                _detectLocation();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Bloom & Bunch KL', style: TextStyle(fontWeight: FontWeight.bold)),
         automaticallyImplyLeading: false,
+        backgroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 16,
+        title: GestureDetector(
+          onTap: _openAddressSheet,
+          child: Row(
+            children: [
+              const Icon(Icons.location_on, color: AppColors.primaryRosewood, size: 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: _locatingGPS
+                    ? const Text('Detecting location...', style: TextStyle(fontSize: 14, color: AppColors.textMuted))
+                    : Text(
+                        _address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                      ),
+              ),
+              const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
+            ],
+          ),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Promotional Banner
+            // Delivery Mode Switcher
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.inputFill,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                children: [
+                  Expanded(child: _modeButton('⚡ Ready-to-Send', DeliveryMode.readyNow)),
+                  Expanded(child: _modeButton('📅 Pre-Order', DeliveryMode.preOrder)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Express Banner
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppColors.softBlushStart, AppColors.softBlushEnd],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'In a Rush? 🌸',
+                    style: TextStyle(color: AppColors.textDark, fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 6),
+                  Text(
+                    'Pick a Ready-Made Bouquet for instant dispatch.',
+                    style: TextStyle(color: AppColors.textDark, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Custom bouquet entry point
             GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -39,37 +190,30 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               },
               child: Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD87093),
+                  color: AppColors.primaryRosewood,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Build Your Custom Bouquet! 🌸',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                child: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.white),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Want something custom? Build your own bouquet.',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                      ),
                     ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Tap here to pick your stems, wrapper & ribbon style.',
-                      style: TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
+                    const Icon(Icons.chevron_right, color: Colors.white),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
-            // Categories Header
-            const Text(
-              'Categories',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const Text('Categories', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-
-            // Category Chips
             SizedBox(
               height: 40,
               child: ListView.builder(
@@ -83,15 +227,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     child: ChoiceChip(
                       label: Text(cat),
                       selected: isSelected,
-                      selectedColor: const Color(0xFFD87093),
-                      labelStyle: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
-                      ),
-                      onSelected: (bool selected) {
-                        setState(() {
-                          selectedCategory = cat;
-                        });
-                      },
+                      showCheckmark: false,
+                      selectedColor: AppColors.primaryRosewood,
+                      labelStyle: TextStyle(color: isSelected ? Colors.white : AppColors.textDark),
+                      onSelected: (selected) => setState(() => selectedCategory = cat),
                     ),
                   );
                 },
@@ -99,42 +238,27 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Featured Products Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Featured Flowers',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const FlowerCatalogueScreen()),
-                    );
-                  },
-                  child: const Text('See All', style: TextStyle(color: Color(0xFFD87093))),
-                )
-              ],
-            ),
+            const Text('Ready-Made Bouquets', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
-            // Firestore Flowers Grid
+            // Bouquets feed — ready-made ONLY, individual stems never shown here
             StreamBuilder<QuerySnapshot>(
-              stream: selectedCategory == 'All'
-                  ? FirebaseFirestore.instance.collection('flowers').snapshots()
-                  : FirebaseFirestore.instance
-                      .collection('flowers')
-                      .where('category', isEqualTo: selectedCategory)
-                      .snapshots(),
+              stream: (selectedCategory == 'All'
+                      ? FirebaseFirestore.instance.collection('bouquets')
+                      : FirebaseFirestore.instance
+                          .collection('bouquets')
+                          .where('category', isEqualTo: selectedCategory))
+                  .where('readyToSend', isEqualTo: true)
+                  .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No flowers available in this category.'));
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(child: Text('No ready-made bouquets in this category yet.')),
+                  );
                 }
 
                 final docs = snapshot.data!.docs;
@@ -150,60 +274,50 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   ),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final flower = FlowerModel.fromMap(
+                    final bouquet = BouquetModel.fromMap(
                       docs[index].data() as Map<String, dynamic>,
                       docs[index].id,
                     );
 
-                    return GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FlowerDetailScreen(flower: flower),
-                          ),
-                        );
-                      },
-                      child: Card(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                child: flower.imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        flower.imageUrl,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, _, _) => const Icon(Icons.local_florist, size: 50),
-                                      )
-                                    : const Icon(Icons.local_florist, size: 50),
-                              ),
+                    return Card(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                              child: bouquet.imageUrl.isNotEmpty
+                                  ? Image.network(
+                                      bouquet.imageUrl,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => const Icon(Icons.local_florist, size: 50),
+                                    )
+                                  : const Icon(Icons.local_florist, size: 50),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    flower.name,
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                                    style: const TextStyle(color: Color(0xFFD87093), fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            )
-                          ],
-                        ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  bouquet.name,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'RM ${bouquet.price.toStringAsFixed(2)}',
+                                  style: const TextStyle(color: AppColors.primaryRosewood, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -211,6 +325,33 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _modeButton(String label, DeliveryMode mode) {
+    final isSelected = deliveryMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() => deliveryMode = mode),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected
+              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 6)]
+              : null,
+        ),
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? AppColors.primaryRosewood : AppColors.textMuted,
+          ),
         ),
       ),
     );
