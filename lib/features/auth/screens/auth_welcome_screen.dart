@@ -171,14 +171,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                       isPrimary: true,
                       onPressed: () {
                         Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: const Duration(milliseconds: 350),
-                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                const LoginScreen(),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              return FadeTransition(opacity: animation, child: child);
-                            },
-                          ),
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
                         );
                       },
                     ),
@@ -191,15 +184,7 @@ class _AuthWelcomeScreenState extends State<AuthWelcomeScreen> {
                       isPrimary: false,
                       onPressed: () {
                         Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: const Duration(milliseconds: 400),
-                            reverseTransitionDuration: const Duration(milliseconds: 350),
-                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                const SignupEmailScreen(),
-                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                              return FadeTransition(opacity: animation, child: child);
-                            },
-                          ),
+                          MaterialPageRoute(builder: (_) => const SignupEmailScreen()),
                         );
                       },
                     ),

@@ -7,7 +7,7 @@ import '../../rider/screens/rider_home_screen.dart';
 import 'login_screen.dart';
 
 // Placeholder dashboards (we will replace these with full features in later sprints)
-import '../../customer/screens/customer_home_screen.dart';
+import '../../customer/screens/main_navigation_screen.dart';
 import '../../florist/screens/florist_home_screen.dart';
 import '../../admin/admin_dashboard_screen.dart';
 
@@ -60,7 +60,7 @@ class AuthGate extends StatelessWidget {
                 return const AdminDashboardScreen();
               case 'customer':
               default:
-                return const CustomerHomeScreen();
+                return const MainNavigationScreen();
             }
           },
         );

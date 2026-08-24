@@ -163,7 +163,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.textDark),
                         onPressed: _handleGoogleLogin,
                       ),
-                      
+
                       const SizedBox(height: 20),
 
                       // Divider
@@ -274,14 +274,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: GestureDetector(
                           onTap: () {
                             Navigator.of(context).push(
-                              PageRouteBuilder(
-                                transitionDuration: const Duration(milliseconds: 350),
-                                pageBuilder: (context, animation, secondaryAnimation) =>
-                                    const SignupEmailScreen(),
-                                transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                  return FadeTransition(opacity: animation, child: child);
-                                },
-                              ),
+                              MaterialPageRoute(builder: (_) => const SignupEmailScreen()),
                             );
                           },
                           child: RichText(
