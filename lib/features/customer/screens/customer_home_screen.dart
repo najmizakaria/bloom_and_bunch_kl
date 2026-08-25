@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/cart_provider.dart';
+import '../../../core/services/favourites_service.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/bouquet_model.dart';
@@ -279,23 +282,53 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       docs[index].id,
                     );
 
-                    return Card(
+return Card(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       elevation: 2,
+                      clipBehavior: Clip.antiAlias,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                              child: bouquet.imageUrl.isNotEmpty
-                                  ? Image.network(
-                                      bouquet.imageUrl,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Icon(Icons.local_florist, size: 50),
-                                    )
-                                  : const Icon(Icons.local_florist, size: 50),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                bouquet.imageUrl.isNotEmpty
+                                    ? Image.network(
+                                        bouquet.imageUrl,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(Icons.local_florist, size: 50),
+                                      )
+                                    : const Icon(Icons.local_florist, size: 50),
+                                Positioned(
+                                  top: 6,
+                                  right: 6,
+                                  child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                                    stream: FavouritesService().isBouquetFavourited(bouquet.id),
+                                    builder: (context, favSnapshot) {
+                                      final isFavourited = favSnapshot.data?.exists ?? false;
+                                      return GestureDetector(
+                                        onTap: () => FavouritesService().toggleBouquetFavourite(
+                                          bouquetId: bouquet.id,
+                                          name: bouquet.name,
+                                          imageUrl: bouquet.imageUrl,
+                                          price: bouquet.price,
+                                        ),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: const BoxDecoration(color: Colors.white70, shape: BoxShape.circle),
+                                          child: Icon(
+                                            isFavourited ? Icons.favorite : Icons.favorite_border,
+                                            size: 16,
+                                            color: AppColors.primaryRosewood,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           Padding(
@@ -310,9 +343,32 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  'RM ${bouquet.price.toStringAsFixed(2)}',
-                                  style: const TextStyle(color: AppColors.primaryRosewood, fontWeight: FontWeight.bold),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'RM ${bouquet.price.toStringAsFixed(2)}',
+                                      style: const TextStyle(color: AppColors.primaryRosewood, fontWeight: FontWeight.bold),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () {
+                                        context.read<CartProvider>().addReadyMadeItem(
+                                              bouquetId: bouquet.id,
+                                              name: bouquet.name,
+                                              imageUrl: bouquet.imageUrl,
+                                              price: bouquet.price,
+                                            );
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('${bouquet.name} added to cart'), duration: const Duration(seconds: 1)),
+                                        );
+                                      },
+                                      child: const CircleAvatar(
+                                        radius: 12,
+                                        backgroundColor: AppColors.primaryRosewood,
+                                        child: Icon(Icons.add, size: 16, color: Colors.white),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

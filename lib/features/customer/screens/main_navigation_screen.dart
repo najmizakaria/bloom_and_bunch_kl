@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/cart_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import 'customer_home_screen.dart';
 import 'favourites_screen.dart';
@@ -16,7 +18,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _tabs = [
+  final List<Widget> _tabs = const [
     CustomerHomeScreen(),
     FavouritesScreen(),
     BouquetBuilderScreen(),
@@ -26,6 +28,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cartCount = context.watch<CartProvider>().itemCount;
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -53,12 +57,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             showSelectedLabels: false,
             showUnselectedLabels: false,
             elevation: 0,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-              BottomNavigationBarItem(icon: Icon(Icons.favorite_rounded), label: 'Favourites'),
-              BottomNavigationBarItem(icon: Icon(Icons.auto_awesome_rounded), label: 'Customize'),
-              BottomNavigationBarItem(icon: Icon(Icons.shopping_cart_rounded), label: 'Cart'),
-              BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
+            items: [
+              const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
+              const BottomNavigationBarItem(icon: Icon(Icons.favorite_rounded), label: 'Favourites'),
+              const BottomNavigationBarItem(icon: Icon(Icons.auto_awesome_rounded), label: 'Customize'),
+              BottomNavigationBarItem(
+                icon: Badge(
+                  label: Text('$cartCount'),
+                  isLabelVisible: cartCount > 0,
+                  backgroundColor: AppColors.primaryRosewood,
+                  child: const Icon(Icons.shopping_cart_rounded),
+                ),
+                label: 'Cart',
+              ),
+              const BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
             ],
           ),
         ),
