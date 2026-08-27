@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/cart_provider.dart';
+import 'core/widgets/auth_cart_sync.dart';
 import 'features/auth/screens/auth_gate.dart';
 
 void main() async {
@@ -31,11 +32,13 @@ class BloomAndBunchApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => CartProvider(),
-      child: MaterialApp(
-        title: 'Bloom & Bunch KL',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        home: const AuthGate(),
+      child: AuthCartSync(
+        child: MaterialApp(
+          title: 'Bloom & Bunch KL',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          home: const AuthGate(),
+        ),
       ),
     );
   }

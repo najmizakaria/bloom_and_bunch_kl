@@ -34,9 +34,10 @@ class AuthGate extends StatelessWidget {
           return const LoginScreen();
         }
 
-        // 3. User logged in -> Fetch role from Firestore
-        return FutureBuilder<UserModel?>(
-          future: firestoreService.getUserData(snapshot.data!.uid),
+        // 3. User logged in -> Fetch role from Firestore (live stream, so it
+        // catches the profile doc the instant it finishes being written).
+        return StreamBuilder<UserModel?>(
+          stream: firestoreService.streamUserData(snapshot.data!.uid),
           builder: (context, userSnapshot) {
             if (userSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
@@ -45,7 +46,9 @@ class AuthGate extends StatelessWidget {
             }
 
             if (!userSnapshot.hasData || userSnapshot.data == null) {
-              return const LoginScreen();
+              return const Scaffold(
+                body: Center(child: CircularProgressIndicator()),
+              );
             }
 
             final UserModel user = userSnapshot.data!;
