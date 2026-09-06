@@ -27,7 +27,9 @@ class _AuthCartSyncState extends State<AuthCartSync> {
       final newUid = user?.uid;
       if (newUid != _lastUid) {
         _lastUid = newUid;
-        context.read<CartProvider>().clear();
+        if (mounted) {
+          context.read<CartProvider>().clear();
+        }
       }
     });
   }

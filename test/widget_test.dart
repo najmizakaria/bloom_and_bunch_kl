@@ -34,7 +34,7 @@ void main() {
 // Minimal app used only for this test to replicate the counter and
 // FloatingActionButton behavior expected by the original test.
 class _MyTestApp extends StatefulWidget {
-  const _MyTestApp({super.key});
+  const _MyTestApp();
 
   @override
   State<_MyTestApp> createState() => _MyTestAppState();

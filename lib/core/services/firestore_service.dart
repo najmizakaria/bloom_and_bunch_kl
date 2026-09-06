@@ -9,6 +9,11 @@ class FirestoreService {
     await _db.collection('users').doc(user.uid).set(user.toMap());
   }
 
+    // Update specific fields on a user's profile (e.g. phone, notification prefs)
+  Future<void> updateUserFields(String uid, Map<String, dynamic> fields) async {
+    await _db.collection('users').doc(uid).update(fields);
+  }
+
   // Fetch user profile & role from Firestore (one-time read)
   Future<UserModel?> getUserData(String uid) async {
     DocumentSnapshot doc = await _db.collection('users').doc(uid).get();

@@ -182,7 +182,9 @@ class FloristInventoryScreen extends StatelessWidget {
                     if (context.mounted) Navigator.pop(context); 
                   } catch (e) {
                     setState(() => isUploading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    }
                   }
                 },
                 child: isUploading 

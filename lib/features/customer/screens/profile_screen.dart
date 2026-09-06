@@ -1,58 +1,362 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
+import 'address_book_screen.dart';
+import 'become_rider_screen.dart';
+import 'order_history_screen.dart';
+import 'order_tracking_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+// Store contact — update to your real store's info
+const String _storeWhatsAppNumber = '60123456789'; // country code, no + or spaces
+const String _storePhoneNumber = '+60123456789';
+const String _storeAddress = 'Lot 12, Jalan Bunga, 50450 Kuala Lumpur';
+const String _storeHours = 'Daily, 9:00 AM – 7:00 PM';
+const String _appVersion = '1.0.0';
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final user = AuthService().currentUser;
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Profile'), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          CircleAvatar(
-            radius: 36,
-            backgroundColor: AppColors.secondarySurface,
-            child: const Icon(Icons.person, size: 40, color: AppColors.primaryRosewood),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: Text(
-              user?.email ?? 'Guest',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textDark),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.receipt_long_outlined, color: AppColors.primaryRosewood),
-            title: const Text('Order History'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {}, // TODO: build order history screen
-          ),
-          ListTile(
-            leading: const Icon(Icons.local_shipping_outlined, color: AppColors.primaryRosewood),
-            title: const Text('Track Live Delivery'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {}, // TODO: build live tracking screen
-          ),
-          ListTile(
-            leading: const Icon(Icons.pedal_bike_outlined, color: AppColors.primaryRosewood),
-            title: const Text('Become a Rider'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {}, // TODO: build rider application screen
-          ),
-          const Divider(height: 32),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: const Text('Log Out', style: TextStyle(color: Colors.redAccent)),
-            onTap: () => AuthService().signOut(),
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _notificationsEnabled = true;
+
+  Future<void> _editPhoneNumber(BuildContext context, String currentPhone) async {
+    final controller = TextEditingController(text: currentPhone);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Phone Number'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(hintText: 'e.g. 012-3456789'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primaryRosewood),
+            onPressed: () async {
+              await FirestoreService().updateUserFields(uid, {'phone': controller.text.trim()});
+              if (context.mounted) Navigator.pop(context);
+            },
+            child: const Text('Save'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteAccount(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text('This permanently deletes your account and cannot be undone. Continue?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      }
+      await FirebaseAuth.instance.currentUser?.delete();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please log out and log back in, then try deleting your account again.')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _openWhatsApp(BuildContext context) async {
+    final uri = Uri.parse('https://wa.me/$_storeWhatsAppNumber');
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp.')));
+      }
+    }
+  }
+
+  Future<void> _callStore(BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: _storePhoneNumber);
+    if (!await launchUrl(uri)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open phone dialer.')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile'), centerTitle: true, automaticallyImplyLeading: false),
+      body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+        stream: uid == null ? null : FirebaseFirestore.instance.collection('users').doc(uid).snapshots(),
+        builder: (context, userDocSnapshot) {
+          final userData = userDocSnapshot.data?.data();
+          final phone = userData?['phone'] ?? '';
+          final name = userData?['name'] ?? user?.displayName ?? 'Guest';
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              // ---------- 1. Account Header ----------
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 32,
+                        backgroundColor: AppColors.secondarySurface,
+                        backgroundImage: (user?.photoURL != null) ? NetworkImage(user!.photoURL!) : null,
+                        child: user?.photoURL == null
+                            ? const Icon(Icons.person, size: 34, color: AppColors.primaryRosewood)
+                            : null,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 2),
+                            Text(user?.email ?? '', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () => _editPhoneNumber(context, phone),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.phone, size: 14, color: AppColors.primaryRosewood),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    phone.isEmpty ? 'Add phone number' : phone,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: phone.isEmpty ? Colors.redAccent : AppColors.textDark,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.edit, size: 12, color: AppColors.textMuted),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ---------- 2. Active Order (sticky-style card) ----------
+              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('orders')
+                    .where('customerId', isEqualTo: uid)
+                    .where('orderStatus', whereIn: ['Pending', 'Processing', 'Ready for Delivery'])
+                    .orderBy('createdAt', descending: true)
+                    .limit(1)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) return const SizedBox.shrink();
+
+                  final order = docs.first;
+                  final data = order.data();
+                  final friendly = _friendlyStatus(data['orderStatus'] ?? 'Pending');
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Card(
+                      color: AppColors.primaryRosewood,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(14),
+                        leading: const Icon(Icons.local_florist, color: Colors.white),
+                        title: const Text('Active Order', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        subtitle: Text(friendly, style: const TextStyle(color: Colors.white70)),
+                        trailing: FilledButton(
+                          style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primaryRosewood),
+                          onPressed: () {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => OrderTrackingScreen(orderId: order.id)));
+                          },
+                          child: const Text('Track'),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              _sectionLabel('Orders'),
+              _menuTile(
+                icon: Icons.receipt_long_outlined,
+                title: 'Order History',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrderHistoryScreen())),
+              ),
+
+              _sectionLabel('Address Book'),
+              _menuTile(
+                icon: Icons.location_on_outlined,
+                title: 'Saved Addresses & Recipients',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressBookScreen())),
+              ),
+
+              _sectionLabel('Work With Us'),
+              _menuTile(
+                icon: Icons.pedal_bike_outlined,
+                title: 'Become a Rider',
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BecomeRiderScreen())),
+              ),
+
+              _sectionLabel('Store Support'),
+              _menuTile(icon: Icons.chat_bubble_outline, title: 'Chat with Florist (WhatsApp)', onTap: () => _openWhatsApp(context)),
+              _menuTile(icon: Icons.call_outlined, title: 'Call Store', onTap: () => _callStore(context)),
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: const Padding(
+                  padding: EdgeInsets.all(14),
+                  child: Row(
+                    children: [
+                      Icon(Icons.storefront_outlined, color: AppColors.primaryRosewood),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_storeAddress, style: TextStyle(fontSize: 13)),
+                            SizedBox(height: 4),
+                            Text(_storeHours, style: TextStyle(fontSize: 12, color: AppColors.textMuted)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              _sectionLabel('Settings'),
+              Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: SwitchListTile(
+                  activeThumbColor: AppColors.primaryRosewood,
+                  title: const Text('Push Notifications'),
+                  subtitle: const Text('Order status updates', style: TextStyle(fontSize: 12)),
+                  value: _notificationsEnabled,
+                  onChanged: (val) {
+                    setState(() => _notificationsEnabled = val);
+                    if (uid != null) {
+                      FirestoreService().updateUserFields(uid, {'notificationsEnabled': val});
+                    }
+                  },
+                ),
+              ),
+
+              _sectionLabel('Legal & Account'),
+              _menuTile(icon: Icons.info_outline, title: 'App Version', subtitle: _appVersion, onTap: null),
+              _menuTile(icon: Icons.description_outlined, title: 'Terms of Service', onTap: () => _showStaticDoc(context, 'Terms of Service')),
+              _menuTile(icon: Icons.privacy_tip_outlined, title: 'Privacy Policy', onTap: () => _showStaticDoc(context, 'Privacy Policy')),
+              const SizedBox(height: 8),
+              _menuTile(
+                icon: Icons.logout,
+                title: 'Log Out',
+                titleColor: Colors.redAccent,
+                onTap: () => AuthService().signOut(),
+              ),
+              _menuTile(
+                icon: Icons.delete_outline,
+                title: 'Delete Account',
+                titleColor: Colors.redAccent,
+                onTap: () => _confirmDeleteAccount(context),
+              ),
+              const SizedBox(height: 20),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _sectionLabel(String text) => Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textMuted)),
+      );
+
+  Widget _menuTile({
+    required IconData icon,
+    required String title,
+    String? subtitle,
+    Color? titleColor,
+    VoidCallback? onTap,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: titleColor ?? AppColors.primaryRosewood),
+        title: Text(title, style: TextStyle(color: titleColor)),
+        subtitle: subtitle != null ? Text(subtitle) : null,
+        trailing: onTap != null ? const Icon(Icons.chevron_right) : null,
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showStaticDoc(BuildContext context, String title) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(
+          child: Text('Add your actual $title content here before publishing the app.'),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+}
+
+String _friendlyStatus(String raw) {
+  switch (raw) {
+    case 'Pending':
+      return 'Received';
+    case 'Processing':
+      return 'Assembling';
+    case 'Ready for Delivery':
+      return 'Out for Delivery';
+    case 'Completed':
+      return 'Delivered';
+    default:
+      return raw;
   }
 }

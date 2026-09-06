@@ -298,7 +298,7 @@ return Card(
                                         bouquet.imageUrl,
                                         width: double.infinity,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => const Icon(Icons.local_florist, size: 50),
+                                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.local_florist, size: 50),
                                       )
                                     : const Icon(Icons.local_florist, size: 50),
                                 Positioned(

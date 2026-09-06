@@ -20,8 +20,6 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
   
   LatLng? _deliveryLocation;
   bool _isLoadingMap = true;
-  late GoogleMapController _mapController;
-
   // Default fallback center (Kuala Lumpur) if address lookup fails on web
   static const LatLng _klFallback = LatLng(3.1390, 101.6869);
 
@@ -133,7 +131,6 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                             target: _deliveryLocation!,
                             zoom: 15.0,
                           ),
-                          onMapCreated: (controller) => _mapController = controller,
                           markers: {
                             Marker(
                               markerId: const MarkerId('delivery_dropoff'),

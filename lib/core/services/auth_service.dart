@@ -60,19 +60,27 @@ class AuthService {
 
   // Google Sign-In
   Future<UserCredential?> signInWithGoogle() async {
-    UserCredential? result;
+    late final UserCredential result;
 
     if (kIsWeb) {
       // Web uses popup — avoids DWDS hangs / manual client ID setup
       final GoogleAuthProvider authProvider = GoogleAuthProvider();
       result = await _auth.signInWithPopup(authProvider);
     } else {
-      final GoogleSignInAccount? googleUser =
-          await GoogleSignIn.instance.authenticate();
-      if (googleUser == null) return null; // user cancelled
+      // In google_sign_in 7.x, authenticate() throws GoogleSignInException
+      // on cancel instead of returning null — must catch it explicitly.
+      final GoogleSignInAccount googleUser;
+      try {
+        googleUser = await GoogleSignIn.instance.authenticate();
+      } on GoogleSignInException catch (e) {
+        if (e.code == GoogleSignInExceptionCode.canceled) {
+          return null; // user tapped away from the account picker
+        }
+        rethrow;
+      }
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      // .authentication is a synchronous getter in 7.x, not a Future.
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
@@ -82,8 +90,8 @@ class AuthService {
     }
 
     // First-time Google sign-in: create their Firestore profile if missing
-    if (result?.user != null) {
-      final existing = await _firestoreService.getUserData(result!.user!.uid);
+    if (result.user != null) {
+      final existing = await _firestoreService.getUserData(result.user!.uid);
       if (existing == null) {
         await _firestoreService.saveUserData(
           UserModel(

@@ -27,12 +27,13 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         'orderStatus': newStatus,
       });
       setState(() => _currentStatus = newStatus);
-      
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Status updated to $newStatus'), backgroundColor: Colors.green),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update: $e'), backgroundColor: Colors.red),
       );
@@ -41,8 +42,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bouquet = widget.order.bouquetDetails;
-    final List<dynamic> stems = bouquet['stems'] ?? [];
+    final items = widget.order.items;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,35 +79,139 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
 
-            // Bouquet Recipe
-            const Text('Bouquet Recipe', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            // Prep-time flag, since custom items need florist assembly time
+            if (widget.order.requiresPrepTime)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.access_time, color: Colors.orange),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'This order contains custom bouquet(s) — allow 1–2 hours prep time before dispatch.',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 8),
+
+            // Order Items
+            Text('Order Items (${items.length})', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const Divider(),
-            const Text('Stems to include:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-            ...stems.map((stem) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text('• ${stem['quantity']}x ${stem['flowerId']}'),
-                )),
+
+            if (items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('No items found on this order.', style: TextStyle(color: Colors.grey)),
+              ),
+
+            ...items.map((item) {
+              final isCustom = item['type'] == 'custom';
+              final quantity = item['quantity'] ?? 1;
+              final unitPrice = (item['unitPrice'] ?? 0).toDouble();
+              final stems = (item['customStems'] as Map<String, dynamic>? ?? {});
+              final cardNote = (item['cardNote'] ?? '').toString();
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                elevation: 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${item['name'] ?? 'Item'} x$quantity',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: isCustom ? Colors.purple.shade50 : Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              isCustom ? 'Custom' : 'Ready-made',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isCustom ? Colors.purple : Colors.blue,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text('RM ${unitPrice.toStringAsFixed(2)} each', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+
+                      if (isCustom) ...[
+                        const SizedBox(height: 10),
+                        const Text('Stems to include:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        if (stems.isEmpty)
+                          const Text('No stems recorded.', style: TextStyle(color: Colors.grey))
+                        else
+                          ...stems.entries.map(
+                            (e) => Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Text('• ${e.value}x ${e.key}'),
+                            ),
+                          ),
+                        const SizedBox(height: 8),
+                        Text('Wrapper: ${item['wrapper'] ?? '-'}', style: const TextStyle(fontSize: 14)),
+                        const SizedBox(height: 2),
+                        Text('Ribbon: ${item['ribbon'] ?? '-'}', style: const TextStyle(fontSize: 14)),
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Customer Note Card:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 13)),
+                              const SizedBox(height: 4),
+                              Text(
+                                cardNote.isEmpty ? 'No note provided' : cardNote,
+                                style: const TextStyle(fontStyle: FontStyle.italic),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }),
+
             const SizedBox(height: 12),
-            Text('Wrapper: ${bouquet['wrapper']}', style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 4),
-            Text('Ribbon: ${bouquet['ribbon']}', style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-            
-            // Note Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Customer Note Card:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
-                  const SizedBox(height: 8),
-                  Text(bouquet['cardNote']?.isEmpty ?? true ? 'No note provided' : bouquet['cardNote'],
-                      style: const TextStyle(fontStyle: FontStyle.italic)),
-                ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'Order Total: RM ${widget.order.totalAmount.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal),
               ),
             ),
             const SizedBox(height: 24),
@@ -120,6 +224,8 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
             Text('Phone: ${widget.order.recipientPhone}', style: const TextStyle(fontSize: 16)),
             const SizedBox(height: 4),
             Text('Address: ${widget.order.deliveryAddress}', style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 4),
+            Text('Delivery Slot: ${widget.order.deliveryTimeSlot}', style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),

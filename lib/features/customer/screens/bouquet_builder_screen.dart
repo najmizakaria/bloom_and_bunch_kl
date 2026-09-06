@@ -48,7 +48,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     return stemsTotal + _wrapperPrice + _ribbonPrice;
   }
 
-  bool get _hasStems => _stemCounts.values.any((count) => count > 0);
+  bool get _hasStems => _stemCounts.values.any((stemCount) => stemCount > 0);
 
   Future<void> _saveRecipe(double totalPrice) async {
     if (!_hasStems) {
