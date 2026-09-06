@@ -1,326 +1,880 @@
 import 'dart:io';
-import 'package:flutter/material.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import '../../../../models/flower_model.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../../models/flower_model.dart';
 
 class FloristInventoryScreen extends StatelessWidget {
-  const FloristInventoryScreen({super.key});
+  const FloristInventoryScreen({
+    super.key,
+    this.showAppBar = true,
+  });
 
-  // Helper to instantly update stock quantity
-  Future<void> _updateStock(String docId, int currentStock, int change) async {
-    int newStock = currentStock + change;
-    if (newStock < 0) newStock = 0; // Prevent negative stock
-    await FirebaseFirestore.instance.collection('flowers').doc(docId).update({
-      'stockQuantity': newStock,
-    });
+  final bool showAppBar;
+
+  Future<void> _updateStock(
+    String documentId,
+    int change,
+  ) async {
+    final documentReference = FirebaseFirestore.instance
+        .collection('flowers')
+        .doc(documentId);
+
+    await FirebaseFirestore.instance.runTransaction(
+      (transaction) async {
+        final snapshot =
+            await transaction.get(documentReference);
+
+        if (!snapshot.exists) {
+          return;
+        }
+
+        final data = snapshot.data() ?? {};
+
+        final currentStock =
+            (data['stockQuantity'] as num?)?.toInt() ?? 0;
+
+        final newStock =
+            (currentStock + change).clamp(0, 999999).toInt();
+
+        final Map<String, dynamic> updates = {
+          'stockQuantity': newStock,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        // Automatically hide the flower from customers
+        // when its stock reaches zero.
+        if (newStock == 0) {
+          updates['isAvailable'] = false;
+        }
+
+        transaction.update(
+          documentReference,
+          updates,
+        );
+      },
+    );
   }
 
-  // Helper to toggle availability
-  Future<void> _toggleAvailability(String docId, bool currentStatus) async {
-    await FirebaseFirestore.instance.collection('flowers').doc(docId).update({
-      'isAvailable': !currentStatus,
-    });
+  Future<void> _toggleAvailability(
+    BuildContext context,
+    FlowerModel flower,
+    bool newValue,
+  ) async {
+    if (newValue && flower.stockQuantity <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Add stock before making this flower available.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('flowers')
+          .doc(flower.flowerId)
+          .update({
+        'isAvailable': newValue,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (error) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to update availability: $error',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
-  // Function to upload image to Firebase Storage
   Future<String> _uploadImage(File image) async {
-    final fileName = 'flowers/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final ref = FirebaseStorage.instance.ref().child(fileName);
-    await ref.putFile(image);
-    return await ref.getDownloadURL();
+    final fileName =
+        'flowers/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+    final reference =
+        FirebaseStorage.instance.ref().child(fileName);
+
+    await reference.putFile(image);
+
+    return reference.getDownloadURL();
   }
 
-  // Dialog to Add a Brand New Flower
   void _showAddFlowerDialog(BuildContext context) {
     _showFlowerForm(context: context);
   }
 
-  // Dialog to Edit an Existing Flower
-  void _showEditFlowerDialog(BuildContext context, FlowerModel flower) {
-    _showFlowerForm(context: context, existingFlower: flower);
-  }
-
-  // Shared Form for both Add and Edit
-  void _showFlowerForm({required BuildContext context, FlowerModel? existingFlower}) {
-    final isEditing = existingFlower != null;
-    
-    final nameCtrl = TextEditingController(text: isEditing ? existingFlower.name : '');
-    final categoryCtrl = TextEditingController(text: isEditing ? existingFlower.category : '');
-    final priceCtrl = TextEditingController(text: isEditing ? existingFlower.pricePerStem.toString() : '');
-    final stockCtrl = TextEditingController(text: isEditing ? existingFlower.stockQuantity.toString() : '');
-    
-    File? selectedImage;
-    String existingImageUrl = isEditing ? existingFlower.imageUrl : '';
-    bool isUploading = false;
-    final picker = ImagePicker();
-
-    showDialog(
+  void _showEditFlowerDialog(
+    BuildContext context,
+    FlowerModel flower,
+  ) {
+    _showFlowerForm(
       context: context,
-      barrierDismissible: false, 
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          
-          Future<void> pickImage(ImageSource source) async {
-            final pickedFile = await picker.pickImage(source: source, imageQuality: 70);
-            if (pickedFile != null) {
-              setState(() => selectedImage = File(pickedFile.path));
-            }
-          }
-
-          return AlertDialog(
-            title: Text(isEditing ? 'Edit Flower' : 'Add New Flower'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // --- IMAGE PICKER UI ---
-                  GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (_) => SafeArea(
-                          child: Wrap(
-                            children: [
-                              ListTile(
-                                leading: const Icon(Icons.camera_alt),
-                                title: const Text('Take a Photo'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  pickImage(ImageSource.camera);
-                                },
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.photo_library),
-                                title: const Text('Choose from Gallery'),
-                                onTap: () {
-                                  Navigator.pop(context);
-                                  pickImage(ImageSource.gallery);
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      height: 120,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.teal.shade200, width: 2),
-                      ),
-                      child: selectedImage != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: Image.file(selectedImage!, fit: BoxFit.cover),
-                            )
-                          : (existingImageUrl.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.network(existingImageUrl, fit: BoxFit.cover),
-                                )
-                              : const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.add_a_photo, size: 40, color: Colors.teal),
-                                    SizedBox(height: 8),
-                                    Text('Tap to add image', style: TextStyle(color: Colors.teal)),
-                                  ],
-                                )),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // --- TEXT FIELDS ---
-                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Flower Name (e.g. Red Rose)')),
-                  TextField(controller: categoryCtrl, decoration: const InputDecoration(labelText: 'Category (e.g. Roses, Lilies)')),
-                  TextField(controller: priceCtrl, decoration: const InputDecoration(labelText: 'Price per stem (RM)'), keyboardType: TextInputType.number),
-                  TextField(controller: stockCtrl, decoration: const InputDecoration(labelText: 'Initial Stock Quantity'), keyboardType: TextInputType.number),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isUploading ? null : () => Navigator.pop(context), 
-                child: const Text('Cancel')
-              ),
-              ElevatedButton(
-                onPressed: isUploading ? null : () async {
-                  if (nameCtrl.text.isEmpty || priceCtrl.text.isEmpty || stockCtrl.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill all required fields')));
-                    return;
-                  }
-
-                  setState(() => isUploading = true); 
-
-                  try {
-                    String imageUrl = existingImageUrl;
-                    
-                    // Upload new image if one was selected
-                    if (selectedImage != null) {
-                      imageUrl = await _uploadImage(selectedImage!);
-                    }
-
-                    final data = {
-                      'name': nameCtrl.text.trim(),
-                      'category': categoryCtrl.text.trim(),
-                      'pricePerStem': double.tryParse(priceCtrl.text) ?? 0.0,
-                      'stockQuantity': int.tryParse(stockCtrl.text) ?? 0,
-                      'imageUrl': imageUrl,
-                      'isAvailable': isEditing ? existingFlower.isAvailable : true,
-                    };
-
-                    if (isEditing) {
-                      await FirebaseFirestore.instance.collection('flowers').doc(existingFlower.flowerId).update(data);
-                    } else {
-                      await FirebaseFirestore.instance.collection('flowers').add(data);
-                    }
-                    
-                    if (context.mounted) Navigator.pop(context); 
-                  } catch (e) {
-                    setState(() => isUploading = false);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  }
-                },
-                child: isUploading 
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(isEditing ? 'Save Changes' : 'Add to Stock'),
-              ),
-            ],
-          );
-        }
-      ),
+      existingFlower: flower,
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Manage Inventory'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddFlowerDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Flower'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('flowers').orderBy('category').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+  Future<void> _showFlowerForm({
+    required BuildContext context,
+    FlowerModel? existingFlower,
+  }) async {
+    final isEditing = existingFlower != null;
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No flowers in stock yet! Add some below.'));
-          }
+    final nameController = TextEditingController(
+      text: existingFlower?.name ?? '',
+    );
+    final categoryController = TextEditingController(
+      text: existingFlower?.category ?? '',
+    );
+    final priceController = TextEditingController(
+      text: existingFlower?.pricePerStem.toString() ?? '',
+    );
+    final stockController = TextEditingController(
+      text: existingFlower?.stockQuantity.toString() ?? '',
+    );
 
-          final flowers = snapshot.data!.docs.map((doc) {
-            return FlowerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-          }).toList();
+    File? selectedImage;
+    String imageUrl = existingFlower?.imageUrl ?? '';
+    bool isUploading = false;
 
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 80, top: 12),
-            itemCount: flowers.length,
-            itemBuilder: (context, index) {
-              final flower = flowers[index];
+    final picker = ImagePicker();
 
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                elevation: 2,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    children: [
-                      // --- TAPPABLE IMAGE TO EDIT ---
-                      GestureDetector(
-                        onTap: () => _showEditFlowerDialog(context, flower),
-                        child: Container(
-                          width: 60,
-                          height: 60,
-                          margin: const EdgeInsets.only(right: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.teal.withValues(alpha: 0.3)),
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            Future<void> selectImage() async {
+              final source =
+                  await showModalBottomSheet<ImageSource>(
+                context: dialogContext,
+                builder: (sheetContext) {
+                  return SafeArea(
+                    child: Wrap(
+                      children: [
+                        ListTile(
+                          leading: const Icon(
+                            Icons.photo_library_outlined,
                           ),
-                          child: flower.imageUrl.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.network(flower.imageUrl, fit: BoxFit.cover),
-                                )
-                              : const Icon(Icons.local_florist, color: Colors.grey),
+                          title: const Text(
+                            'Choose from gallery',
+                          ),
+                          onTap: () {
+                            Navigator.pop(
+                              sheetContext,
+                              ImageSource.gallery,
+                            );
+                          },
                         ),
-                      ),
-                      
-                      // Flower Info
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(flower.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                            Text('${flower.category} • RM ${flower.pricePerStem.toStringAsFixed(2)}', style: const TextStyle(color: Colors.grey)),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Text('Available: ', style: TextStyle(fontSize: 12)),
-                                Switch(
-                                  value: flower.isAvailable,
-                                  onChanged: (val) => _toggleAvailability(flower.flowerId, flower.isAvailable),
-                                  activeThumbColor: Colors.teal,
-                                ),
-                              ],
-                            )
-                          ],
+                        ListTile(
+                          leading: const Icon(
+                            Icons.camera_alt_outlined,
+                          ),
+                          title: const Text('Take a photo'),
+                          onTap: () {
+                            Navigator.pop(
+                              sheetContext,
+                              ImageSource.camera,
+                            );
+                          },
                         ),
-                      ),
-                      
-                      // Stock Controls
-                      Expanded(
-                        flex: 1,
-                        child: Column(
-                          children: [
-                            const Text('Stock', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                                  onPressed: () => _updateStock(flower.flowerId, flower.stockQuantity, -1),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                                const SizedBox(width: 8),
-                                Text('${flower.stockQuantity}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                  icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-                                  onPressed: () => _updateStock(flower.flowerId, flower.stockQuantity, 1),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
+                      ],
+                    ),
+                  );
+                },
+              );
+
+              if (source == null ||
+                  !dialogContext.mounted) {
+                return;
+              }
+
+              final selectedFile = await picker.pickImage(
+                source: source,
+                imageQuality: 75,
+              );
+
+              if (!dialogContext.mounted) {
+                return;
+              }
+
+              if (selectedFile != null) {
+                setDialogState(() {
+                  selectedImage = File(selectedFile.path);
+                });
+              }
+            }
+
+            Future<void> saveFlower() async {
+              final name = nameController.text.trim();
+              final category =
+                  categoryController.text.trim();
+              final price = double.tryParse(
+                priceController.text.trim(),
+              );
+              final stock = int.tryParse(
+                stockController.text.trim(),
+              );
+
+              if (name.isEmpty ||
+                  category.isEmpty ||
+                  price == null ||
+                  price < 0 ||
+                  stock == null ||
+                  stock < 0) {
+                ScaffoldMessenger.of(dialogContext)
+                    .showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Enter a valid name, category, price and stock.',
+                    ),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
+
+              setDialogState(() {
+                isUploading = true;
+              });
+
+              try {
+                if (selectedImage != null) {
+                  imageUrl =
+                      await _uploadImage(selectedImage!);
+                }
+
+                final data = {
+                  'name': name,
+                  'category': category,
+                  'pricePerStem': price,
+                  'stockQuantity': stock,
+                  'imageUrl': imageUrl,
+
+                  // A flower with zero stock cannot
+                  // be available to customers.
+                  'isAvailable': stock > 0 &&
+                      (isEditing
+                          ? existingFlower.isAvailable
+                          : true),
+                  'updatedAt':
+                      FieldValue.serverTimestamp(),
+                };
+
+                if (isEditing) {
+                  await FirebaseFirestore.instance
+                      .collection('flowers')
+                      .doc(existingFlower.flowerId)
+                      .update(data);
+                } else {
+                  data['createdAt'] =
+                      FieldValue.serverTimestamp();
+
+                  await FirebaseFirestore.instance
+                      .collection('flowers')
+                      .add(data);
+                }
+
+                if (!dialogContext.mounted ||
+                    !context.mounted) {
+                  return;
+                }
+
+                Navigator.pop(dialogContext);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      isEditing
+                          ? 'Flower updated successfully'
+                          : 'Flower added successfully',
+                    ),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              } catch (error) {
+                if (!dialogContext.mounted) {
+                  return;
+                }
+
+                setDialogState(() {
+                  isUploading = false;
+                });
+
+                ScaffoldMessenger.of(dialogContext)
+                    .showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Unable to save flower: $error',
+                    ),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
+
+            return AlertDialog(
+              title: Text(
+                isEditing ? 'Edit Flower' : 'Add Flower',
+              ),
+              content: SizedBox(
+                width: 420,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap:
+                            isUploading ? null : selectImage,
+                        child: Container(
+                          height: 150,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade50,
+                            borderRadius:
+                                BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.teal.shade200,
                             ),
-                          ],
+                          ),
+                          child: _buildFormImage(
+                            selectedImage,
+                            imageUrl,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: nameController,
+                        enabled: !isUploading,
+                        textCapitalization:
+                            TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Flower name',
+                          hintText: 'Example: Red Rose',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: categoryController,
+                        enabled: !isUploading,
+                        textCapitalization:
+                            TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
+                          hintText: 'Example: Roses',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: priceController,
+                        enabled: !isUploading,
+                        keyboardType:
+                            const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Price per stem',
+                          prefixText: 'RM ',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: stockController,
+                        enabled: !isUploading,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Stock quantity',
+                          border: OutlineInputBorder(),
                         ),
                       ),
                     ],
                   ),
                 ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isUploading
+                      ? null
+                      : () {
+                          Navigator.pop(dialogContext);
+                        },
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed:
+                      isUploading ? null : saveFlower,
+                  child: isUploading
+                      ? const SizedBox(
+                          width: 21,
+                          height: 21,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          isEditing
+                              ? 'Save Changes'
+                              : 'Add Flower',
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    nameController.dispose();
+    categoryController.dispose();
+    priceController.dispose();
+    stockController.dispose();
+  }
+
+  Widget _buildFormImage(
+    File? selectedImage,
+    String existingImageUrl,
+  ) {
+    if (selectedImage != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Image.file(
+          selectedImage,
+          fit: BoxFit.cover,
+        ),
+      );
+    }
+
+    if (existingImageUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Image.network(
+          existingImageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return const _FlowerImagePlaceholder();
+          },
+        ),
+      );
+    }
+
+    return const _FlowerImagePlaceholder();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F7),
+      appBar: showAppBar
+          ? AppBar(
+              title: const Text('Manage Flowers'),
+              backgroundColor: Colors.teal,
+              foregroundColor: Colors.white,
+            )
+          : null,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          _showAddFlowerDialog(context);
+        },
+        backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Flower'),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('flowers')
+            .orderBy('category')
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState ==
+              ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Unable to load flowers.\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
+
+          if (!snapshot.hasData ||
+              snapshot.data!.docs.isEmpty) {
+            return const _EmptyFlowerInventory();
+          }
+
+          final flowers = snapshot.data!.docs.map((document) {
+            return FlowerModel.fromMap(
+              document.data() as Map<String, dynamic>,
+              document.id,
+            );
+          }).toList();
+
+          return ListView.builder(
+            padding:
+                const EdgeInsets.fromLTRB(16, 14, 16, 90),
+            itemCount: flowers.length,
+            itemBuilder: (context, index) {
+              final flower = flowers[index];
+
+              return _FlowerInventoryCard(
+                flower: flower,
+                onEdit: () {
+                  _showEditFlowerDialog(
+                    context,
+                    flower,
+                  );
+                },
+                onDecreaseStock: () async {
+                  try {
+                    await _updateStock(
+                      flower.flowerId,
+                      -1,
+                    );
+                  } catch (error) {
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Unable to update stock: $error',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                onIncreaseStock: () async {
+                  try {
+                    await _updateStock(
+                      flower.flowerId,
+                      1,
+                    );
+                  } catch (error) {
+                    if (!context.mounted) return;
+
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Unable to update stock: $error',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                },
+                onAvailabilityChanged: (value) {
+                  _toggleAvailability(
+                    context,
+                    flower,
+                    value,
+                  );
+                },
               );
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _FlowerInventoryCard extends StatelessWidget {
+  const _FlowerInventoryCard({
+    required this.flower,
+    required this.onEdit,
+    required this.onDecreaseStock,
+    required this.onIncreaseStock,
+    required this.onAvailabilityChanged,
+  });
+
+  final FlowerModel flower;
+  final VoidCallback onEdit;
+  final VoidCallback onDecreaseStock;
+  final VoidCallback onIncreaseStock;
+  final ValueChanged<bool> onAvailabilityChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 1,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 78,
+                  height: 88,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: flower.imageUrl.isEmpty
+                        ? const _FlowerImagePlaceholder()
+                        : Image.network(
+                            flower.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (
+                              context,
+                              error,
+                              stackTrace,
+                            ) {
+                              return const _FlowerImagePlaceholder();
+                            },
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        flower.name.isEmpty
+                            ? 'Unnamed Flower'
+                            : flower.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        flower.category.isEmpty
+                            ? 'Uncategorised'
+                            : flower.category,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
+                        style: const TextStyle(
+                          color: Colors.teal,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _FlowerStockBadge(
+                        stock: flower.stockQuantity,
+                        available: flower.isAvailable,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Edit flower',
+                  onPressed: onEdit,
+                  icon: const Icon(Icons.edit_outlined),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding:
+                const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            child: Row(
+              children: [
+                const Text(
+                  'Stock',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Decrease stock',
+                  onPressed: flower.stockQuantity > 0
+                      ? onDecreaseStock
+                      : null,
+                  icon: const Icon(
+                    Icons.remove_circle_outline,
+                  ),
+                ),
+                Container(
+                  constraints:
+                      const BoxConstraints(minWidth: 38),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${flower.stockQuantity}',
+                    style: TextStyle(
+                      color: flower.stockQuantity <= 5
+                          ? Colors.orange
+                          : Colors.black87,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Increase stock',
+                  onPressed: onIncreaseStock,
+                  icon: const Icon(
+                    Icons.add_circle_outline,
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  'Available',
+                  style: TextStyle(fontSize: 12),
+                ),
+                Switch.adaptive(
+                  value: flower.isAvailable &&
+                      flower.stockQuantity > 0,
+                  activeThumbColor: Colors.teal,
+                  onChanged: onAvailabilityChanged,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FlowerStockBadge extends StatelessWidget {
+  const _FlowerStockBadge({
+    required this.stock,
+    required this.available,
+  });
+
+  final int stock;
+  final bool available;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final Color color;
+    final IconData icon;
+
+    if (stock <= 0) {
+      label = 'Out of stock';
+      color = Colors.red;
+      icon = Icons.cancel_outlined;
+    } else if (!available) {
+      label = 'Unavailable';
+      color = Colors.grey;
+      icon = Icons.visibility_off_outlined;
+    } else if (stock <= 5) {
+      label = 'Low stock';
+      color = Colors.orange;
+      icon = Icons.warning_amber_rounded;
+    } else {
+      label = 'In stock';
+      color = Colors.green;
+      icon = Icons.check_circle_outline;
+    }
+
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: color,
+        ),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FlowerImagePlaceholder extends StatelessWidget {
+  const _FlowerImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.teal.shade50,
+      child: const Center(
+        child: Icon(
+          Icons.local_florist_outlined,
+          color: Colors.teal,
+          size: 36,
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyFlowerInventory extends StatelessWidget {
+  const _EmptyFlowerInventory();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.local_florist_outlined,
+              size: 68,
+              color: Colors.grey.shade400,
+            ),
+            const SizedBox(height: 14),
+            const Text(
+              'No flowers in inventory',
+              style: TextStyle(
+                fontSize: 19,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Use Add Flower to create your first flower.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
       ),
     );
   }
