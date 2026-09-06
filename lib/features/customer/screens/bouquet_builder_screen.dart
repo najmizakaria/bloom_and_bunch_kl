@@ -69,25 +69,81 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     );
   }
 
-  void _addToCart(double totalPrice) {
-    if (!_hasStems) {
+void _addToCart(
+  double totalPrice,
+  List<FlowerModel> availableFlowers,
+) {
+  if (!_hasStems) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Add at least one stem before adding to cart.',
+        ),
+      ),
+    );
+    return;
+  }
+
+  final flowersById = {
+    for (final flower in availableFlowers)
+      flower.flowerId: flower,
+  };
+
+  for (final entry in _stemCounts.entries) {
+    if (entry.value <= 0) continue;
+
+    final flower = flowersById[entry.key];
+
+    if (flower == null || !flower.isAvailable) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one stem before adding to cart.')),
+        const SnackBar(
+          content: Text(
+            'One selected flower is no longer available. Please update your bouquet.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
-    context.read<CartProvider>().addCustomItem(
-          unitPrice: totalPrice,
-          stems: Map.from(_stemCounts),
-          wrapper: _selectedWrapper,
-          ribbon: _selectedRibbon,
-          cardNote: _cardNoteController.text,
-        );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Added to cart 🛒'), backgroundColor: Colors.green),
-    );
-    setState(() => _stemCounts.clear());
+
+    if (entry.value > flower.stockQuantity) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Only ${flower.stockQuantity} ${flower.name} stems are available.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
   }
+
+  final selectedStems = Map<String, int>.fromEntries(
+    _stemCounts.entries.where(
+      (entry) => entry.value > 0,
+    ),
+  );
+
+  context.read<CartProvider>().addCustomItem(
+        unitPrice: totalPrice,
+        stems: selectedStems,
+        wrapper: _selectedWrapper,
+        ribbon: _selectedRibbon,
+        cardNote: _cardNoteController.text.trim(),
+      );
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Added to cart 🛒'),
+      backgroundColor: Colors.green,
+    ),
+  );
+
+  setState(() {
+    _stemCounts.clear();
+  });
+}
 
   @override
   Widget build(BuildContext context) {
@@ -104,8 +160,30 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           }
 
           final flowers = snapshot.data!.docs
-              .map((doc) => FlowerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+              .map(
+                (document) => FlowerModel.fromMap(
+                  document.data() as Map<String, dynamic>,
+                  document.id,
+                ),
+              )
+              .where(
+                (flower) =>
+                    flower.isAvailable &&
+                    flower.stockQuantity > 0,
+              )
               .toList();
+          
+          if (flowers.isEmpty) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'No flower stems are available right now.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
 
           final totalPrice = _calculateTotalPrice(flowers);
 
@@ -293,7 +371,12 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                               ),
                               icon: const Icon(Icons.shopping_cart_outlined),
                               label: const Text('Add to Cart'),
-                              onPressed: () => _addToCart(totalPrice),
+                              onPressed: () {
+                                _addToCart(
+                                  totalPrice,
+                                  flowers,
+                                );
+                              },
                             ),
                           ),
                         ],

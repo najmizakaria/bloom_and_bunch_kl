@@ -255,16 +255,49 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: Center(child: Text('No ready-made bouquets in this category yet.')),
+                  return const Center(
+                    child: CircularProgressIndicator(),
                   );
                 }
 
-                final docs = snapshot.data!.docs;
+                if (snapshot.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'Unable to load bouquets.\n${snapshot.error}',
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  );
+                }
+
+                final docs = snapshot.data?.docs.where((document) {
+                      final data =
+                          document.data() as Map<String, dynamic>;
+
+                      final stockCount =
+                          (data['stockCount'] as num?)?.toInt() ?? 0;
+
+                      final archived = data['archived'] == true;
+                      final available = data['readyToSend'] == true;
+
+                      return available &&
+                          stockCount > 0 &&
+                          !archived;
+                    }).toList() ??
+                    [];
+
+                if (docs.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: Center(
+                      child: Text(
+                        'No ready-made bouquets in this category right now.',
+                      ),
+                    ),
+                  );
+                }
 
                 return GridView.builder(
                   shrinkWrap: true,
@@ -346,9 +379,25 @@ return Card(
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'RM ${bouquet.price.toStringAsFixed(2)}',
-                                      style: const TextStyle(color: AppColors.primaryRosewood, fontWeight: FontWeight.bold),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'RM ${bouquet.price.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            color: AppColors.primaryRosewood,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${bouquet.stockCount} available',
+                                          style: const TextStyle(
+                                            color: AppColors.textMuted,
+                                            fontSize: 10,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                     GestureDetector(
                                       onTap: () {
