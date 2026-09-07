@@ -1,16 +1,18 @@
+import '../core/constants/fulfillment_constants.dart';
+
 class CartItemModel {
-  final String id; // unique cart line id
-  final String type; // 'ready' or 'custom'
+  final String id;
+  final String type;
   final String name;
   final String imageUrl;
   final double unitPrice;
   int quantity;
 
-  // Ready-made specific
-  final String? bouquetId;
+  final String fulfillmentType;
+  final int leadTimeBusinessDays;
 
-  // Custom specific
-  final Map<String, int>? customStems; // flowerId -> qty
+  final String? bouquetId;
+  final Map<String, int>? customStems;
   final String? wrapper;
   final String? ribbon;
   final String? cardNote;
@@ -22,6 +24,8 @@ class CartItemModel {
     required this.imageUrl,
     required this.unitPrice,
     this.quantity = 1,
+    this.fulfillmentType = FulfillmentTypes.readyNow,
+    this.leadTimeBusinessDays = 0,
     this.bouquetId,
     this.customStems,
     this.wrapper,
@@ -38,6 +42,8 @@ class CartItemModel {
       'imageUrl': imageUrl,
       'unitPrice': unitPrice,
       'quantity': quantity,
+      'fulfillmentType': fulfillmentType,
+      'leadTimeBusinessDays': leadTimeBusinessDays,
       'bouquetId': bouquetId,
       'customStems': customStems,
       'wrapper': wrapper,
