@@ -59,6 +59,7 @@ dependencies:
   http: ^1.6.0
   image_picker: ^1.2.3           # Segmented OTP input field
   smooth_page_indicator: ^1.2.0  # Onboarding dots indicator
+  cloud_functions: 5.6.2
 
 dev_dependencies:
   flutter_test:

@@ -10,9 +10,7 @@ class FlowerDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(flower.name),
-      ),
+      appBar: AppBar(title: Text(flower.name)),
       body: Column(
         children: [
           Expanded(
@@ -27,7 +25,11 @@ class FlowerDetailScreen extends StatelessWidget {
                     color: Colors.grey[200],
                     child: flower.imageUrl.isNotEmpty
                         ? Image.network(flower.imageUrl, fit: BoxFit.cover)
-                        : const Icon(Icons.local_florist, size: 100, color: Colors.grey),
+                        : const Icon(
+                            Icons.local_florist,
+                            size: 100,
+                            color: Colors.grey,
+                          ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(20.0),
@@ -36,12 +38,18 @@ class FlowerDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           flower.name,
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Category: ${flower.category}',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -56,14 +64,18 @@ class FlowerDetailScreen extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              flower.isAvailable ? Icons.check_circle : Icons.cancel,
-                              color: flower.isAvailable ? Colors.green : Colors.red,
+                              flower.availableForCustomOrder
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              color: flower.availableForCustomOrder
+                                  ? Colors.green
+                                  : Colors.red,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              flower.isAvailable
-                                  ? 'In Stock (${flower.stockQuantity} stems available)'
-                                  : 'Out of Stock',
+                              flower.availableForCustomOrder
+                                  ? 'Prepared in 1–3 business days'
+                                  : 'Currently not offered',
                               style: const TextStyle(fontSize: 16),
                             ),
                           ],
@@ -87,18 +99,21 @@ class FlowerDetailScreen extends StatelessWidget {
                   backgroundColor: const Color(0xFFD87093),
                   foregroundColor: Colors.white,
                 ),
-                onPressed:() {
+                onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                       builder: (context) => const BouquetBuilderScreen(),
+                      builder: (context) => const BouquetBuilderScreen(),
                     ),
                   );
                 },
-                child: const Text('Use in Custom Bouquet', style: TextStyle(fontSize: 16)),
+                child: const Text(
+                  'Use in Custom Bouquet',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );

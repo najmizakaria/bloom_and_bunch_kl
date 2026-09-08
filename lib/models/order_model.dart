@@ -3,6 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/fulfillment_constants.dart';
 
 class OrderModel {
+  static String _normalizedStatus(String? s) => s == 'Pending' || s == null
+      ? 'Awaiting Preparation'
+      : s == 'Completed'
+      ? 'Delivered'
+      : s;
   final String orderId;
   final String customerId;
   final String? floristId;
@@ -15,6 +20,7 @@ class OrderModel {
   final String deliveryAddress;
   final String deliveryNote;
   final String? addressId;
+  final double? latitude, longitude;
   final String deliveryTimeSlot;
   final DateTime? requestedDeliveryDate;
   final int leadTimeBusinessDays;
@@ -35,6 +41,8 @@ class OrderModel {
     required this.deliveryAddress,
     required this.deliveryNote,
     this.addressId,
+    this.latitude,
+    this.longitude,
     required this.deliveryTimeSlot,
     this.requestedDeliveryDate,
     required this.leadTimeBusinessDays,
@@ -43,15 +51,10 @@ class OrderModel {
     required this.createdAt,
   });
 
-  factory OrderModel.fromMap(
-    Map<String, dynamic> map,
-    String documentId,
-  ) {
-    final requiresPreparation =
-        map['requiresPrepTime'] as bool? ?? false;
+  factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
+    final requiresPreparation = map['requiresPrepTime'] as bool? ?? false;
 
-    final explicitFulfillmentType =
-        map['fulfillmentType']?.toString();
+    final explicitFulfillmentType = map['fulfillmentType']?.toString();
 
     final inferredFulfillmentType = requiresPreparation
         ? FulfillmentTypes.custom
@@ -62,37 +65,28 @@ class OrderModel {
       customerId: (map['customerId'] ?? '').toString(),
       floristId: map['floristId']?.toString(),
       riderId: map['riderId']?.toString(),
-      totalAmount:
-          (map['totalAmount'] as num?)?.toDouble() ?? 0,
-      orderStatus:
-          (map['orderStatus'] ?? OrderStatuses.legacyPending)
-              .toString(),
-      fulfillmentType:
-          FulfillmentTypes.values.contains(explicitFulfillmentType)
-              ? explicitFulfillmentType!
-              : inferredFulfillmentType,
-      recipientName:
-          (map['recipientName'] ?? '').toString(),
-      recipientPhone:
-          (map['recipientPhone'] ?? '').toString(),
-      deliveryAddress:
-          (map['deliveryAddress'] ?? '').toString(),
+      totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0,
+      orderStatus: _normalizedStatus(map['orderStatus']?.toString()),
+      fulfillmentType: FulfillmentTypes.values.contains(explicitFulfillmentType)
+          ? explicitFulfillmentType!
+          : inferredFulfillmentType,
+      recipientName: (map['recipientName'] ?? '').toString(),
+      recipientPhone: (map['recipientPhone'] ?? '').toString(),
+      deliveryAddress: (map['deliveryAddress'] ?? '').toString(),
       deliveryNote: (map['deliveryNote'] ?? '').toString(),
       addressId: map['addressId']?.toString(),
-      deliveryTimeSlot:
-          (map['deliveryTimeSlot'] ?? '').toString(),
-      requestedDeliveryDate:
-          (map['requestedDeliveryDate'] as Timestamp?)?.toDate(),
-      leadTimeBusinessDays:
-          (map['leadTimeBusinessDays'] as num?)?.toInt() ?? 0,
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      deliveryTimeSlot: (map['deliveryTimeSlot'] ?? '').toString(),
+      requestedDeliveryDate: (map['requestedDeliveryDate'] as Timestamp?)
+          ?.toDate(),
+      leadTimeBusinessDays: (map['leadTimeBusinessDays'] as num?)?.toInt() ?? 0,
       requiresPrepTime: requiresPreparation,
       items: (map['items'] as List<dynamic>? ?? const [])
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList(),
-      createdAt:
-          (map['createdAt'] as Timestamp?)?.toDate() ??
-              DateTime.now(),
+      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
 }

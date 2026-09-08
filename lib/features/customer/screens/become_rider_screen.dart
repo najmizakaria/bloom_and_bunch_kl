@@ -23,13 +23,33 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
       return;
     }
     setState(() => _submitting = true);
-    await RiderApplicationService().submitApplication(
-      name: _nameController.text.trim(),
-      phone: _phoneController.text.trim(),
-      vehicleType: _vehicleType,
-      reason: _reasonController.text.trim(),
-    );
-    if (mounted) setState(() => _submitting = false);
+    try {
+      await RiderApplicationService().submitApplication(
+        name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        vehicleType: _vehicleType,
+        reason: _reasonController.text.trim(),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to submit the application. Please retry.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _reasonController.dispose();
+    super.dispose();
   }
 
   @override

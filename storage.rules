@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+ match /b/{bucket}/o {
+  function signedIn(){return request.auth != null;}
+  function staff(){return signedIn() &&
+    firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['florist','admin'];}
+  match /{folder}/{file} {
+   allow read: if signedIn() && folder in ['flowers','bouquets'];
+   allow write: if folder in ['flowers','bouquets'] && staff() &&
+    (request.resource == null || (request.resource.size <= 5*1024*1024 && request.resource.contentType.matches('image/(jpeg|png|webp)')));
+  }
+ }
+}
+

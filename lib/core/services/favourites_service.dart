@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FavouritesService {
@@ -19,7 +20,9 @@ class FavouritesService {
     return _bouquetFavourites.orderBy('savedAt', descending: true).snapshots();
   }
 
-  Stream<DocumentSnapshot<Map<String, dynamic>>> isBouquetFavourited(String bouquetId) {
+  Stream<DocumentSnapshot<Map<String, dynamic>>> isBouquetFavourited(
+    String bouquetId,
+  ) {
     if (_uid == null) return const Stream.empty();
     return _bouquetFavourites.doc(bouquetId).snapshots();
   }
@@ -60,17 +63,13 @@ class FavouritesService {
     required double totalPrice,
   }) async {
     if (_uid == null) return;
-    final validStems = stems.entries
-        .where((e) => e.value > 0)
-        .map((e) => {'flowerId': e.key, 'quantity': e.value})
-        .toList();
-
-    await _recipes.add({
-      'stems': validStems,
+    await FirebaseFunctions.instanceFor(
+      region: 'asia-southeast1',
+    ).httpsCallable('saveRecipe').call({
+      'customStems': stems,
       'wrapper': wrapper,
       'ribbon': ribbon,
-      'totalPrice': totalPrice,
-      'savedAt': FieldValue.serverTimestamp(),
+      'cardNote': '',
     });
   }
 

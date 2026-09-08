@@ -8,55 +8,35 @@ import 'package:image_picker/image_picker.dart';
 import '../../../models/flower_model.dart';
 
 class FloristInventoryScreen extends StatelessWidget {
-  const FloristInventoryScreen({
-    super.key,
-    this.showAppBar = true,
-  });
+  const FloristInventoryScreen({super.key, this.showAppBar = true});
 
   final bool showAppBar;
 
-  Future<void> _updateStock(
-    String documentId,
-    int change,
-  ) async {
+  Future<void> _updateStock(String documentId, int change) async {
     final documentReference = FirebaseFirestore.instance
         .collection('flowers')
         .doc(documentId);
 
-    await FirebaseFirestore.instance.runTransaction(
-      (transaction) async {
-        final snapshot =
-            await transaction.get(documentReference);
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final snapshot = await transaction.get(documentReference);
 
-        if (!snapshot.exists) {
-          return;
-        }
+      if (!snapshot.exists) {
+        return;
+      }
 
-        final data = snapshot.data() ?? {};
+      final data = snapshot.data() ?? {};
 
-        final currentStock =
-            (data['stockQuantity'] as num?)?.toInt() ?? 0;
+      final currentStock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
 
-        final newStock =
-            (currentStock + change).clamp(0, 999999).toInt();
+      final newStock = (currentStock + change).clamp(0, 999999).toInt();
 
-        final Map<String, dynamic> updates = {
-          'stockQuantity': newStock,
-          'updatedAt': FieldValue.serverTimestamp(),
-        };
+      final Map<String, dynamic> updates = {
+        'stockQuantity': newStock,
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
 
-        // Automatically hide the flower from customers
-        // when its stock reaches zero.
-        if (newStock == 0) {
-          updates['isAvailable'] = false;
-        }
-
-        transaction.update(
-          documentReference,
-          updates,
-        );
-      },
-    );
+      transaction.update(documentReference, updates);
+    });
   }
 
   Future<void> _toggleAvailability(
@@ -64,34 +44,20 @@ class FloristInventoryScreen extends StatelessWidget {
     FlowerModel flower,
     bool newValue,
   ) async {
-    if (newValue && flower.stockQuantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Add stock before making this flower available.',
-          ),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
     try {
       await FirebaseFirestore.instance
           .collection('flowers')
           .doc(flower.flowerId)
           .update({
-        'isAvailable': newValue,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'availableForCustomOrder': newValue,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
     } catch (error) {
       if (!context.mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Unable to update availability: $error',
-          ),
+          content: Text('Unable to update availability: $error'),
           backgroundColor: Colors.red,
         ),
       );
@@ -99,11 +65,9 @@ class FloristInventoryScreen extends StatelessWidget {
   }
 
   Future<String> _uploadImage(File image) async {
-    final fileName =
-        'flowers/${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final fileName = 'flowers/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-    final reference =
-        FirebaseStorage.instance.ref().child(fileName);
+    final reference = FirebaseStorage.instance.ref().child(fileName);
 
     await reference.putFile(image);
 
@@ -114,14 +78,8 @@ class FloristInventoryScreen extends StatelessWidget {
     _showFlowerForm(context: context);
   }
 
-  void _showEditFlowerDialog(
-    BuildContext context,
-    FlowerModel flower,
-  ) {
-    _showFlowerForm(
-      context: context,
-      existingFlower: flower,
-    );
+  void _showEditFlowerDialog(BuildContext context, FlowerModel flower) {
+    _showFlowerForm(context: context, existingFlower: flower);
   }
 
   Future<void> _showFlowerForm({
@@ -156,37 +114,24 @@ class FloristInventoryScreen extends StatelessWidget {
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
             Future<void> selectImage() async {
-              final source =
-                  await showModalBottomSheet<ImageSource>(
+              final source = await showModalBottomSheet<ImageSource>(
                 context: dialogContext,
                 builder: (sheetContext) {
                   return SafeArea(
                     child: Wrap(
                       children: [
                         ListTile(
-                          leading: const Icon(
-                            Icons.photo_library_outlined,
-                          ),
-                          title: const Text(
-                            'Choose from gallery',
-                          ),
+                          leading: const Icon(Icons.photo_library_outlined),
+                          title: const Text('Choose from gallery'),
                           onTap: () {
-                            Navigator.pop(
-                              sheetContext,
-                              ImageSource.gallery,
-                            );
+                            Navigator.pop(sheetContext, ImageSource.gallery);
                           },
                         ),
                         ListTile(
-                          leading: const Icon(
-                            Icons.camera_alt_outlined,
-                          ),
+                          leading: const Icon(Icons.camera_alt_outlined),
                           title: const Text('Take a photo'),
                           onTap: () {
-                            Navigator.pop(
-                              sheetContext,
-                              ImageSource.camera,
-                            );
+                            Navigator.pop(sheetContext, ImageSource.camera);
                           },
                         ),
                       ],
@@ -195,8 +140,7 @@ class FloristInventoryScreen extends StatelessWidget {
                 },
               );
 
-              if (source == null ||
-                  !dialogContext.mounted) {
+              if (source == null || !dialogContext.mounted) {
                 return;
               }
 
@@ -218,14 +162,9 @@ class FloristInventoryScreen extends StatelessWidget {
 
             Future<void> saveFlower() async {
               final name = nameController.text.trim();
-              final category =
-                  categoryController.text.trim();
-              final price = double.tryParse(
-                priceController.text.trim(),
-              );
-              final stock = int.tryParse(
-                stockController.text.trim(),
-              );
+              final category = categoryController.text.trim();
+              final price = double.tryParse(priceController.text.trim());
+              final stock = int.tryParse(stockController.text.trim());
 
               if (name.isEmpty ||
                   category.isEmpty ||
@@ -233,8 +172,7 @@ class FloristInventoryScreen extends StatelessWidget {
                   price < 0 ||
                   stock == null ||
                   stock < 0) {
-                ScaffoldMessenger.of(dialogContext)
-                    .showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   const SnackBar(
                     content: Text(
                       'Enter a valid name, category, price and stock.',
@@ -251,8 +189,7 @@ class FloristInventoryScreen extends StatelessWidget {
 
               try {
                 if (selectedImage != null) {
-                  imageUrl =
-                      await _uploadImage(selectedImage!);
+                  imageUrl = await _uploadImage(selectedImage!);
                 }
 
                 final data = {
@@ -262,14 +199,10 @@ class FloristInventoryScreen extends StatelessWidget {
                   'stockQuantity': stock,
                   'imageUrl': imageUrl,
 
-                  // A flower with zero stock cannot
-                  // be available to customers.
-                  'isAvailable': stock > 0 &&
-                      (isEditing
-                          ? existingFlower.isAvailable
-                          : true),
-                  'updatedAt':
-                      FieldValue.serverTimestamp(),
+                  // Custom ordering is independent from physical stock.
+                  'availableForCustomOrder':
+                      existingFlower?.availableForCustomOrder ?? true,
+                  'updatedAt': FieldValue.serverTimestamp(),
                 };
 
                 if (isEditing) {
@@ -278,16 +211,14 @@ class FloristInventoryScreen extends StatelessWidget {
                       .doc(existingFlower.flowerId)
                       .update(data);
                 } else {
-                  data['createdAt'] =
-                      FieldValue.serverTimestamp();
+                  data['createdAt'] = FieldValue.serverTimestamp();
 
                   await FirebaseFirestore.instance
                       .collection('flowers')
                       .add(data);
                 }
 
-                if (!dialogContext.mounted ||
-                    !context.mounted) {
+                if (!dialogContext.mounted || !context.mounted) {
                   return;
                 }
 
@@ -312,12 +243,9 @@ class FloristInventoryScreen extends StatelessWidget {
                   isUploading = false;
                 });
 
-                ScaffoldMessenger.of(dialogContext)
-                    .showSnackBar(
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      'Unable to save flower: $error',
-                    ),
+                    content: Text('Unable to save flower: $error'),
                     backgroundColor: Colors.red,
                   ),
                 );
@@ -325,9 +253,7 @@ class FloristInventoryScreen extends StatelessWidget {
             }
 
             return AlertDialog(
-              title: Text(
-                isEditing ? 'Edit Flower' : 'Add Flower',
-              ),
+              title: Text(isEditing ? 'Edit Flower' : 'Add Flower'),
               content: SizedBox(
                 width: 420,
                 child: SingleChildScrollView(
@@ -335,31 +261,23 @@ class FloristInventoryScreen extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       GestureDetector(
-                        onTap:
-                            isUploading ? null : selectImage,
+                        onTap: isUploading ? null : selectImage,
                         child: Container(
                           height: 150,
                           width: double.infinity,
                           decoration: BoxDecoration(
                             color: Colors.teal.shade50,
-                            borderRadius:
-                                BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.teal.shade200,
-                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.teal.shade200),
                           ),
-                          child: _buildFormImage(
-                            selectedImage,
-                            imageUrl,
-                          ),
+                          child: _buildFormImage(selectedImage, imageUrl),
                         ),
                       ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: nameController,
                         enabled: !isUploading,
-                        textCapitalization:
-                            TextCapitalization.words,
+                        textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(
                           labelText: 'Flower name',
                           hintText: 'Example: Red Rose',
@@ -370,8 +288,7 @@ class FloristInventoryScreen extends StatelessWidget {
                       TextField(
                         controller: categoryController,
                         enabled: !isUploading,
-                        textCapitalization:
-                            TextCapitalization.words,
+                        textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(
                           labelText: 'Category',
                           hintText: 'Example: Roses',
@@ -382,8 +299,7 @@ class FloristInventoryScreen extends StatelessWidget {
                       TextField(
                         controller: priceController,
                         enabled: !isUploading,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
+                        keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
                         decoration: const InputDecoration(
@@ -420,8 +336,7 @@ class FloristInventoryScreen extends StatelessWidget {
                     backgroundColor: Colors.teal,
                     foregroundColor: Colors.white,
                   ),
-                  onPressed:
-                      isUploading ? null : saveFlower,
+                  onPressed: isUploading ? null : saveFlower,
                   child: isUploading
                       ? const SizedBox(
                           width: 21,
@@ -431,11 +346,7 @@ class FloristInventoryScreen extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : Text(
-                          isEditing
-                              ? 'Save Changes'
-                              : 'Add Flower',
-                        ),
+                      : Text(isEditing ? 'Save Changes' : 'Add Flower'),
                 ),
               ],
             );
@@ -450,17 +361,11 @@ class FloristInventoryScreen extends StatelessWidget {
     stockController.dispose();
   }
 
-  Widget _buildFormImage(
-    File? selectedImage,
-    String existingImageUrl,
-  ) {
+  Widget _buildFormImage(File? selectedImage, String existingImageUrl) {
     if (selectedImage != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(11),
-        child: Image.file(
-          selectedImage,
-          fit: BoxFit.cover,
-        ),
+        child: Image.file(selectedImage, fit: BoxFit.cover),
       );
     }
 
@@ -506,11 +411,8 @@ class FloristInventoryScreen extends StatelessWidget {
             .orderBy('category')
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
@@ -525,8 +427,7 @@ class FloristInventoryScreen extends StatelessWidget {
             );
           }
 
-          if (!snapshot.hasData ||
-              snapshot.data!.docs.isEmpty) {
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const _EmptyFlowerInventory();
           }
 
@@ -538,8 +439,7 @@ class FloristInventoryScreen extends StatelessWidget {
           }).toList();
 
           return ListView.builder(
-            padding:
-                const EdgeInsets.fromLTRB(16, 14, 16, 90),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
             itemCount: flowers.length,
             itemBuilder: (context, index) {
               final flower = flowers[index];
@@ -547,26 +447,17 @@ class FloristInventoryScreen extends StatelessWidget {
               return _FlowerInventoryCard(
                 flower: flower,
                 onEdit: () {
-                  _showEditFlowerDialog(
-                    context,
-                    flower,
-                  );
+                  _showEditFlowerDialog(context, flower);
                 },
                 onDecreaseStock: () async {
                   try {
-                    await _updateStock(
-                      flower.flowerId,
-                      -1,
-                    );
+                    await _updateStock(flower.flowerId, -1);
                   } catch (error) {
                     if (!context.mounted) return;
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'Unable to update stock: $error',
-                        ),
+                        content: Text('Unable to update stock: $error'),
                         backgroundColor: Colors.red,
                       ),
                     );
@@ -574,30 +465,20 @@ class FloristInventoryScreen extends StatelessWidget {
                 },
                 onIncreaseStock: () async {
                   try {
-                    await _updateStock(
-                      flower.flowerId,
-                      1,
-                    );
+                    await _updateStock(flower.flowerId, 1);
                   } catch (error) {
                     if (!context.mounted) return;
 
-                    ScaffoldMessenger.of(context)
-                        .showSnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(
-                          'Unable to update stock: $error',
-                        ),
+                        content: Text('Unable to update stock: $error'),
                         backgroundColor: Colors.red,
                       ),
                     );
                   }
                 },
                 onAvailabilityChanged: (value) {
-                  _toggleAvailability(
-                    context,
-                    flower,
-                    value,
-                  );
+                  _toggleAvailability(context, flower, value);
                 },
               );
             },
@@ -629,9 +510,7 @@ class _FlowerInventoryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       elevation: 1,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           Padding(
@@ -649,11 +528,7 @@ class _FlowerInventoryCard extends StatelessWidget {
                         : Image.network(
                             flower.imageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (
-                              context,
-                              error,
-                              stackTrace,
-                            ) {
+                            errorBuilder: (context, error, stackTrace) {
                               return const _FlowerImagePlaceholder();
                             },
                           ),
@@ -662,13 +537,10 @@ class _FlowerInventoryCard extends StatelessWidget {
                 const SizedBox(width: 13),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        flower.name.isEmpty
-                            ? 'Unnamed Flower'
-                            : flower.name,
+                        flower.name.isEmpty ? 'Unnamed Flower' : flower.name,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -679,9 +551,7 @@ class _FlowerInventoryCard extends StatelessWidget {
                         flower.category.isEmpty
                             ? 'Uncategorised'
                             : flower.category,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                        ),
+                        style: TextStyle(color: Colors.grey.shade600),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -691,10 +561,18 @@ class _FlowerInventoryCard extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      Text(
+                        'Reserved: ${flower.reservedQuantity} · Balance: ${flower.projectedBalance}',
+                      ),
+                      if (flower.shortageQuantity > 0)
+                        Text(
+                          'Restock ${flower.shortageQuantity} stems',
+                          style: const TextStyle(color: Colors.red),
+                        ),
                       const SizedBox(height: 8),
                       _FlowerStockBadge(
                         stock: flower.stockQuantity,
-                        available: flower.isAvailable,
+                        available: flower.availableForCustomOrder,
                       ),
                     ],
                   ),
@@ -709,29 +587,21 @@ class _FlowerInventoryCard extends StatelessWidget {
           ),
           const Divider(height: 1),
           Padding(
-            padding:
-                const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
             child: Row(
               children: [
                 const Text(
                   'Stock',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Decrease stock',
-                  onPressed: flower.stockQuantity > 0
-                      ? onDecreaseStock
-                      : null,
-                  icon: const Icon(
-                    Icons.remove_circle_outline,
-                  ),
+                  onPressed: flower.stockQuantity > 0 ? onDecreaseStock : null,
+                  icon: const Icon(Icons.remove_circle_outline),
                 ),
                 Container(
-                  constraints:
-                      const BoxConstraints(minWidth: 38),
+                  constraints: const BoxConstraints(minWidth: 38),
                   alignment: Alignment.center,
                   child: Text(
                     '${flower.stockQuantity}',
@@ -747,18 +617,12 @@ class _FlowerInventoryCard extends StatelessWidget {
                 IconButton(
                   tooltip: 'Increase stock',
                   onPressed: onIncreaseStock,
-                  icon: const Icon(
-                    Icons.add_circle_outline,
-                  ),
+                  icon: const Icon(Icons.add_circle_outline),
                 ),
                 const Spacer(),
-                const Text(
-                  'Available',
-                  style: TextStyle(fontSize: 12),
-                ),
+                const Text('Custom orders', style: TextStyle(fontSize: 12)),
                 Switch.adaptive(
-                  value: flower.isAvailable &&
-                      flower.stockQuantity > 0,
+                  value: flower.availableForCustomOrder,
                   activeThumbColor: Colors.teal,
                   onChanged: onAvailabilityChanged,
                 ),
@@ -772,10 +636,7 @@ class _FlowerInventoryCard extends StatelessWidget {
 }
 
 class _FlowerStockBadge extends StatelessWidget {
-  const _FlowerStockBadge({
-    required this.stock,
-    required this.available,
-  });
+  const _FlowerStockBadge({required this.stock, required this.available});
 
   final int stock;
   final bool available;
@@ -806,11 +667,7 @@ class _FlowerStockBadge extends StatelessWidget {
 
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 16,
-          color: color,
-        ),
+        Icon(icon, size: 16, color: color),
         const SizedBox(width: 5),
         Text(
           label,
@@ -833,11 +690,7 @@ class _FlowerImagePlaceholder extends StatelessWidget {
     return Container(
       color: Colors.teal.shade50,
       child: const Center(
-        child: Icon(
-          Icons.local_florist_outlined,
-          color: Colors.teal,
-          size: 36,
-        ),
+        child: Icon(Icons.local_florist_outlined, color: Colors.teal, size: 36),
       ),
     );
   }
@@ -862,10 +715,7 @@ class _EmptyFlowerInventory extends StatelessWidget {
             const SizedBox(height: 14),
             const Text(
               'No flowers in inventory',
-              style: TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             const Text(

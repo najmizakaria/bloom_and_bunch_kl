@@ -46,9 +46,7 @@ class FloristDashboardScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, orderSnapshot) {
           if (orderSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (orderSnapshot.hasError) {
@@ -63,7 +61,8 @@ class FloristDashboardScreen extends StatelessWidget {
             );
           }
 
-          final orders = orderSnapshot.data?.docs.map((document) {
+          final orders =
+              orderSnapshot.data?.docs.map((document) {
                 return OrderModel.fromMap(
                   document.data() as Map<String, dynamic>,
                   document.id,
@@ -76,7 +75,7 @@ class FloristDashboardScreen extends StatelessWidget {
           }).toList();
 
           final newOrders = orders.where((order) {
-            return order.orderStatus == 'Pending';
+            return order.orderStatus == 'Awaiting Preparation';
           }).toList();
 
           final preparingOrders = orders.where((order) {
@@ -88,33 +87,35 @@ class FloristDashboardScreen extends StatelessWidget {
           }).toList();
 
           final completedToday = todayOrders.where((order) {
-            return order.orderStatus == 'Completed';
+            return order.orderStatus == 'Delivered';
           }).toList();
 
-          final activeOrders = orders.where((order) {
-            return order.orderStatus == 'Pending' ||
-                order.orderStatus == 'Processing';
-          }).toList()
-            ..sort((first, second) {
-              return first.createdAt.compareTo(second.createdAt);
-            });
+          final activeOrders =
+              orders.where((order) {
+                return order.orderStatus == 'Awaiting Preparation' ||
+                    order.orderStatus == 'Processing';
+              }).toList()..sort((first, second) {
+                return first.createdAt.compareTo(second.createdAt);
+              });
 
-          final OrderModel? nextOrder =
-              activeOrders.isEmpty ? null : activeOrders.first;
+          final OrderModel? nextOrder = activeOrders.isEmpty
+              ? null
+              : activeOrders.first;
 
           return StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
                 .collection('flowers')
                 .snapshots(),
             builder: (context, flowerSnapshot) {
-              final lowStockFlowers = flowerSnapshot.data?.docs.where((document) {
-                    final data =
-                        document.data() as Map<String, dynamic>;
+              final lowStockFlowers =
+                  flowerSnapshot.data?.docs.where((document) {
+                    final data = document.data() as Map<String, dynamic>;
 
-                    final stock =
-                        (data['stockQuantity'] as num?)?.toInt() ?? 0;
+                    final stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
 
-                    return stock <= 5;
+                    final reserved =
+                        (data['reservedQuantity'] as num?)?.toInt() ?? 0;
+                    return stock - reserved <= 5;
                   }).toList() ??
                   [];
 
@@ -124,8 +125,8 @@ class FloristDashboardScreen extends StatelessWidget {
                   Text(
                     _greeting(),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   const Text(
@@ -144,8 +145,8 @@ class FloristDashboardScreen extends StatelessWidget {
                   Text(
                     'Order Overview',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -193,8 +194,8 @@ class FloristDashboardScreen extends StatelessWidget {
                   Text(
                     'Attention Needed',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -209,8 +210,8 @@ class FloristDashboardScreen extends StatelessWidget {
                   Text(
                     'Up Next',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -262,10 +263,7 @@ class _TodaySummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [
-            Color(0xFF00897B),
-            Color(0xFF26A69A),
-          ],
+          colors: [Color(0xFF00897B), Color(0xFF26A69A)],
         ),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -274,10 +272,7 @@ class _TodaySummaryCard extends StatelessWidget {
           const CircleAvatar(
             radius: 28,
             backgroundColor: Colors.white24,
-            child: Icon(
-              Icons.calendar_today,
-              color: Colors.white,
-            ),
+            child: Icon(Icons.calendar_today, color: Colors.white),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -286,10 +281,7 @@ class _TodaySummaryCard extends StatelessWidget {
               children: [
                 const Text(
                   "Today's Orders",
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -302,9 +294,7 @@ class _TodaySummaryCard extends StatelessWidget {
                 ),
                 Text(
                   '$completedOrders completed today',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                  ),
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ],
             ),
@@ -353,12 +343,7 @@ class _DashboardStatCard extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -385,10 +370,7 @@ class _AttentionCard extends StatelessWidget {
         child: ListTile(
           leading: CircleAvatar(
             backgroundColor: Color(0xFFE8F5E9),
-            child: Icon(
-              Icons.check,
-              color: Colors.green,
-            ),
+            child: Icon(Icons.check, color: Colors.green),
           ),
           title: Text('Everything looks good'),
           subtitle: Text('There are no urgent warnings right now.'),
@@ -404,25 +386,18 @@ class _AttentionCard extends StatelessWidget {
               onTap: onOpenProducts,
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFFFEBEE),
-                child: Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.red,
-                ),
+                child: Icon(Icons.warning_amber_rounded, color: Colors.red),
               ),
               title: Text('$lowStockCount flowers have low stock'),
               subtitle: const Text('Stock quantity is 5 stems or fewer.'),
               trailing: const Icon(Icons.chevron_right),
             ),
-          if (lowStockCount > 0 && preparingCount > 0)
-            const Divider(height: 1),
+          if (lowStockCount > 0 && preparingCount > 0) const Divider(height: 1),
           if (preparingCount > 0)
             ListTile(
               leading: const CircleAvatar(
                 backgroundColor: Color(0xFFE3F2FD),
-                child: Icon(
-                  Icons.local_florist_outlined,
-                  color: Colors.blue,
-                ),
+                child: Icon(Icons.local_florist_outlined, color: Colors.blue),
               ),
               title: Text('$preparingCount orders are being prepared'),
               subtitle: const Text('Check whether any bouquet is ready.'),
@@ -434,10 +409,7 @@ class _AttentionCard extends StatelessWidget {
 }
 
 class _NextOrderCard extends StatelessWidget {
-  const _NextOrderCard({
-    required this.order,
-    required this.shortOrderId,
-  });
+  const _NextOrderCard({required this.order, required this.shortOrderId});
 
   final OrderModel order;
   final String shortOrderId;
@@ -486,26 +458,16 @@ class _NextOrderCard extends StatelessWidget {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Icon(
-                    Icons.schedule,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.schedule, size: 18, color: Colors.grey),
                   const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(order.deliveryTimeSlot),
-                  ),
+                  Expanded(child: Text(order.deliveryTimeSlot)),
                 ],
               ),
               if (order.requiresPrepTime) ...[
                 const SizedBox(height: 10),
                 const Row(
                   children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: Colors.orange,
-                    ),
+                    Icon(Icons.info_outline, size: 18, color: Colors.orange),
                     SizedBox(width: 8),
                     Text(
                       'Preparation required',
@@ -525,8 +487,7 @@ class _NextOrderCard extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            FloristOrderDetailScreen(order: order),
+                        builder: (_) => FloristOrderDetailScreen(order: order),
                       ),
                     );
                   },
@@ -543,9 +504,7 @@ class _NextOrderCard extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({
-    required this.status,
-  });
+  const _StatusBadge({required this.status});
 
   final String status;
 
@@ -554,7 +513,7 @@ class _StatusBadge extends StatelessWidget {
     Color color;
 
     switch (status) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         color = Colors.orange;
         break;
       case 'Processing':
@@ -568,10 +527,7 @@ class _StatusBadge extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
@@ -599,18 +555,11 @@ class _EmptyNextOrderCard extends StatelessWidget {
         child: Center(
           child: Column(
             children: [
-              Icon(
-                Icons.task_alt,
-                size: 48,
-                color: Colors.green,
-              ),
+              Icon(Icons.task_alt, size: 48, color: Colors.green),
               SizedBox(height: 12),
               Text(
                 'No active orders',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 4),
               Text(

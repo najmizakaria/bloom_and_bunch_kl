@@ -9,18 +9,18 @@ class FloristOrdersScreen extends StatefulWidget {
   const FloristOrdersScreen({super.key});
 
   @override
-  State<FloristOrdersScreen> createState() =>
-      _FloristOrdersScreenState();
+  State<FloristOrdersScreen> createState() => _FloristOrdersScreenState();
 }
 
 class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
-  String _selectedStatus = 'Pending';
+  String _selectedStatus = 'Awaiting Preparation';
 
   final Map<String, String> _filters = const {
-    'New': 'Pending',
+    'New': 'Awaiting Preparation',
     'Preparing': 'Processing',
     'Ready': 'Ready for Delivery',
-    'Completed': 'Completed',
+    'Delivered': 'Delivered',
+ 'Cancelled': 'Cancelled',
   };
 
   String _shortOrderId(String orderId) {
@@ -49,13 +49,15 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
       return order.orderStatus == _selectedStatus;
     }).toList();
 
-    if (_selectedStatus == 'Completed') {
+    if (_selectedStatus == 'Delivered') {
       filtered.sort((first, second) {
         return second.createdAt.compareTo(first.createdAt);
       });
     } else {
       filtered.sort((first, second) {
-        return first.createdAt.compareTo(second.createdAt);
+        return (first.requestedDeliveryDate ?? first.createdAt).compareTo(
+          second.requestedDeliveryDate ?? second.createdAt,
+        );
       });
     }
 
@@ -64,13 +66,13 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
 
   String _emptyMessage() {
     switch (_selectedStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'No new orders';
       case 'Processing':
         return 'No orders are being prepared';
       case 'Ready for Delivery':
         return 'No orders are ready for delivery';
-      case 'Completed':
+      case 'Delivered':
         return 'No completed orders';
       default:
         return 'No orders found';
@@ -102,9 +104,7 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
@@ -119,7 +119,8 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
             );
           }
 
-          final orders = snapshot.data?.docs.map((document) {
+          final orders =
+              snapshot.data?.docs.map((document) {
                 return OrderModel.fromMap(
                   document.data() as Map<String, dynamic>,
                   document.id,
@@ -149,9 +150,7 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
                           selectedColor: Colors.teal,
                           backgroundColor: Colors.grey.shade100,
                           labelStyle: TextStyle(
-                            color: selected
-                                ? Colors.white
-                                : Colors.black87,
+                            color: selected ? Colors.white : Colors.black87,
                             fontWeight: FontWeight.w600,
                           ),
                           side: BorderSide(
@@ -172,9 +171,7 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
               ),
               Expanded(
                 child: visibleOrders.isEmpty
-                    ? _EmptyOrdersState(
-                        message: _emptyMessage(),
-                      )
+                    ? _EmptyOrdersState(message: _emptyMessage())
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: visibleOrders.length,
@@ -210,13 +207,13 @@ class _OrderCard extends StatelessWidget {
 
   Color _statusColor() {
     switch (order.orderStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return Colors.orange;
       case 'Processing':
         return Colors.blue;
       case 'Ready for Delivery':
         return Colors.green;
-      case 'Completed':
+      case 'Delivered':
         return Colors.grey;
       default:
         return Colors.grey;
@@ -225,13 +222,13 @@ class _OrderCard extends StatelessWidget {
 
   String _statusLabel() {
     switch (order.orderStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'NEW';
       case 'Processing':
         return 'PREPARING';
       case 'Ready for Delivery':
         return 'READY';
-      case 'Completed':
+      case 'Delivered':
         return 'COMPLETED';
       default:
         return order.orderStatus.toUpperCase();
@@ -246,9 +243,7 @@ class _OrderCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       elevation: 1,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -299,39 +294,26 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Placed $orderDate',
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
               const Divider(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(
-                    Icons.schedule,
-                    size: 20,
-                    color: Colors.teal,
-                  ),
+                  const Icon(Icons.schedule, size: 20, color: Colors.teal),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'Delivery time',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           order.deliveryTimeSlot,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -350,24 +332,18 @@ class _OrderCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
                           'Recipient',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           order.recipientName.isEmpty
                               ? 'Not provided'
                               : order.recipientName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -407,9 +383,7 @@ class _OrderCard extends StatelessWidget {
                 children: [
                   Text(
                     '${order.items.length} item(s)',
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade700),
                   ),
                   const Spacer(),
                   Text(
@@ -421,10 +395,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.chevron_right, color: Colors.grey),
                 ],
               ),
             ],
@@ -436,9 +407,7 @@ class _OrderCard extends StatelessWidget {
 }
 
 class _EmptyOrdersState extends StatelessWidget {
-  const _EmptyOrdersState({
-    required this.message,
-  });
+  const _EmptyOrdersState({required this.message});
 
   final String message;
 
@@ -458,10 +427,7 @@ class _EmptyOrdersState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               message,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             const Text(

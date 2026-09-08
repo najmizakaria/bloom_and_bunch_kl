@@ -13,6 +13,7 @@ class CartItemModel {
 
   final String? bouquetId;
   final Map<String, int>? customStems;
+  final Map<String, String>? customStemNames;
   final String? wrapper;
   final String? ribbon;
   final String? cardNote;
@@ -28,6 +29,7 @@ class CartItemModel {
     this.leadTimeBusinessDays = 0,
     this.bouquetId,
     this.customStems,
+    this.customStemNames,
     this.wrapper,
     this.ribbon,
     this.cardNote,
@@ -46,6 +48,7 @@ class CartItemModel {
       'leadTimeBusinessDays': leadTimeBusinessDays,
       'bouquetId': bouquetId,
       'customStems': customStems,
+      'customStemNames': customStemNames,
       'wrapper': wrapper,
       'ribbon': ribbon,
       'cardNote': cardNote,

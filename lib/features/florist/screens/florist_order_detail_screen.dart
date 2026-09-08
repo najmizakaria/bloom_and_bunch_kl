@@ -1,13 +1,11 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/order_service.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/order_model.dart';
+import 'order_materials_panel.dart';
 
 class FloristOrderDetailScreen extends StatefulWidget {
-  const FloristOrderDetailScreen({
-    super.key,
-    required this.order,
-  });
+  const FloristOrderDetailScreen({super.key, required this.order});
 
   final OrderModel order;
 
@@ -16,8 +14,7 @@ class FloristOrderDetailScreen extends StatefulWidget {
       _FloristOrderDetailScreenState();
 }
 
-class _FloristOrderDetailScreenState
-    extends State<FloristOrderDetailScreen> {
+class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
   late String _currentStatus;
   bool _isUpdating = false;
 
@@ -29,7 +26,7 @@ class _FloristOrderDetailScreenState
 
   String? get _nextStatus {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'Processing';
       case 'Processing':
         return 'Ready for Delivery';
@@ -40,7 +37,7 @@ class _FloristOrderDetailScreenState
 
   String get _actionLabel {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'Start Preparing';
       case 'Processing':
         return 'Mark Ready for Delivery';
@@ -51,7 +48,7 @@ class _FloristOrderDetailScreenState
 
   IconData get _actionIcon {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return Icons.local_florist_outlined;
       case 'Processing':
         return Icons.inventory_2_outlined;
@@ -62,7 +59,7 @@ class _FloristOrderDetailScreenState
 
   int get _currentStep {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 0;
       case 'Processing':
         return 1;
@@ -78,7 +75,7 @@ class _FloristOrderDetailScreenState
 
   String get _statusTitle {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'Order Received';
       case 'Processing':
         return 'Preparing Bouquet';
@@ -96,7 +93,7 @@ class _FloristOrderDetailScreenState
 
   String get _statusDescription {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return 'Review the order before starting preparation.';
       case 'Processing':
         return 'The florist is currently preparing this order.';
@@ -109,6 +106,40 @@ class _FloristOrderDetailScreenState
         return 'This order has been delivered successfully.';
       default:
         return 'Check the current order status.';
+    }
+  }
+
+  Future<void> _cancelOrder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Cancel this planned order?'),
+        content: const Text('Its material reservations will be released.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text('Cancel order'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    setState(() => _isUpdating = true);
+    try {
+      await OrderService().transition(widget.order.orderId, 'cancel');
+      if (mounted) setState(() => _currentStatus = 'Cancelled');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(OrderService.message(e))));
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
     }
   }
 
@@ -151,7 +182,7 @@ class _FloristOrderDetailScreenState
       },
     );
 
-    if (confirmed == true) {
+    if (mounted && confirmed == true) {
       await _updateStatus(newStatus);
     }
   }
@@ -162,13 +193,10 @@ class _FloristOrderDetailScreenState
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(widget.order.orderId)
-          .update({
-        'orderStatus': newStatus,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      await OrderService().transition(
+        widget.order.orderId,
+        newStatus == 'Processing' ? 'prepare' : 'ready',
+      );
 
       if (!mounted) {
         return;
@@ -195,7 +223,9 @@ class _FloristOrderDetailScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to update order: $error'),
+          content: Text(
+            'Failed to update order: ${OrderService.message(error)}',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -216,6 +246,14 @@ class _FloristOrderDetailScreenState
       backgroundColor: const Color(0xFFF7F7F7),
       appBar: AppBar(
         title: const Text('Order Details'),
+        actions: [
+          if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
+            IconButton(
+              tooltip: 'Cancel planned order',
+              onPressed: _isUpdating ? null : _cancelOrder,
+              icon: const Icon(Icons.cancel_outlined),
+            ),
+        ],
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
       ),
@@ -228,10 +266,11 @@ class _FloristOrderDetailScreenState
             _buildOrderHeading(),
             const SizedBox(height: 16),
             _buildStatusCard(),
+            if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
+              OrderMaterialsPanel(order: widget.order),
             const SizedBox(height: 16),
 
-            if (widget.order.requiresPrepTime)
-              _buildPreparationWarning(),
+            if (widget.order.requiresPrepTime) _buildPreparationWarning(),
 
             const SizedBox(height: 20),
             _buildSectionTitle('What to Prepare'),
@@ -243,10 +282,7 @@ class _FloristOrderDetailScreenState
                   padding: EdgeInsets.all(18),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.info_outline,
-                        color: Colors.grey,
-                      ),
+                      Icon(Icons.info_outline, color: Colors.grey),
                       SizedBox(width: 10),
                       Text('No items found for this order.'),
                     ],
@@ -281,17 +317,11 @@ class _FloristOrderDetailScreenState
         Expanded(
           child: Text(
             'Order #$shortId',
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 6,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: _statusColor().withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
@@ -312,9 +342,7 @@ class _FloristOrderDetailScreenState
   Widget _buildStatusCard() {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -322,10 +350,7 @@ class _FloristOrderDetailScreenState
           children: [
             const Text(
               'Order Progress',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 18),
             Row(
@@ -373,10 +398,7 @@ class _FloristOrderDetailScreenState
                   const SizedBox(height: 3),
                   Text(
                     _statusDescription,
-                    style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
                   ),
                 ],
               ),
@@ -394,24 +416,16 @@ class _FloristOrderDetailScreenState
       decoration: BoxDecoration(
         color: Colors.orange.shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: Colors.orange.shade200,
-        ),
+        border: Border.all(color: Colors.orange.shade200),
       ),
       child: const Row(
         children: [
-          Icon(
-            Icons.access_time,
-            color: Colors.orange,
-          ),
+          Icon(Icons.access_time, color: Colors.orange),
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'This order contains a custom bouquet. Allow 1–2 hours for preparation.',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
+              'Planned bouquets require 1–3 business days. Check the delivery date and restock materials before marking ready.',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -425,7 +439,7 @@ class _FloristOrderDetailScreenState
     final unitPrice = (item['unitPrice'] as num?)?.toDouble() ?? 0;
     final cardNote = (item['cardNote'] ?? '').toString();
 
-    final rawStems = item['customStems'];
+    final rawStems = item['customStems'] ?? item['recipeStems'];
     final Map<String, dynamic> stems;
 
     if (rawStems is Map) {
@@ -437,9 +451,7 @@ class _FloristOrderDetailScreenState
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(15),
         child: Column(
@@ -453,19 +465,14 @@ class _FloristOrderDetailScreenState
                       ? Colors.purple.shade50
                       : Colors.teal.shade50,
                   child: Icon(
-                    isCustom
-                        ? Icons.auto_awesome
-                        : Icons.local_florist,
-                    color: isCustom
-                        ? Colors.purple
-                        : Colors.teal,
+                    isCustom ? Icons.auto_awesome : Icons.local_florist,
+                    color: isCustom ? Colors.purple : Colors.teal,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '${item['name'] ?? 'Item'} × $quantity',
@@ -476,13 +483,9 @@ class _FloristOrderDetailScreenState
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        isCustom
-                            ? 'Custom bouquet'
-                            : 'Ready-made bouquet',
+                        isCustom ? 'Custom bouquet' : 'Ready-made bouquet',
                         style: TextStyle(
-                          color: isCustom
-                              ? Colors.purple
-                              : Colors.teal,
+                          color: isCustom ? Colors.purple : Colors.teal,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -492,14 +495,12 @@ class _FloristOrderDetailScreenState
                 ),
                 Text(
                   'RM ${unitPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
 
-            if (isCustom) ...[
+            if (isCustom || stems.isNotEmpty) ...[
               const Divider(height: 24),
               const Text(
                 'FLOWER STEMS',
@@ -528,12 +529,16 @@ class _FloristOrderDetailScreenState
                           color: Colors.teal,
                         ),
                         const SizedBox(width: 8),
-                        Expanded(child: Text(entry.key)),
+                        Expanded(
+                          child: Text(
+                            ((item['customStemNames'] as Map?)?[entry.key] ??
+                                    entry.key)
+                                .toString(),
+                          ),
+                        ),
                         Text(
                           '× ${entry.value}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -559,8 +564,7 @@ class _FloristOrderDetailScreenState
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'CUSTOMER CARD MESSAGE',
@@ -572,9 +576,7 @@ class _FloristOrderDetailScreenState
                     ),
                     const SizedBox(height: 5),
                     Text(
-                      cardNote.isEmpty
-                          ? 'No message provided'
-                          : '"$cardNote"',
+                      cardNote.isEmpty ? 'No message provided' : '"$cardNote"',
                       style: TextStyle(
                         color: Colors.grey.shade800,
                         fontStyle: cardNote.isEmpty
@@ -599,17 +601,12 @@ class _FloristOrderDetailScreenState
         children: [
           SizedBox(
             width: 75,
-            child: Text(
-              label,
-              style: const TextStyle(color: Colors.grey),
-            ),
+            child: Text(label, style: const TextStyle(color: Colors.grey)),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -620,9 +617,7 @@ class _FloristOrderDetailScreenState
   Widget _buildDeliveryCard() {
     return Card(
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -656,11 +651,7 @@ class _FloristOrderDetailScreenState
     );
   }
 
-  Widget _buildDeliveryRow(
-    IconData icon,
-    String label,
-    String value,
-  ) {
+  Widget _buildDeliveryRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -672,17 +663,12 @@ class _FloristOrderDetailScreenState
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
               ),
               const SizedBox(height: 3),
               Text(
                 value.isEmpty ? 'Not provided' : value,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -696,10 +682,7 @@ class _FloristOrderDetailScreenState
       children: [
         const Text(
           'Order Total',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
         ),
         const Spacer(),
         Text(
@@ -717,10 +700,7 @@ class _FloristOrderDetailScreenState
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
-        fontSize: 19,
-        fontWeight: FontWeight.bold,
-      ),
+      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
     );
   }
 
@@ -745,8 +725,7 @@ class _FloristOrderDetailScreenState
         child: SizedBox(
           height: 50,
           child: ElevatedButton.icon(
-            onPressed:
-                _isUpdating ? null : _confirmStatusUpdate,
+            onPressed: _isUpdating ? null : _confirmStatusUpdate,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.teal,
               foregroundColor: Colors.white,
@@ -766,9 +745,7 @@ class _FloristOrderDetailScreenState
                 : Icon(_actionIcon),
             label: Text(
               _isUpdating ? 'Updating...' : _actionLabel,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -778,7 +755,7 @@ class _FloristOrderDetailScreenState
 
   Color _statusColor() {
     switch (_currentStatus) {
-      case 'Pending':
+      case 'Awaiting Preparation':
         return Colors.orange;
       case 'Processing':
         return Colors.blue;
@@ -823,10 +800,7 @@ class _ProgressStep extends StatelessWidget {
             decoration: BoxDecoration(
               color: reached ? Colors.teal : Colors.white,
               shape: BoxShape.circle,
-              border: Border.all(
-                color: color,
-                width: active ? 3 : 2,
-              ),
+              border: Border.all(color: color, width: active ? 3 : 2),
             ),
             child: Icon(
               reached ? Icons.check : icon,
@@ -841,8 +815,7 @@ class _ProgressStep extends StatelessWidget {
             style: TextStyle(
               color: reached ? Colors.teal : Colors.grey,
               fontSize: 11,
-              fontWeight:
-                  active ? FontWeight.bold : FontWeight.normal,
+              fontWeight: active ? FontWeight.bold : FontWeight.normal,
             ),
           ),
         ],
@@ -852,9 +825,7 @@ class _ProgressStep extends StatelessWidget {
 }
 
 class _ProgressLine extends StatelessWidget {
-  const _ProgressLine({
-    required this.reached,
-  });
+  const _ProgressLine({required this.reached});
 
   final bool reached;
 

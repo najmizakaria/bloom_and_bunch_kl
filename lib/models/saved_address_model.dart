@@ -1,13 +1,8 @@
 class SavedAddressModel {
-  final String id;
-  final String label; // 'Home', 'Office', 'Partner's Apartment', custom
-  final String address;
-  final String recipientName;
-  final String recipientPhone;
-  final String note; // e.g. "Leave with receptionist"
+  final String id, label, address, recipientName, recipientPhone, note;
   final bool isDefault;
-
-  SavedAddressModel({
+  final double? latitude, longitude;
+  const SavedAddressModel({
     required this.id,
     required this.label,
     required this.address,
@@ -15,28 +10,29 @@ class SavedAddressModel {
     required this.recipientPhone,
     required this.note,
     this.isDefault = false,
+    this.latitude,
+    this.longitude,
   });
-
-  factory SavedAddressModel.fromMap(Map<String, dynamic> map, String id) {
-    return SavedAddressModel(
-      id: id,
-      label: map['label'] ?? '',
-      address: map['address'] ?? '',
-      recipientName: map['recipientName'] ?? '',
-      recipientPhone: map['recipientPhone'] ?? '',
-      note: map['note'] ?? '',
-      isDefault: map['isDefault'] ?? false,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'label': label,
-      'address': address,
-      'recipientName': recipientName,
-      'recipientPhone': recipientPhone,
-      'note': note,
-      'isDefault': isDefault,
-    };
-  }
+  factory SavedAddressModel.fromMap(Map<String, dynamic> m, String id) =>
+      SavedAddressModel(
+        id: id,
+        label: m['label'] ?? '',
+        address: m['address'] ?? '',
+        recipientName: m['recipientName'] ?? '',
+        recipientPhone: m['recipientPhone'] ?? '',
+        note: m['note'] ?? '',
+        isDefault: m['isDefault'] == true,
+        latitude: (m['latitude'] as num?)?.toDouble(),
+        longitude: (m['longitude'] as num?)?.toDouble(),
+      );
+  Map<String, dynamic> toMap() => {
+    'label': label,
+    'address': address,
+    'recipientName': recipientName,
+    'recipientPhone': recipientPhone,
+    'note': note,
+    'isDefault': isDefault,
+    'latitude': latitude,
+    'longitude': longitude,
+  };
 }

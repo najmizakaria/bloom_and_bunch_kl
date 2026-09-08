@@ -15,11 +15,15 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
   String _searchQuery = '';
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Flower Catalogue'),
-      ),
+      appBar: AppBar(title: const Text('Flower Catalogue')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -39,7 +43,9 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                         },
                       )
                     : null,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               onChanged: (value) {
                 setState(() {
@@ -52,7 +58,9 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
             // Product Grid Stream
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance.collection('flowers').snapshots(),
+                stream: FirebaseFirestore.instance
+                    .collection('flowers')
+                    .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -66,20 +74,24 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                   final filteredDocs = snapshot.data!.docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final name = (data['name'] ?? '').toString().toLowerCase();
-                    return name.contains(_searchQuery);
+                    return data['availableForCustomOrder'] != false &&
+                        name.contains(_searchQuery);
                   }).toList();
 
                   if (filteredDocs.isEmpty) {
-                    return const Center(child: Text('No flowers matched your search.'));
+                    return const Center(
+                      child: Text('No flowers matched your search.'),
+                    );
                   }
 
                   return GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.75,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.75,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                     itemCount: filteredDocs.length,
                     itemBuilder: (context, index) {
                       final flower = FlowerModel.fromMap(
@@ -92,21 +104,33 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => FlowerDetailScreen(flower: flower),
+                              builder: (_) =>
+                                  FlowerDetailScreen(flower: flower),
                             ),
                           );
                         },
                         child: Card(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Expanded(
                                 child: ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(12),
+                                  ),
                                   child: flower.imageUrl.isNotEmpty
-                                      ? Image.network(flower.imageUrl, width: double.infinity, fit: BoxFit.cover)
-                                      : const Icon(Icons.local_florist, size: 50),
+                                      ? Image.network(
+                                          flower.imageUrl,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                        )
+                                      : const Icon(
+                                          Icons.local_florist,
+                                          size: 50,
+                                        ),
                                 ),
                               ),
                               Padding(
@@ -114,13 +138,23 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(flower.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    Text(
+                                      flower.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
-                                    Text('RM ${flower.pricePerStem.toStringAsFixed(2)}',
-                                        style: const TextStyle(color: Color(0xFFD87093), fontWeight: FontWeight.bold)),
+                                    Text(
+                                      'RM ${flower.pricePerStem.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        color: Color(0xFFD87093),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ],
                                 ),
-                              )
+                              ),
                             ],
                           ),
                         ),

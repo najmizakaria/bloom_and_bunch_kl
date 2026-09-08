@@ -4,8 +4,31 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/services/reorder_service.dart';
 
 class FavouritesScreen extends StatelessWidget {
+  Future<void> _add(BuildContext context, Map<String, dynamic> item) async {
+    final cart = context.read<CartProvider>();
+    try {
+      await ReorderService.add(cart, item);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added at the current price.')),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'This item is no longer available. Please check the catalogue.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   const FavouritesScreen({super.key});
 
   @override
@@ -42,7 +65,8 @@ class FavouritesScreen extends StatelessWidget {
                   return _emptyState(
                     icon: Icons.favorite_border_rounded,
                     title: 'No saved bouquets yet',
-                    subtitle: 'Tap the heart on any bouquet in Home to save it here.',
+                    subtitle:
+                        'Tap the heart on any bouquet in Home to save it here.',
                   );
                 }
 
@@ -59,46 +83,60 @@ class FavouritesScreen extends StatelessWidget {
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: imageUrl.isNotEmpty
-                              ? Image.network(imageUrl, width: 50, height: 50, fit: BoxFit.cover)
+                              ? Image.network(
+                                  imageUrl,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                )
                               : Container(
                                   width: 50,
                                   height: 50,
                                   color: AppColors.secondarySurface,
-                                  child: const Icon(Icons.local_florist, color: AppColors.primaryRosewood),
+                                  child: const Icon(
+                                    Icons.local_florist,
+                                    color: AppColors.primaryRosewood,
+                                  ),
                                 ),
                         ),
-                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(
+                          name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         subtitle: Text('RM ${price.toStringAsFixed(2)}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.add_shopping_cart, color: AppColors.primaryRosewood),
-                              onPressed: () {
-                                context.read<CartProvider>().addReadyMadeItem(
-                                      bouquetId: bouquetId,
-                                      name: name,
-                                      imageUrl: imageUrl,
-                                      price: price,
-                                    );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('$name added to cart'), duration: const Duration(seconds: 1)),
-                                );
-                              },
+                              icon: const Icon(
+                                Icons.add_shopping_cart,
+                                color: AppColors.primaryRosewood,
+                              ),
+                              onPressed: () => _add(context, {
+                                'type': 'ready',
+                                'bouquetId': bouquetId,
+                                'fulfillmentType': 'ready_now',
+                              }),
                             ),
                             IconButton(
-                              icon: const Icon(Icons.favorite, color: Colors.redAccent),
-                              onPressed: () => favouritesService.toggleBouquetFavourite(
-                                bouquetId: bouquetId,
-                                name: name,
-                                imageUrl: imageUrl,
-                                price: price,
+                              icon: const Icon(
+                                Icons.favorite,
+                                color: Colors.redAccent,
                               ),
+                              onPressed: () =>
+                                  favouritesService.toggleBouquetFavourite(
+                                    bouquetId: bouquetId,
+                                    name: name,
+                                    imageUrl: imageUrl,
+                                    price: price,
+                                  ),
                             ),
                           ],
                         ),
@@ -120,7 +158,8 @@ class FavouritesScreen extends StatelessWidget {
                   return _emptyState(
                     icon: Icons.auto_awesome_outlined,
                     title: 'No saved recipes yet',
-                    subtitle: 'Build a custom bouquet in Customize and tap Save Recipe.',
+                    subtitle:
+                        'Build a custom bouquet in Customize and tap Save Recipe.',
                   );
                 }
 
@@ -138,7 +177,9 @@ class FavouritesScreen extends StatelessWidget {
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -147,41 +188,65 @@ class FavouritesScreen extends StatelessWidget {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Custom Recipe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                const Text(
+                                  'Custom Recipe',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                                  onPressed: () => favouritesService.deleteRecipe(recipeId),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                  onPressed: () =>
+                                      favouritesService.deleteRecipe(recipeId),
                                 ),
                               ],
                             ),
-                            Text('$wrapper · $ribbon', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                            Text(
+                              '$wrapper · $ribbon',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(height: 4),
-                            Text('${stems.length} stem type(s)', style: const TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                            Text(
+                              '${stems.length} stem type(s)',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   'RM ${totalPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryRosewood, fontSize: 16),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryRosewood,
+                                    fontSize: 16,
+                                  ),
                                 ),
                                 OutlinedButton(
-                                  style: OutlinedButton.styleFrom(foregroundColor: AppColors.primaryRosewood),
-                                  onPressed: () {
-                                    final stemMap = <String, int>{
-                                      for (final s in stems) (s['flowerId'] as String): (s['quantity'] as int)
-                                    };
-                                    context.read<CartProvider>().addCustomItem(
-                                          unitPrice: totalPrice,
-                                          stems: stemMap,
-                                          wrapper: wrapper,
-                                          ribbon: ribbon,
-                                          cardNote: '',
-                                        );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Recipe added to cart 🛒'), duration: Duration(seconds: 1)),
-                                    );
-                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primaryRosewood,
+                                  ),
+                                  onPressed: () => _add(context, {
+                                    'type': 'custom',
+                                    'customStems': {
+                                      for (final s in stems)
+                                        s['flowerId']: s['quantity'],
+                                    },
+                                    'wrapper': wrapper,
+                                    'ribbon': ribbon,
+                                    'cardNote': '',
+                                  }),
                                   child: const Text('Re-order'),
                                 ),
                               ],
@@ -200,7 +265,11 @@ class FavouritesScreen extends StatelessWidget {
     );
   }
 
-  Widget _emptyState({required IconData icon, required String title, required String subtitle}) {
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -209,9 +278,20 @@ class FavouritesScreen extends StatelessWidget {
           children: [
             Icon(icon, size: 64, color: AppColors.textMuted),
             const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textDark,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: AppColors.textMuted)),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted),
+            ),
           ],
         ),
       ),

@@ -1,0 +1,258 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Single-store schema. Firebase Authentication supplies the UID and the
+    // users/{uid} profile supplies a server-controlled application role.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
+
+    function uidNotModified(uid) {
+      return request.resource.data.uid == uid;
+    }
+
+    function uidUnchanged() {
+      return request.resource.data.uid == resource.data.uid;
+    }
+
+    function currentRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    function isStaff() {
+      return isAuthenticated() && currentRole() in ['florist', 'admin'];
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && currentRole() == 'admin';
+    }
+
+    function validString(value, maximum) {
+      return value is string && value.size() <= maximum;
+    }
+
+    function validNumber(value, maximum) {
+      return value is number && value >= 0 && value <= maximum;
+    }
+
+    function validUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role', 'createdAt'])
+        && data.keys().hasOnly([
+          'uid', 'name', 'email', 'phone', 'role', 'createdAt',
+          'defaultAddressId', 'updatedAt'
+        ])
+        && validString(data.uid, 128)
+        && validString(data.name, 120)
+        && validString(data.email, 254)
+        && validString(data.phone, 30)
+        && data.role in ['customer', 'florist', 'rider', 'admin']
+        && data.createdAt is timestamp
+        && (!('defaultAddressId' in data) || validString(data.defaultAddressId, 128));
+    }
+    function validAddress(data) {
+      return data.keys().hasAll([
+          'label', 'address', 'recipientName', 'recipientPhone', 'note', 'isDefault'
+        ])
+        && data.keys().hasOnly([
+          'label', 'address', 'recipientName', 'recipientPhone', 'note',
+          'isDefault', 'latitude', 'longitude'
+        ])
+        && validString(data.label, 60)
+        && validString(data.address, 600) && data.address.size() > 0
+        && validString(data.recipientName, 120) && data.recipientName.size() > 0
+        && validString(data.recipientPhone, 30) && data.recipientPhone.size() > 0
+        && validString(data.note, 300)
+        && data.isDefault is bool
+        && (
+          (!('latitude' in data) && !('longitude' in data))
+          || (data.latitude == null && data.longitude == null)
+          || (
+            data.latitude is number && data.latitude >= -90 && data.latitude <= 90
+            && data.longitude is number && data.longitude >= -180 && data.longitude <= 180
+          )
+        );
+    }
+
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid)
+        && validUser(request.resource.data)
+        && uidNotModified(uid)
+        && request.resource.data.role == 'customer';
+      allow update: if validUser(request.resource.data)
+        && uidUnchanged()
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          isAdmin()
+          || (
+            isOwner(uid)
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['name', 'phone', 'defaultAddressId', 'updatedAt'])
+          )
+        );
+      allow delete: if isOwner(uid);
+
+      match /addresses/{addressId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validAddress(request.resource.data);
+      }
+
+      // Written only by placeOrder for replay-safe checkout IDs.
+      match /checkouts/{checkoutId} {
+        allow read, write: if false;
+      }
+
+      match /favourite_bouquets/{bouquetId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasAll(['name', 'imageUrl', 'price', 'savedAt'])
+          && request.resource.data.keys().hasOnly(['name', 'imageUrl', 'price', 'savedAt'])
+          && validString(request.resource.data.name, 160)
+          && validString(request.resource.data.imageUrl, 2048)
+          && validNumber(request.resource.data.price, 100000)
+          && request.resource.data.savedAt is timestamp;
+      }
+
+      // Price and flower availability are checked by saveRecipe.
+      match /favourite_recipes/{recipeId} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if false;
+      }
+    }
+
+    function validFlower(data) {
+      return data.keys().hasAll([
+          'name', 'category', 'pricePerStem', 'stockQuantity', 'imageUrl'
+        ])
+        && data.keys().hasOnly([
+          'flowerId', 'name', 'category', 'pricePerStem', 'stockQuantity',
+          'imageUrl', 'isAvailable', 'availableForCustomOrder',
+          'reservedQuantity', 'createdAt', 'updatedAt'
+        ])
+        && validString(data.name, 160)
+        && data.name.size() > 0
+        && validString(data.category, 100)
+        && validString(data.imageUrl, 2048)
+        && validNumber(data.pricePerStem, 100000)
+        && data.stockQuantity is int
+        && validNumber(data.stockQuantity, 999999)
+        && (!('reservedQuantity' in data) || (
+          data.reservedQuantity is int
+          && validNumber(data.reservedQuantity, 999999)
+        ))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp)
+        && (!('availableForCustomOrder' in data) || data.availableForCustomOrder is bool)
+        && (!('isAvailable' in data) || data.isAvailable is bool);
+    }
+
+    match /flowers/{flowerId} {
+      allow read: if isAuthenticated();
+      allow create: if isStaff()
+        && validFlower(request.resource.data)
+        && request.resource.data.get('reservedQuantity', 0) == 0;
+      allow update: if isStaff()
+        && validFlower(request.resource.data)
+        && request.resource.data.get('reservedQuantity', 0)
+          == resource.data.get('reservedQuantity', 0);
+      allow delete: if isStaff() && resource.data.get('reservedQuantity', 0) == 0;
+    }
+
+    function validBouquet(data) {
+      return data.keys().hasAll([
+          'name', 'description', 'price', 'imageUrl', 'category'
+        ])
+        && data.keys().hasOnly([
+          'name', 'description', 'price', 'imageUrl', 'category',
+          'isPublished', 'availableForReadyNow', 'readyStock',
+          'availableForPreOrder', 'leadTimeBusinessDays', 'recipeStems',
+          'archived', 'readyToSend', 'stockCount', 'createdAt', 'updatedAt'
+        ])
+        && validString(data.name, 160)
+        && data.name.size() > 0
+        && validString(data.description, 5000)
+        && validString(data.imageUrl, 2048)
+        && validString(data.category, 100)
+        && validNumber(data.price, 100000)
+        && (!('isPublished' in data) || data.isPublished is bool)
+        && (!('availableForReadyNow' in data) || data.availableForReadyNow is bool)
+        && (!('availableForPreOrder' in data) || data.availableForPreOrder is bool)
+        && (!('archived' in data) || data.archived is bool)
+        && (!('readyToSend' in data) || data.readyToSend is bool)
+        && (!('readyStock' in data) || (
+          data.readyStock is int && validNumber(data.readyStock, 999999)
+        ))
+        && (!('stockCount' in data) || (
+          data.stockCount is int && validNumber(data.stockCount, 999999)
+        ))
+        && (!('leadTimeBusinessDays' in data) || (
+          data.leadTimeBusinessDays is int
+          && data.leadTimeBusinessDays >= 1
+          && data.leadTimeBusinessDays <= 3
+        ))
+        && (!('recipeStems' in data) || (
+          data.recipeStems is map && data.recipeStems.size() <= 30
+        ))
+        && (!('createdAt' in data) || data.createdAt is timestamp)
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    match /bouquets/{bouquetId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isStaff() && validBouquet(request.resource.data);
+      allow delete: if isStaff();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (
+        resource.data.customerId == request.auth.uid
+        || isStaff()
+        || (
+          currentRole() == 'rider'
+          && (
+            resource.data.orderStatus == 'Ready for Delivery'
+            || resource.data.riderId == request.auth.uid
+          )
+        )
+      );
+      // Server-calculated prices, stock reservations, rider assignment, and
+      // status transitions are written only by authenticated callables.
+      allow write: if false;
+    }
+
+    function validPendingRiderApplication(data, uid) {
+      return data.keys().hasAll([
+          'uid', 'name', 'phone', 'vehicleType', 'reason', 'status', 'submittedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'name', 'phone', 'vehicleType', 'reason', 'status', 'submittedAt'
+        ])
+        && data.uid == uid
+        && data.status == 'pending'
+        && validString(data.name, 120) && data.name.size() > 0
+        && validString(data.phone, 30) && data.phone.size() > 0
+        && data.vehicleType in ['Motorcycle', 'Car', 'Bicycle']
+        && validString(data.reason, 1000)
+        && data.submittedAt is timestamp;
+    }
+
+    match /rider_applications/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && validPendingRiderApplication(request.resource.data, uid);
+      allow update: if isOwner(uid)
+        && resource.data.status in ['pending', 'rejected']
+        && validPendingRiderApplication(request.resource.data, uid);
+      // Approval and rejection are written only by reviewRiderApplication.
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

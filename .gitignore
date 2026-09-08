@@ -55,3 +55,11 @@ repomix*
 repomix-output.xml
 # Widget Preview related
 .widget_preview/
+
+# Local backend tooling
+functions/node_modules/
+functions/.npm-cache/
+.firebase-local/
+.firebase/
+.firebase-audit/
+*-debug.log

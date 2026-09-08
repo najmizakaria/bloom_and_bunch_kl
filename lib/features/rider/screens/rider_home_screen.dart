@@ -41,7 +41,8 @@ class RiderHomeScreen extends StatelessWidget {
             _buildOrderList(
               query: FirebaseFirestore.instance
                   .collection('orders')
-                  .where('orderStatus', isEqualTo: 'Ready for Delivery'),
+                  .where('orderStatus', isEqualTo: 'Ready for Delivery')
+                  .orderBy('createdAt', descending: true),
               emptyMessage: 'No orders waiting for pickup right now!',
             ),
 
@@ -50,8 +51,10 @@ class RiderHomeScreen extends StatelessWidget {
               query: FirebaseFirestore.instance
                   .collection('orders')
                   .where('riderId', isEqualTo: currentUserId)
-                  .where('orderStatus', isEqualTo: 'Out for Delivery'),
-              emptyMessage: 'You have no active deliveries. Grab one from the available tab!',
+                  .where('orderStatus', isEqualTo: 'Out for Delivery')
+                  .orderBy('createdAt', descending: true),
+              emptyMessage:
+                  'You have no active deliveries. Grab one from the available tab!',
             ),
           ],
         ),
@@ -68,11 +71,20 @@ class RiderHomeScreen extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text('Unable to load deliveries. Please retry.'),
+          );
+        }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Text(emptyMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+              child: Text(
+                emptyMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           );
         }
@@ -94,23 +106,42 @@ class RiderHomeScreen extends StatelessWidget {
                 contentPadding: const EdgeInsets.all(16),
                 leading: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.deepOrange.shade50, shape: BoxShape.circle),
-                  child: const Icon(Icons.location_on, color: Colors.deepOrange),
+                  decoration: BoxDecoration(
+                    color: Colors.deepOrange.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.location_on,
+                    color: Colors.deepOrange,
+                  ),
                 ),
-                title: Text(order.deliveryAddress, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(
+                  order.deliveryAddress,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 4),
                     Text('Recipient: ${order.recipientName}'),
-                    Text('Time: ${order.deliveryTimeSlot}', style: const TextStyle(color: Colors.deepOrange, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Time: ${order.deliveryTimeSlot}',
+                      style: const TextStyle(
+                        color: Colors.deepOrange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => RiderOrderDetailScreen(order: order)),
+                    MaterialPageRoute(
+                      builder: (_) => RiderOrderDetailScreen(order: order),
+                    ),
                   );
                 },
               ),

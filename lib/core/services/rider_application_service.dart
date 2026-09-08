@@ -22,7 +22,7 @@ class RiderApplicationService {
     required String vehicleType,
     required String reason,
   }) async {
-    if (_uid == null) return;
+    if (_uid == null) throw StateError('Please sign in.');
     await _appDoc.set({
       'uid': _uid,
       'name': name,
