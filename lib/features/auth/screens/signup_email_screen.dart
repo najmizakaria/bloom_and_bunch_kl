@@ -18,7 +18,8 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final AuthService _authService = AuthService();
 
   bool _isPasswordVisible = false;
@@ -42,19 +43,27 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
     );
   }
 
+  void _finishAuthentication() {
+    if (!mounted) return;
+
+    // This screen is pushed on top of AuthGate. Authentication rebuilds the
+    // gate underneath it, so remove the pushed auth screens once the profile
+    // has been created and reveal the role-appropriate home screen.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
   Future<void> _handleSignUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isLoading = true);
     try {
-      await _authService.signUp(
+      final credential = await _authService.signUp(
         name: _nameController.text.trim(),
         email: _emailController.text.trim(),
         password: _passwordController.text,
         phone: _phoneController.text.trim(),
       );
-      // Success: AuthGate's StreamBuilder detects the new account
-      // and swaps to CustomerHomeScreen automatically.
+      if (credential?.user != null) _finishAuthentication();
     } on FirebaseAuthException catch (e) {
       switch (e.code) {
         case 'email-already-in-use':
@@ -79,7 +88,8 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
   Future<void> _handleGoogleSignUp() async {
     setState(() => _isGoogleLoading = true);
     try {
-      await _authService.signInWithGoogle();
+      final credential = await _authService.signInWithGoogle();
+      if (credential?.user != null) _finishAuthentication();
     } catch (_) {
       _showError('Google sign-up failed. Please try again.');
     } finally {
@@ -106,7 +116,11 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                       color: Colors.white24,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.local_florist, color: Colors.white, size: 16),
+                    child: const Icon(
+                      Icons.local_florist,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -141,13 +155,22 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                       const Center(
                         child: Text(
                           'Signup',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
                       const Text(
                         'Create your own account',
-                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textDark, letterSpacing: -0.5),
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                          letterSpacing: -0.5,
+                        ),
                       ),
                       const SizedBox(height: 20),
 
@@ -155,7 +178,9 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                       _field(
                         controller: _nameController,
                         hint: 'Alex Smith',
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your name' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Please enter your name'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -165,8 +190,12 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                         hint: 'alexsmith.mobbin@gmail.com',
                         keyboardType: TextInputType.emailAddress,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Please enter your email address';
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Please enter your email address';
+                          }
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(v.trim())) {
                             return 'Please enter a valid email address';
                           }
                           return null;
@@ -179,7 +208,9 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                         controller: _phoneController,
                         hint: '012-3456789',
                         keyboardType: TextInputType.phone,
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter your phone number' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Please enter your phone number'
+                            : null,
                       ),
                       const SizedBox(height: 14),
 
@@ -189,12 +220,23 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                         hint: '••••••••',
                         obscureText: !_isPasswordVisible,
                         suffixIcon: IconButton(
-                          icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: AppColors.textMuted),
-                          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                            color: AppColors.textMuted,
+                          ),
+                          onPressed: () => setState(
+                            () => _isPasswordVisible = !_isPasswordVisible,
+                          ),
                         ),
                         validator: (v) {
-                          if (v == null || v.isEmpty) return 'Please enter a password';
-                          if (v.length < 6) return 'Password must be at least 6 characters';
+                          if (v == null || v.isEmpty) {
+                            return 'Please enter a password';
+                          }
+                          if (v.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
                           return null;
                         },
                       ),
@@ -206,7 +248,9 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                         hint: '••••••••',
                         obscureText: !_isPasswordVisible,
                         validator: (v) {
-                          if (v != _passwordController.text) return 'Passwords do not match';
+                          if (v != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
                           return null;
                         },
                       ),
@@ -222,12 +266,22 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
 
                       Row(
                         children: [
-                          const Expanded(child: Divider(color: AppColors.inputBorder)),
+                          const Expanded(
+                            child: Divider(color: AppColors.inputBorder),
+                          ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('or', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                            child: Text(
+                              'or',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
-                          const Expanded(child: Divider(color: AppColors.inputBorder)),
+                          const Expanded(
+                            child: Divider(color: AppColors.inputBorder),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -236,7 +290,11 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                         label: 'Continue with Google',
                         isPrimary: false,
                         isLoading: _isGoogleLoading,
-                        icon: const Icon(Icons.g_mobiledata, size: 24, color: AppColors.textDark),
+                        icon: const Icon(
+                          Icons.g_mobiledata,
+                          size: 24,
+                          color: AppColors.textDark,
+                        ),
                         onPressed: _handleGoogleSignUp,
                       ),
                     ],
@@ -251,9 +309,13 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
   }
 
   Widget _label(String text) => Text(
-        text,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textDark),
-      );
+    text,
+    style: const TextStyle(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: AppColors.textDark,
+    ),
+  );
 
   Widget _field({
     required TextEditingController controller,
@@ -275,11 +337,20 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
           hintStyle: const TextStyle(color: AppColors.textMuted),
           filled: true,
           fillColor: AppColors.inputFill,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 16,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: AppColors.primaryRosewood, width: 1.5),
+            borderSide: const BorderSide(
+              color: AppColors.primaryRosewood,
+              width: 1.5,
+            ),
           ),
           suffixIcon: suffixIcon,
         ),

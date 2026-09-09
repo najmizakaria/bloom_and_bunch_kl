@@ -6,7 +6,10 @@ const {createHash}=require('node:crypto');
 const d=require('./domain');
 initializeApp();
 const db=getFirestore();
-const options={region:'asia-southeast1',maxInstances:10};
+// Callable endpoints must be reachable by Firebase clients so the callable
+// protocol can validate their ID token. Application authorization still runs
+// in callable() and in each role-specific handler below.
+const options={region:'asia-southeast1',maxInstances:10,invoker:'public'};
 function hasRole(profile,role){return profile?.role===role||(Array.isArray(profile?.roles)&&profile.roles.includes(role));}
 function deliveryEligible(order){return order?.riderId==null&&typeof order?.deliveryAddress==='string'&&order.deliveryAddress.trim().length>0&&
  Number.isFinite(order.latitude)&&Math.abs(order.latitude)<=90&&Number.isFinite(order.longitude)&&Math.abs(order.longitude)<=180;}

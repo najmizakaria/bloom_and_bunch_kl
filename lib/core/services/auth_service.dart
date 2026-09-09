@@ -42,7 +42,22 @@ class AuthService {
         role: role,
         createdAt: DateTime.now(),
       );
-      await _firestoreService.saveUserData(newUser);
+      try {
+        await _firestoreService.saveUserData(newUser);
+      } catch (_) {
+        // Do not leave a signed-in Auth account without the Firestore profile
+        // that AuthGate needs in order to route the user.
+        try {
+          await result.user!.delete();
+        } catch (_) {
+          try {
+            await _auth.signOut();
+          } catch (_) {
+            // Preserve the original profile-write failure for the UI.
+          }
+        }
+        rethrow;
+      }
     }
     return result;
   }

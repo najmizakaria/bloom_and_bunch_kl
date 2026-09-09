@@ -32,6 +32,12 @@ class AdminService {
       if (error.code == 'permission-denied') {
         return 'Administrator access is required.';
       }
+      if (error.code == 'failed-precondition') {
+        return error.message ?? 'This application has already been reviewed.';
+      }
+      if (error.code == 'internal' || error.code == 'unavailable') {
+        return 'The server could not complete this action. Please retry. If it continues, ask the project owner to check the function logs and database permissions.';
+      }
       return error.message ?? 'Unable to review the application.';
     }
     return 'Unable to review the application. Check the connection and retry.';

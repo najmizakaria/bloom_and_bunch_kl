@@ -64,6 +64,10 @@ test('rider applications cannot be approved by clients',{skip:!enabled},async()=
   uid:'customer',name:'Customer',phone:'0123456789',vehicleType:'Motorcycle',
   reason:'Available',status:'pending',submittedAt:Timestamp.now()
  }));
+ await assertFails(setDoc(application,{
+  uid:'customer',name:'Customer',phone:'0123456789',vehicleType:'Bicycle',
+  reason:'Available',status:'pending',submittedAt:Timestamp.now()
+ }));
  await assertFails(updateDoc(application,{status:'approved'}));
  await assertFails(updateDoc(doc(admin,'rider_applications','customer'),{status:'approved'}));
  await assertSucceeds(getDoc(doc(admin,'rider_applications','customer')));

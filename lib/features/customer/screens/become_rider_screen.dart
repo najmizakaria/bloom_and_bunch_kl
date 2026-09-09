@@ -210,7 +210,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                     labelText: 'Vehicle Type',
                     border: OutlineInputBorder(),
                   ),
-                  items: ['Motorcycle', 'Car', 'Bicycle']
+                  items: ['Motorcycle', 'Car']
                       .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                       .toList(),
                   onChanged: (val) =>
