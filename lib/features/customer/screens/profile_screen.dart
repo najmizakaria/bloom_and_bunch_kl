@@ -28,6 +28,20 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _notificationsEnabled = true;
 
+  Future<void> _switchToRider(BuildContext context) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirestoreService().switchActiveRole(uid, 'rider');
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to switch dashboards.')),
+        );
+      }
+    }
+  }
+
   Future<void> _editPhoneNumber(
     BuildContext context,
     String currentPhone,
@@ -155,6 +169,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final userData = userDocSnapshot.data?.data();
           final phone = userData?['phone'] ?? '';
           final name = userData?['name'] ?? user?.displayName ?? 'Guest';
+          final roles = (userData?['roles'] as List<dynamic>? ?? const [])
+              .whereType<String>();
+          final hasRiderRole =
+              userData?['role'] == 'rider' || roles.contains('rider');
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -338,11 +356,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _sectionLabel('Work With Us'),
               _menuTile(
                 icon: Icons.pedal_bike_outlined,
-                title: 'Become a Rider',
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const BecomeRiderScreen()),
-                ),
+                title: hasRiderRole
+                    ? 'Switch to Rider Dashboard'
+                    : 'Become a Rider',
+                onTap: hasRiderRole
+                    ? () => _switchToRider(context)
+                    : () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const BecomeRiderScreen(),
+                        ),
+                      ),
               ),
 
               _sectionLabel('Store Support'),

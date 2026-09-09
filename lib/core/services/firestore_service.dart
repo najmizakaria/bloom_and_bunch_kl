@@ -9,9 +9,18 @@ class FirestoreService {
     await _db.collection('users').doc(user.uid).set(user.toMap());
   }
 
-    // Update specific fields on a user's profile (e.g. phone, notification prefs)
+  // Update specific fields on a user's profile (e.g. phone, notification prefs)
   Future<void> updateUserFields(String uid, Map<String, dynamic> fields) async {
     await _db.collection('users').doc(uid).update(fields);
+  }
+
+  /// Changes only the dashboard currently in use. Role entitlements are
+  /// server-controlled and rules verify that [activeRole] is owned.
+  Future<void> switchActiveRole(String uid, String activeRole) async {
+    await _db.collection('users').doc(uid).update({
+      'activeRole': activeRole,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   // Fetch user profile & role from Firestore (one-time read)

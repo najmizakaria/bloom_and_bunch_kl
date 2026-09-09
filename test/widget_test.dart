@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bloom_and_bunch_kl/core/providers/cart_provider.dart';
 import 'package:bloom_and_bunch_kl/models/flower_model.dart';
 import 'package:bloom_and_bunch_kl/models/order_model.dart';
+import 'package:bloom_and_bunch_kl/models/user_model.dart';
 
 void main() {
   test('same bouquet keeps urgent and preorder lines separate', () {
@@ -59,5 +60,26 @@ void main() {
       OrderModel.fromMap({'orderStatus': 'Completed'}, 'a').orderStatus,
       'Delivered',
     );
+  });
+  test('legacy and multi-role user profiles choose a safe active role', () {
+    final legacy = UserModel.fromMap({'role': 'rider'});
+    expect(legacy.roles, ['rider']);
+    expect(legacy.activeRole, 'rider');
+
+    final approved = UserModel.fromMap({
+      'role': 'customer',
+      'roles': ['customer', 'rider'],
+      'activeRole': 'rider',
+    });
+    expect(approved.hasRole('customer'), true);
+    expect(approved.hasRole('rider'), true);
+    expect(approved.activeRole, 'rider');
+
+    final invalid = UserModel.fromMap({
+      'role': 'customer',
+      'roles': ['customer', 'rider'],
+      'activeRole': 'admin',
+    });
+    expect(invalid.activeRole, 'customer');
   });
 }

@@ -54,7 +54,7 @@ class AuthGate extends StatelessWidget {
             final UserModel user = userSnapshot.data!;
 
             // 4. Role-based Navigation
-            switch (user.role) {
+            switch (user.activeRole) {
               case 'florist':
                 return const FloristMainNavigationScreen();
               case 'rider':

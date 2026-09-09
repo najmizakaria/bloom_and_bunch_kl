@@ -4,7 +4,7 @@ const {initializeTestEnvironment,assertFails,assertSucceeds}=require('@firebase/
 const {ref,uploadBytes}=require('firebase/storage');
 const enabled=!!process.env.FIREBASE_STORAGE_EMULATOR_HOST;
 let env;
-before(async()=>{if(!enabled)return;env=await initializeTestEnvironment({projectId:'demo-bloom',storage:{rules:fs.readFileSync('../storage.rules','utf8')}});
+before(async()=>{if(!enabled)return;env=await initializeTestEnvironment({projectId:'bloom-and-bunch-kl',storage:{rules:fs.readFileSync('../storage.rules','utf8')}});
  await env.withSecurityRulesDisabled(async c=>{
   const {doc,setDoc}=require('firebase/firestore');
   await setDoc(doc(c.firestore(),'users','image_staff'),{role:'florist'});

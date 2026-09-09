@@ -13,6 +13,30 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final Set<String> _reviewing = {};
+  bool _syncingJobs = false;
+
+  Future<void> _syncDeliveryJobs() async {
+    setState(() => _syncingJobs = true);
+    try {
+      final result = await AdminService().syncDeliveryJobs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${result['eligible']} delivery jobs available; ${result['excluded']} excluded because their location is incomplete.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AdminService.message(error))));
+      }
+    } finally {
+      if (mounted) setState(() => _syncingJobs = false);
+    }
+  }
 
   Future<void> _review(String applicantId, bool approve) async {
     setState(() => _reviewing.add(applicantId));
@@ -84,6 +108,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         backgroundColor: Colors.blueGrey,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Sync available delivery jobs',
+            icon: _syncingJobs
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.sync),
+            onPressed: _syncingJobs ? null : _syncDeliveryJobs,
+          ),
           IconButton(
             tooltip: 'Sign out',
             icon: const Icon(Icons.logout),
@@ -182,11 +220,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                               onPressed: busy
                                   ? null
-                                  : () => _confirmReview(
-                                      document.id,
-                                      name,
-                                      true,
-                                    ),
+                                  : () =>
+                                        _confirmReview(document.id, name, true),
                               child: busy
                                   ? const SizedBox(
                                       width: 20,
@@ -258,10 +293,7 @@ class _MessageState extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
             Text(message, textAlign: TextAlign.center),

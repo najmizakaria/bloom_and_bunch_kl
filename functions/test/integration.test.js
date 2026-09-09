@@ -10,7 +10,8 @@ before(async()=>{
  await db.recursiveDelete(db.collection('users').doc('buyer_test'));
  await db.collection('users').doc('buyer_test').set({role:'customer'});
  await db.collection('users').doc('buyer_test').collection('addresses').doc('test').set({
-  label:'Home',recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street',note:'',isDefault:true
+  label:'Home',recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street, Kuala Lumpur',note:'Guard house',isDefault:true,
+  latitude:3.139,longitude:101.6869
  });
  await db.collection('users').doc('staff_test').set({role:'florist'});
  await db.collection('users').doc('admin_test').set({role:'admin'});
@@ -33,6 +34,9 @@ test('backend: custom reservation, retry, prepare, restock and consume exactly o
  await db.collection('flowers').doc('rose_test').update({stockQuantity:120});
  await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}});
  await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}});
+ const available=(await db.collection('delivery_jobs').doc(orderId).get()).data();
+ assert.equal(available.deliveryArea,'Kuala Lumpur');
+ assert.equal('recipientPhone' in available,false);assert.equal('deliveryAddress' in available,false);
  const flower=(await db.collection('flowers').doc('rose_test').get()).data();
  assert.equal(flower.stockQuantity,20);assert.equal(flower.reservedQuantity,0);
  await assert.rejects(()=>api.transitionOrder.run({auth:{uid:'buyer_test'},data:{orderId,action:'accept'}}),/rider/);
@@ -43,6 +47,7 @@ test('backend: custom reservation, retry, prepare, restock and consume exactly o
  await assert.rejects(()=>api.transitionOrder.run({auth:{uid:other},data:{orderId,action:'deliver'}}),/assigned/);
  await api.transitionOrder.run({auth:{uid:o.riderId},data:{orderId,action:'deliver'}});
  assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Delivered');
+ assert.equal((await db.collection('delivery_jobs').doc(orderId).get()).exists,false);
 });
 test('backend: simultaneous last-bouquet checkout never oversells',{skip:!enabled},async()=>{
  await db.collection('bouquets').doc('ready_test').set({name:'Ready',price:50,readyStock:1,availableForReadyNow:true,isPublished:true});
@@ -70,6 +75,9 @@ test('backend: only an administrator can approve a rider',{skip:!enabled},async(
  const data={applicantId:'applicant_test',decision:'approved'};
  await assert.rejects(()=>api.reviewRiderApplication.run({auth:{uid:'staff_test'},data}),/Administrator/);
  await api.reviewRiderApplication.run({auth:{uid:'admin_test'},data});
- assert.equal((await db.collection('users').doc('applicant_test').get()).data().role,'rider');
+ const applicant=(await db.collection('users').doc('applicant_test').get()).data();
+ assert.equal(applicant.role,'customer');
+ assert.deepEqual(applicant.roles,['customer','rider']);
+ assert.equal(applicant.activeRole,'customer');
  assert.equal((await db.collection('rider_applications').doc('applicant_test').get()).data().status,'approved');
 });

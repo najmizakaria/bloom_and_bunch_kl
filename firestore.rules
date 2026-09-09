@@ -19,16 +19,18 @@ service cloud.firestore {
       return request.resource.data.uid == resource.data.uid;
     }
 
-    function currentRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function hasRole(role) {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return profile.role == role
+        || ('roles' in profile && profile.roles is list && role in profile.roles);
     }
 
     function isStaff() {
-      return isAuthenticated() && currentRole() in ['florist', 'admin'];
+      return isAuthenticated() && (hasRole('florist') || hasRole('admin'));
     }
 
     function isAdmin() {
-      return isAuthenticated() && currentRole() == 'admin';
+      return isAuthenticated() && hasRole('admin');
     }
 
     function validString(value, maximum) {
@@ -43,15 +45,27 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role', 'createdAt'])
         && data.keys().hasOnly([
           'uid', 'name', 'email', 'phone', 'role', 'createdAt',
-          'defaultAddressId', 'updatedAt'
+          'roles', 'activeRole', 'defaultAddressId', 'updatedAt'
         ])
         && validString(data.uid, 128)
         && validString(data.name, 120)
         && validString(data.email, 254)
         && validString(data.phone, 30)
         && data.role in ['customer', 'florist', 'rider', 'admin']
+        && (
+          (!('roles' in data) && !('activeRole' in data))
+          || (
+            data.roles is list
+            && data.roles.size() >= 1
+            && data.roles.size() <= 4
+            && data.roles.hasOnly(['customer', 'florist', 'rider', 'admin'])
+            && data.role in data.roles
+            && data.activeRole in data.roles
+          )
+        )
         && data.createdAt is timestamp
-        && (!('defaultAddressId' in data) || validString(data.defaultAddressId, 128));
+        && (!('defaultAddressId' in data) || validString(data.defaultAddressId, 128))
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
     function validAddress(data) {
       return data.keys().hasAll([
@@ -82,7 +96,9 @@ service cloud.firestore {
       allow create: if isOwner(uid)
         && validUser(request.resource.data)
         && uidNotModified(uid)
-        && request.resource.data.role == 'customer';
+        && request.resource.data.role == 'customer'
+        && request.resource.data.get('roles', ['customer']).hasOnly(['customer'])
+        && request.resource.data.get('activeRole', 'customer') == 'customer';
       allow update: if validUser(request.resource.data)
         && uidUnchanged()
         && request.resource.data.createdAt == resource.data.createdAt
@@ -91,7 +107,7 @@ service cloud.firestore {
           || (
             isOwner(uid)
             && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['name', 'phone', 'defaultAddressId', 'updatedAt'])
+              .hasOnly(['name', 'phone', 'activeRole', 'defaultAddressId', 'updatedAt'])
           )
         );
       allow delete: if isOwner(uid);
@@ -212,15 +228,19 @@ service cloud.firestore {
         resource.data.customerId == request.auth.uid
         || isStaff()
         || (
-          currentRole() == 'rider'
-          && (
-            resource.data.orderStatus == 'Ready for Delivery'
-            || resource.data.riderId == request.auth.uid
-          )
+          hasRole('rider')
+          && resource.data.riderId == request.auth.uid
         )
       );
       // Server-calculated prices, stock reservations, rider assignment, and
       // status transitions are written only by authenticated callables.
+      allow write: if false;
+    }
+
+    // Sanitized dispatch feed. Exact address, coordinates, contact details,
+    // customer identity, items and totals remain in the assigned order only.
+    match /delivery_jobs/{orderId} {
+      allow read: if isAuthenticated() && hasRole('rider');
       allow write: if false;
     }
 

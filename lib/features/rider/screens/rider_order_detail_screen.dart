@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/services/order_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../models/order_model.dart';
 
 class RiderOrderDetailScreen extends StatefulWidget {
@@ -78,23 +79,54 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     }
   }
 
-  Future<void> _acceptDelivery() async {
-    setState(() => _isLoading = true);
-    try {
-      await OrderService().transition(widget.order.orderId, 'accept');
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(OrderService.message(e))));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+  Future<void> _callRecipient() async {
+    final uri = Uri(scheme: 'tel', path: widget.order.recipientPhone);
+    if (!await launchUrl(uri) && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the phone dialer.')),
+      );
+    }
+  }
+
+  Future<void> _openNavigation() async {
+    final destination =
+        widget.order.latitude != null && widget.order.longitude != null
+        ? '${widget.order.latitude},${widget.order.longitude}'
+        : widget.order.deliveryAddress;
+    final uri = Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'destination': destination,
+    });
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
+        mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open navigation.')),
+      );
     }
   }
 
   Future<void> _markAsDelivered() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Complete delivery?'),
+        content: const Text(
+          'Confirm the bouquet has been handed to the recipient or left according to their instructions.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Mark Delivered'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _isLoading = true);
     try {
       await OrderService().transition(widget.order.orderId, 'deliver');
@@ -112,7 +144,6 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isAvailable = widget.order.orderStatus == 'Ready for Delivery';
     final isOutForDelivery = widget.order.orderStatus == 'Out for Delivery';
 
     return Scaffold(
@@ -166,9 +197,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Card(
-                    color: isAvailable
-                        ? Colors.orange.shade50
-                        : Colors.blue.shade50,
+                    color: Colors.blue.shade50,
                     child: ListTile(
                       title: const Text(
                         'Current Status',
@@ -177,7 +206,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                       subtitle: Text(
                         widget.order.orderStatus,
                         style: TextStyle(
-                          color: isAvailable ? Colors.orange : Colors.blue,
+                          color: Colors.blue,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
@@ -209,13 +238,51 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                     leading: const Icon(Icons.phone, color: Colors.deepOrange),
                     title: Text(widget.order.recipientPhone),
                   ),
+                  if (widget.order.deliveryNote.trim().isNotEmpty)
+                    Card(
+                      color: Colors.amber.shade50,
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.sticky_note_2_outlined,
+                          color: Colors.deepOrange,
+                        ),
+                        title: const Text(
+                          'Delivery instructions',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(widget.order.deliveryNote),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _callRecipient,
+                          icon: const Icon(Icons.call_outlined),
+                          label: const Text('Call'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: _openNavigation,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.deepOrange,
+                          ),
+                          icon: const Icon(Icons.navigation_outlined),
+                          label: const Text('Navigate'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: isAvailable || isOutForDelivery
+      bottomNavigationBar: isOutForDelivery
           ? Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -229,19 +296,15 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                 ],
               ),
               child: ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : (isAvailable ? _acceptDelivery : _markAsDelivered),
+                onPressed: _isLoading ? null : _markAsDelivered,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isAvailable
-                      ? Colors.deepOrange
-                      : Colors.green,
+                  backgroundColor: Colors.green,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                        isAvailable ? 'Accept Delivery' : 'Mark as Delivered',
+                        'Mark as Delivered',
                         style: const TextStyle(
                           fontSize: 18,
                           color: Colors.white,

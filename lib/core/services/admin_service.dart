@@ -15,6 +15,15 @@ class AdminService {
     });
   }
 
+  Future<Map<String, int>> syncDeliveryJobs() async {
+    final result = await _functions.httpsCallable('syncDeliveryJobs').call();
+    final data = Map<String, dynamic>.from(result.data as Map);
+    return {
+      'eligible': (data['eligible'] as num?)?.toInt() ?? 0,
+      'excluded': (data['excluded'] as num?)?.toInt() ?? 0,
+    };
+  }
+
   static String message(Object error) {
     if (error is FirebaseFunctionsException) {
       if (error.code == 'not-found') {

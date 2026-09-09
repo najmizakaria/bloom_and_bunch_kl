@@ -2,8 +2,12 @@ rules_version = '2';
 service firebase.storage {
  match /b/{bucket}/o {
   function signedIn(){return request.auth != null;}
-  function staff(){return signedIn() &&
-    firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ['florist','admin'];}
+  function hasRole(role){
+   let profile=firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
+   return profile != null && profile.data != null &&
+    (profile.data.role==role || ('roles' in profile.data && profile.data.roles is list && role in profile.data.roles));
+  }
+  function staff(){return signedIn() && (hasRole('florist') || hasRole('admin'));}
   match /{folder}/{file} {
    allow read: if signedIn() && folder in ['flowers','bouquets'];
    allow write: if folder in ['flowers','bouquets'] && staff() &&

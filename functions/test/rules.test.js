@@ -9,8 +9,11 @@ before(async()=>{if(!enabled)return;
  await env.withSecurityRulesDisabled(async c=>{
   const db=c.firestore();
   for(const [uid,role]of [['customer','customer'],['other','customer'],['florist','florist'],['rider','rider'],['admin','admin']])
-   await setDoc(doc(db,'users',uid),{uid,name:uid,email:uid+'@test.com',phone:'123',role,createdAt:Timestamp.now()});
+   await setDoc(doc(db,'users',uid),{uid,name:uid,email:uid+'@test.com',phone:'123',role,roles:[role],activeRole:role,createdAt:Timestamp.now()});
+  await setDoc(doc(db,'users','multi'),{uid:'multi',name:'multi',email:'multi@test.com',phone:'123',role:'customer',roles:['customer','rider'],activeRole:'customer',createdAt:Timestamp.now()});
   await setDoc(doc(db,'orders','order'),{customerId:'customer',orderStatus:'Ready for Delivery',riderId:null});
+  await setDoc(doc(db,'orders','assigned'),{customerId:'customer',orderStatus:'Out for Delivery',riderId:'rider'});
+  await setDoc(doc(db,'delivery_jobs','order'),{orderId:'order',orderStatus:'Ready for Delivery',riderId:null,deliveryArea:'Kuala Lumpur',deliveryTimeSlot:'ASAP',hasValidAddress:true,hasValidCoordinates:true,createdAt:Timestamp.now()});
   await setDoc(doc(db,'flowers','rose'),{name:'Rose',category:'Rose',imageUrl:'',pricePerStem:3,stockQuantity:0,reservedQuantity:100});
  });
 });
@@ -20,11 +23,25 @@ test('rules: ownership, role escalation, inventory and order writes',{skip:!enab
  await assertSucceeds(getDoc(doc(c,'orders','order')));
  await assertFails(getDoc(doc(o,'orders','order')));
  await assertFails(updateDoc(doc(c,'users','customer'),{role:'admin'}));
+ await assertFails(updateDoc(doc(c,'users','customer'),{roles:['customer','rider'],activeRole:'rider'}));
  await assertFails(setDoc(doc(c,'orders','fake'),{customerId:'customer'}));
  await assertFails(updateDoc(doc(c,'flowers','rose'),{stockQuantity:999}));
  await assertFails(updateDoc(doc(c,'orders','order'),{orderStatus:'Delivered'}));
  await assertFails(getDocs(collection(env.unauthenticatedContext().firestore(),'flowers')));
  await assertSucceeds(getDocs(query(collection(c,'orders'),where('customerId','==','customer'))));
+});
+test('rules: active role switches only within server-approved entitlements',{skip:!enabled},async()=>{
+ const multi=env.authenticatedContext('multi').firestore();
+ await assertSucceeds(updateDoc(doc(multi,'users','multi'),{activeRole:'rider',updatedAt:Timestamp.now()}));
+ await assertFails(updateDoc(doc(multi,'users','multi'),{activeRole:'admin',updatedAt:Timestamp.now()}));
+});
+test('rules: riders browse sanitized jobs and read only their assigned full order',{skip:!enabled},async()=>{
+ const rider=env.authenticatedContext('rider').firestore();
+ const customer=env.authenticatedContext('other').firestore();
+ await assertSucceeds(getDocs(collection(rider,'delivery_jobs')));
+ await assertFails(getDocs(collection(customer,'delivery_jobs')));
+ await assertFails(getDoc(doc(rider,'orders','order')));
+ await assertSucceeds(getDoc(doc(rider,'orders','assigned')));
 });
 test('rules: florist cannot forge reservations; sourceability independent from stock',{skip:!enabled},async()=>{
  const f=env.authenticatedContext('florist').firestore();
