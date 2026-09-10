@@ -23,6 +23,9 @@
     }
   },
   "hosting": {
+    "predeploy": [
+      "node tool/validate_web_build.cjs"
+    ],
     "public": "build/web",
     "ignore": [
       "firebase.json",

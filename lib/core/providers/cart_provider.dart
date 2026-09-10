@@ -8,7 +8,7 @@ class CartProvider extends ChangeNotifier {
   final List<CartItemModel> _items = [];
   String _checkoutId = _newId();
   static String _newId() =>
-      '${DateTime.now().microsecondsSinceEpoch}_${Random.secure().nextInt(1 << 32)}';
+      '${DateTime.now().microsecondsSinceEpoch}_${Random.secure().nextInt(0x7fffffff)}';
   String get checkoutId => _checkoutId;
   void resetCheckout() {
     _checkoutId = _newId();

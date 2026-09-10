@@ -31,15 +31,25 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static FirebaseOptions get web => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_API_KEY_WEB']!,
-        appId: '1:467512389115:web:8610f60d14f65d6e272f5e',
-        messagingSenderId: '467512389115',
-        projectId: 'bloom-and-bunch-kl',
-        authDomain: 'bloom-and-bunch-kl.firebaseapp.com',
-        storageBucket: 'bloom-and-bunch-kl.firebasestorage.app',
-        measurementId: 'G-BWYMRP6V5C',
+  static FirebaseOptions get web {
+    const apiKey = String.fromEnvironment('FIREBASE_API_KEY_WEB');
+    if (apiKey.isEmpty) {
+      throw StateError(
+        'FIREBASE_API_KEY_WEB is missing. Build the web app with '
+        'bash build_web.sh.',
       );
+    }
+
+    return const FirebaseOptions(
+      apiKey: apiKey,
+      appId: '1:467512389115:web:8610f60d14f65d6e272f5e',
+      messagingSenderId: '467512389115',
+      projectId: 'bloom-and-bunch-kl',
+      authDomain: 'bloom-and-bunch-kl.firebaseapp.com',
+      storageBucket: 'bloom-and-bunch-kl.firebasestorage.app',
+      measurementId: 'G-BWYMRP6V5C',
+    );
+  }
 
   static FirebaseOptions get android => FirebaseOptions(
         apiKey: dotenv.env['FIREBASE_API_KEY_ANDROID']!,
