@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,11 +13,7 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cart'),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
+      appBar: AppBar(title: const Text('Your cart')),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
           if (cart.isEmpty) {
@@ -34,10 +31,7 @@ class CartScreen extends StatelessWidget {
                     SizedBox(height: 12),
                     Text(
                       'Your cart is empty',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.productTitle(),
                     ),
                   ],
                 ),
@@ -77,15 +71,14 @@ class CartScreen extends StatelessWidget {
                                             (context, error, stackTrace) =>
                                                 const Icon(
                                                   Icons.local_florist,
-                                                  color:
-                                                      AppColors.primaryRosewood,
+                                                  color: AppColors.primary,
                                                 ),
                                       )
                                     : const ColoredBox(
                                         color: AppColors.secondarySurface,
                                         child: Icon(
                                           Icons.local_florist,
-                                          color: AppColors.primaryRosewood,
+                                          color: AppColors.primary,
                                         ),
                                       ),
                               ),
@@ -97,48 +90,40 @@ class CartScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     item.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
+                                    style: const AppTypography.productTitle(),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     modeLabel,
-                                    style: TextStyle(
+                                    style: AppTypography.badge(
                                       color:
                                           item.fulfillmentType ==
                                               FulfillmentTypes.readyNow
-                                          ? Colors.teal
-                                          : Colors.deepPurple,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                          ? AppColors.primary
+                                          : AppColors.primaryDark,
                                     ),
                                   ),
                                   if (item.leadTimeBusinessDays > 0)
                                     Text(
                                       '${item.leadTimeBusinessDays} business day preparation',
-                                      style: const TextStyle(
+                                      style: const AppTypography.caption(
                                         color: AppColors.textMuted,
-                                        fontSize: 11,
                                       ),
                                     ),
                                   if (item.type == 'custom') ...[
                                     const SizedBox(height: 3),
                                     Text(
                                       '${item.wrapper} • ${item.ribbon}',
-                                      style: const TextStyle(
+                                      style: const AppTypography.caption(
                                         color: AppColors.textMuted,
-                                        fontSize: 11,
                                       ),
                                     ),
                                   ],
                                   const SizedBox(height: 7),
                                   Text(
                                     'RM ${item.unitPrice.toStringAsFixed(2)}',
-                                    style: const TextStyle(
-                                      color: AppColors.primaryRosewood,
-                                      fontWeight: FontWeight.bold,
+                                    style: const AppTypography.price(
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ],
@@ -161,9 +146,7 @@ class CartScreen extends StatelessWidget {
                                     ),
                                     Text(
                                       '${item.quantity}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const AppTypography.label(),
                                     ),
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
@@ -183,9 +166,8 @@ class CartScreen extends StatelessWidget {
                                       .removeItem(item.id),
                                   child: const Text(
                                     'Remove',
-                                    style: TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 12,
+                                    style: AppTypography.caption(
+                                      color: AppColors.primaryDark,
                                     ),
                                   ),
                                 ),
@@ -200,16 +182,7 @@ class CartScreen extends StatelessWidget {
               ),
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 10,
-                      offset: const Offset(0, -4),
-                    ),
-                  ],
-                ),
+                decoration: BoxDecoration(color: Colors.white),
                 child: SafeArea(
                   top: false,
                   child: Column(
@@ -218,18 +191,15 @@ class CartScreen extends StatelessWidget {
                         children: [
                           const Text(
                             'Total',
-                            style: TextStyle(
-                              fontSize: 16,
+                            style: AppTypography.body(
                               color: AppColors.textMuted,
                             ),
                           ),
                           const Spacer(),
                           Text(
                             'RM ${cart.totalPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryRosewood,
+                            style: const AppTypography.total(
+                              color: AppColors.primary,
                             ),
                           ),
                         ],
@@ -240,8 +210,8 @@ class CartScreen extends StatelessWidget {
                         height: 50,
                         child: ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryRosewood,
-                            foregroundColor: Colors.white,
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.onPrimary,
                           ),
                           onPressed: () => Navigator.push(
                             context,
@@ -251,7 +221,7 @@ class CartScreen extends StatelessWidget {
                           ),
                           child: const Text(
                             'Proceed to Checkout',
-                            style: TextStyle(fontSize: 16),
+                            style: AppTypography.button(),
                           ),
                         ),
                       ),

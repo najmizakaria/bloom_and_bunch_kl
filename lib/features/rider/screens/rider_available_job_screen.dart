@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/order_service.dart';
@@ -43,8 +44,8 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Available Delivery'),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -52,7 +53,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
           const Icon(
             Icons.local_shipping_outlined,
             size: 72,
-            color: Colors.deepOrange,
+            color: AppColors.primary,
           ),
           const SizedBox(height: 20),
           Card(
@@ -77,13 +78,13 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
           ),
           const SizedBox(height: 12),
           const Card(
-            color: Color(0xFFFFF3E0),
+            color: AppColors.secondarySurface,
             child: Padding(
               padding: EdgeInsets.all(16),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.privacy_tip_outlined, color: Colors.deepOrange),
+                  Icon(Icons.privacy_tip_outlined, color: AppColors.primary),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -101,7 +102,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
         child: FilledButton.icon(
           onPressed: _accepting ? null : _accept,
           style: FilledButton.styleFrom(
-            backgroundColor: Colors.deepOrange,
+            backgroundColor: AppColors.primary,
             padding: const EdgeInsets.symmetric(vertical: 16),
           ),
           icon: _accepting

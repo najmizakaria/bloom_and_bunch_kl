@@ -81,3 +81,15 @@ test('backend: only an administrator can approve a rider',{skip:!enabled},async(
  assert.equal(applicant.activeRole,'customer');
  assert.equal((await db.collection('rider_applications').doc('applicant_test').get()).data().status,'approved');
 });
+
+test('backend: rider review retries are safe and conflicting reviews fail',{skip:!enabled},async()=>{
+ const uid='review_retry_test';
+ await db.collection('users').doc(uid).set({role:'customer',roles:['customer'],activeRole:'customer'});
+ await db.collection('rider_applications').doc(uid).set({status:'pending'});
+ const request={auth:{uid:'admin_test'},data:{applicantId:uid,decision:'approved'}};
+ const results=await Promise.all([api.reviewRiderApplication.run(request),api.reviewRiderApplication.run(request)]);
+ assert.deepEqual(results,[{status:'approved'},{status:'approved'}]);
+ assert.deepEqual((await db.collection('users').doc(uid).get()).data().roles,['customer','rider']);
+ await assert.rejects(()=>api.reviewRiderApplication.run({...request,data:{applicantId:uid,decision:'rejected'}}),error=>error.code==='failed-precondition');
+ await assert.rejects(()=>api.reviewRiderApplication.run({data:request.data}),error=>error.code==='unauthenticated');
+});

@@ -8,9 +8,14 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirestoreService _firestoreService = FirestoreService();
 
-  AuthService() {
-    if (!kIsWeb) {
-      GoogleSignIn.instance.initialize();
+  static Future<void>? _googleInitialization;
+
+  Future<void> _initializeGoogle() async {
+    try {
+      await (_googleInitialization ??= GoogleSignIn.instance.initialize());
+    } catch (_) {
+      _googleInitialization = null;
+      rethrow;
     }
   }
 
@@ -73,6 +78,10 @@ class AuthService {
     );
   }
 
+  Future<void> sendPasswordResetEmail(String email) {
+    return _auth.sendPasswordResetEmail(email: email);
+  }
+
   // Google Sign-In
   Future<UserCredential?> signInWithGoogle() async {
     late final UserCredential result;
@@ -82,6 +91,7 @@ class AuthService {
       final GoogleAuthProvider authProvider = GoogleAuthProvider();
       result = await _auth.signInWithPopup(authProvider);
     } else {
+      await _initializeGoogle();
       // In google_sign_in 7.x, authenticate() throws GoogleSignInException
       // on cancel instead of returning null — must catch it explicitly.
       final GoogleSignInAccount googleUser;
@@ -126,9 +136,13 @@ class AuthService {
 
   // Sign Out
   Future<void> signOut() async {
-    if (!kIsWeb) {
-      await GoogleSignIn.instance.signOut();
+    try {
+      if (!kIsWeb && _googleInitialization != null) {
+        await _googleInitialization;
+        await GoogleSignIn.instance.signOut();
+      }
+    } finally {
+      await _auth.signOut();
     }
-    await _auth.signOut();
   }
 }

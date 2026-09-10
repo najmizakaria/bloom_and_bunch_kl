@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/rider_application_service.dart';
@@ -39,7 +40,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Unable to submit the application. Please retry.'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.primaryDark,
           ),
         );
       }
@@ -75,21 +76,18 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                   children: [
                     const Icon(
                       Icons.check_circle,
-                      color: Colors.green,
+                      color: AppColors.primaryDark,
                       size: 64,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'You\'re an approved rider! 🎉',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.sectionTitle(),
                     ),
                     const SizedBox(height: 20),
                     FilledButton.icon(
                       style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primaryRosewood,
+                        backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(
                           vertical: 14,
                           horizontal: 24,
@@ -122,16 +120,13 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                   children: [
                     const Icon(
                       Icons.hourglass_top,
-                      color: Colors.orange,
+                      color: AppColors.primaryDark,
                       size: 64,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'Application under review',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.sectionTitle(),
                     ),
                     const SizedBox(height: 6),
                     const Text(
@@ -154,16 +149,13 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                   children: [
                     const Icon(
                       Icons.cancel_outlined,
-                      color: Colors.redAccent,
+                      color: AppColors.primaryDark,
                       size: 64,
                     ),
                     const SizedBox(height: 12),
                     const Text(
                       'Application not approved',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.sectionTitle(),
                     ),
                     const SizedBox(height: 6),
                     const Text(
@@ -231,7 +223,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                   height: 48,
                   child: FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primaryRosewood,
+                      backgroundColor: AppColors.primary,
                     ),
                     onPressed: _submitting ? null : _submit,
                     child: _submitting

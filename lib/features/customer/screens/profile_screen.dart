@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -7,14 +8,16 @@ import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 import 'address_book_screen.dart';
 import 'become_rider_screen.dart';
+import 'favourites_screen.dart';
 import 'order_history_screen.dart';
 import 'order_tracking_screen.dart';
 
-// Store contact — update to your real store's info
+// Store contact information.
 const String _storeWhatsAppNumber =
-    '60123456789'; // country code, no + or spaces
-const String _storePhoneNumber = '+60123456789';
-const String _storeAddress = 'Lot 12, Jalan Bunga, 50450 Kuala Lumpur';
+    '60148376919'; // country code, no + or spaces
+const String _storePhoneNumber = '+60148376919';
+const String _storeAddress =
+    'Unit G2, StreetMall Cyberjaya, Cyberjaya, 63000 Cyberjaya, Selangor';
 const String _storeHours = 'Daily, 9:00 AM – 7:00 PM';
 const String _appVersion = '1.0.0';
 
@@ -65,9 +68,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.primaryRosewood,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () async {
               await FirestoreService().updateUserFields(uid, {
                 'phone': controller.text.trim(),
@@ -96,7 +97,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.primaryDark),
+            ),
           ),
         ],
       ),
@@ -179,9 +183,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               // ---------- 1. Account Header ----------
               Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -196,7 +197,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ? const Icon(
                                 Icons.person,
                                 size: 34,
-                                color: AppColors.primaryRosewood,
+                                color: AppColors.primary,
                               )
                             : null,
                       ),
@@ -207,17 +208,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             Text(
                               name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const AppTypography.productTitle(),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               user?.email ?? '',
-                              style: const TextStyle(
+                              style: const AppTypography.supporting(
                                 color: AppColors.textMuted,
-                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -228,17 +225,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const Icon(
                                     Icons.phone,
                                     size: 14,
-                                    color: AppColors.primaryRosewood,
+                                    color: AppColors.primary,
                                   ),
                                   const SizedBox(width: 4),
                                   Text(
                                     phone.isEmpty ? 'Add phone number' : phone,
-                                    style: TextStyle(
-                                      fontSize: 13,
+                                    style: AppTypography.label(
                                       color: phone.isEmpty
-                                          ? Colors.redAccent
+                                          ? AppColors.primaryDark
                                           : AppColors.textDark,
-                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                   const SizedBox(width: 4),
@@ -290,10 +285,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: Card(
-                      color: AppColors.primaryRosewood,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
+                      color: AppColors.primary,
                       child: ListTile(
                         contentPadding: const EdgeInsets.all(14),
                         leading: const Icon(
@@ -302,10 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         title: const Text(
                           'Active Order',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: AppTypography.label(color: Colors.white),
                         ),
                         subtitle: Text(
                           friendly,
@@ -314,7 +303,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         trailing: FilledButton(
                           style: FilledButton.styleFrom(
                             backgroundColor: Colors.white,
-                            foregroundColor: AppColors.primaryRosewood,
+                            foregroundColor: AppColors.primary,
                           ),
                           onPressed: () {
                             Navigator.push(
@@ -333,7 +322,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
 
-              _sectionLabel('Orders'),
+              _sectionLabel('Your flowers'),
+              _menuTile(
+                icon: Icons.favorite_border_rounded,
+                title: 'Saved bouquets',
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavouritesScreen()),
+                ),
+              ),
               _menuTile(
                 icon: Icons.receipt_long_outlined,
                 title: 'Order History',
@@ -381,28 +378,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => _callStore(context),
               ),
               Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: const Padding(
                   padding: EdgeInsets.all(14),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.storefront_outlined,
-                        color: AppColors.primaryRosewood,
-                      ),
+                      Icon(Icons.storefront_outlined, color: AppColors.primary),
                       SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(_storeAddress, style: TextStyle(fontSize: 13)),
+                            Text(
+                              _storeAddress,
+                              style: AppTypography.supporting(),
+                            ),
                             SizedBox(height: 4),
                             Text(
                               _storeHours,
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: AppTypography.caption(
                                 color: AppColors.textMuted,
                               ),
                             ),
@@ -416,15 +409,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _sectionLabel('Settings'),
               Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: SwitchListTile(
-                  activeThumbColor: AppColors.primaryRosewood,
+                  activeThumbColor: AppColors.primary,
                   title: const Text('Push Notifications'),
                   subtitle: const Text(
                     'Order status updates',
-                    style: TextStyle(fontSize: 12),
+                    style: AppTypography.caption(),
                   ),
                   value: _notificationsEnabled,
                   onChanged: (val) {
@@ -459,13 +449,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _menuTile(
                 icon: Icons.logout,
                 title: 'Log Out',
-                titleColor: Colors.redAccent,
+                titleColor: AppColors.primaryDark,
                 onTap: () => AuthService().signOut(),
               ),
               _menuTile(
                 icon: Icons.delete_outline,
                 title: 'Delete Account',
-                titleColor: Colors.redAccent,
+                titleColor: AppColors.primaryDark,
                 onTap: () => _confirmDeleteAccount(context),
               ),
               const SizedBox(height: 20),
@@ -480,11 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     padding: const EdgeInsets.only(top: 8, bottom: 8),
     child: Text(
       text,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.bold,
-        color: AppColors.textMuted,
-      ),
+      style: const AppTypography.label(color: AppColors.textMuted),
     ),
   );
 
@@ -497,9 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
-        leading: Icon(icon, color: titleColor ?? AppColors.primaryRosewood),
+        leading: Icon(icon, color: titleColor ?? AppColors.primary),
         title: Text(title, style: TextStyle(color: titleColor)),
         subtitle: subtitle != null ? Text(subtitle) : null,
         trailing: onTap != null ? const Icon(Icons.chevron_right) : null,

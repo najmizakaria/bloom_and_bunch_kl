@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import '../../../core/services/order_service.dart';
 import 'package:flutter/material.dart';
 
@@ -169,8 +171,8 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.onPrimary,
               ),
               onPressed: () {
                 Navigator.pop(dialogContext, true);
@@ -213,7 +215,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 ? 'Order preparation started'
                 : 'Order is ready for rider collection',
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     } catch (error) {
@@ -226,7 +228,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
           content: Text(
             'Failed to update order: ${OrderService.message(error)}',
           ),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     } finally {
@@ -243,7 +245,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     final items = widget.order.items;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Order Details'),
         actions: [
@@ -254,8 +256,8 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
               icon: const Icon(Icons.cancel_outlined),
             ),
         ],
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
       ),
       bottomNavigationBar: _buildBottomAction(),
       body: SingleChildScrollView(
@@ -317,7 +319,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         Expanded(
           child: Text(
             'Order #$shortId',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            style: const AppTypography.sectionTitle(),
           ),
         ),
         Container(
@@ -328,11 +330,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
           ),
           child: Text(
             _statusTitle,
-            style: TextStyle(
-              color: _statusColor(),
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
+            style: AppTypography.badge(color: _statusColor()),
           ),
         ),
       ],
@@ -341,17 +339,12 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
 
   Widget _buildStatusCard() {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Order Progress',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-            ),
+            const Text('Order Progress', style: AppTypography.productTitle()),
             const SizedBox(height: 18),
             Row(
               children: [
@@ -390,15 +383,14 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 children: [
                   Text(
                     _statusTitle,
-                    style: TextStyle(
-                      color: _statusColor(),
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTypography.label(color: _statusColor()),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     _statusDescription,
-                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    style: AppTypography.supporting(
+                      color: Colors.grey.shade700,
+                    ),
                   ),
                 ],
               ),
@@ -414,18 +406,18 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50,
+        color: AppColors.inputFill,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.orange.shade200),
+        border: Border.all(color: AppColors.inputBorder),
       ),
       child: const Row(
         children: [
-          Icon(Icons.access_time, color: Colors.orange),
+          Icon(Icons.access_time, color: AppColors.primaryDark),
           SizedBox(width: 10),
           Expanded(
             child: Text(
               'Planned bouquets require 1–3 business days. Check the delivery date and restock materials before marking ready.',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              style: AppTypography.label(),
             ),
           ),
         ],
@@ -450,8 +442,6 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(15),
         child: Column(
@@ -462,11 +452,11 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
               children: [
                 CircleAvatar(
                   backgroundColor: isCustom
-                      ? Colors.purple.shade50
-                      : Colors.teal.shade50,
+                      ? AppColors.secondarySurface
+                      : AppColors.inputFill,
                   child: Icon(
                     isCustom ? Icons.auto_awesome : Icons.local_florist,
-                    color: isCustom ? Colors.purple : Colors.teal,
+                    color: isCustom ? AppColors.primaryDark : AppColors.primary,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -476,18 +466,15 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                     children: [
                       Text(
                         '${item['name'] ?? 'Item'} × $quantity',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                        style: const AppTypography.productTitle(),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         isCustom ? 'Custom bouquet' : 'Ready-made bouquet',
-                        style: TextStyle(
-                          color: isCustom ? Colors.purple : Colors.teal,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                        style: AppTypography.badge(
+                          color: isCustom
+                              ? AppColors.primaryDark
+                              : AppColors.primary,
                         ),
                       ),
                     ],
@@ -495,7 +482,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 ),
                 Text(
                   'RM ${unitPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const AppTypography.price(),
                 ),
               ],
             ),
@@ -504,11 +491,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
               const Divider(height: 24),
               const Text(
                 'FLOWER STEMS',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTypography.badge(color: Colors.grey),
               ),
               const SizedBox(height: 8),
 
@@ -526,7 +509,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                         const Icon(
                           Icons.local_florist_outlined,
                           size: 17,
-                          color: Colors.teal,
+                          color: AppColors.primary,
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -538,7 +521,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                         ),
                         Text(
                           '× ${entry.value}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const AppTypography.label(),
                         ),
                       ],
                     ),
@@ -560,7 +543,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.teal.shade50,
+                  color: AppColors.inputFill,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
@@ -568,11 +551,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                   children: [
                     const Text(
                       'CUSTOMER CARD MESSAGE',
-                      style: TextStyle(
-                        color: Colors.teal,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.badge(color: AppColors.primary),
                     ),
                     const SizedBox(height: 5),
                     Text(
@@ -603,12 +582,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
             width: 75,
             child: Text(label, style: const TextStyle(color: Colors.grey)),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
+          Expanded(child: Text(value, style: const AppTypography.label())),
         ],
       ),
     );
@@ -616,8 +590,6 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
 
   Widget _buildDeliveryCard() {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -655,7 +627,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.teal, size: 21),
+        Icon(icon, color: AppColors.primary, size: 21),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -663,12 +635,12 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const AppTypography.caption(color: Colors.grey),
               ),
               const SizedBox(height: 3),
               Text(
                 value.isEmpty ? 'Not provided' : value,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const AppTypography.label(),
               ),
             ],
           ),
@@ -680,28 +652,18 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
   Widget _buildOrderTotal() {
     return Row(
       children: [
-        const Text(
-          'Order Total',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-        ),
+        const Text('Order Total', style: AppTypography.productTitle()),
         const Spacer(),
         Text(
           'RM ${widget.order.totalAmount.toStringAsFixed(2)}',
-          style: const TextStyle(
-            color: Colors.teal,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const AppTypography.total(color: AppColors.primary),
         ),
       ],
     );
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
-    );
+    return Text(title, style: const AppTypography.sectionTitle());
   }
 
   Widget? _buildBottomAction() {
@@ -712,26 +674,14 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, -3),
-            ),
-          ],
-        ),
+        decoration: BoxDecoration(color: Colors.white),
         child: SizedBox(
           height: 50,
           child: ElevatedButton.icon(
             onPressed: _isUpdating ? null : _confirmStatusUpdate,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
             ),
             icon: _isUpdating
                 ? const SizedBox(
@@ -745,7 +695,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                 : Icon(_actionIcon),
             label: Text(
               _isUpdating ? 'Updating...' : _actionLabel,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              style: const AppTypography.label(),
             ),
           ),
         ),
@@ -756,13 +706,13 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
   Color _statusColor() {
     switch (_currentStatus) {
       case 'Awaiting Preparation':
-        return Colors.orange;
+        return AppColors.primaryDark;
       case 'Processing':
-        return Colors.blue;
+        return AppColors.primaryDark;
       case 'Ready for Delivery':
-        return Colors.green;
+        return AppColors.primaryDark;
       case 'Out for Delivery':
-        return Colors.deepPurple;
+        return AppColors.primaryDark;
       case 'Completed':
       case 'Delivered':
         return Colors.grey;
@@ -787,7 +737,7 @@ class _ProgressStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = reached ? Colors.teal : Colors.grey.shade300;
+    final color = reached ? AppColors.primary : Colors.grey.shade300;
 
     return SizedBox(
       width: 72,
@@ -798,7 +748,7 @@ class _ProgressStep extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: reached ? Colors.teal : Colors.white,
+              color: reached ? AppColors.primary : Colors.white,
               shape: BoxShape.circle,
               border: Border.all(color: color, width: active ? 3 : 2),
             ),
@@ -812,9 +762,8 @@ class _ProgressStep extends StatelessWidget {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: reached ? Colors.teal : Colors.grey,
-              fontSize: 11,
+            style: AppTypography.caption(
+              color: reached ? AppColors.primary : Colors.grey,
               fontWeight: active ? FontWeight.bold : FontWeight.normal,
             ),
           ),
@@ -835,7 +784,7 @@ class _ProgressLine extends StatelessWidget {
       child: Container(
         height: 3,
         margin: const EdgeInsets.only(bottom: 23),
-        color: reached ? Colors.teal : Colors.grey.shade300,
+        color: reached ? AppColors.primary : Colors.grey.shade300,
       ),
     );
   }

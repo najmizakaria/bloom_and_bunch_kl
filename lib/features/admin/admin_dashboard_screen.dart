@@ -1,8 +1,10 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/admin_service.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/theme/app_colors.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -51,7 +53,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           content: Text(
             approve ? 'Rider application approved.' : 'Application rejected.',
           ),
-          backgroundColor: approve ? Colors.green : Colors.orange,
+          backgroundColor: approve
+              ? AppColors.primaryDark
+              : AppColors.primaryDark,
         ),
       );
     } catch (error) {
@@ -59,7 +63,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AdminService.message(error)),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     } finally {
@@ -88,7 +92,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: approve ? Colors.green : Colors.red,
+              backgroundColor: approve
+                  ? AppColors.primaryDark
+                  : AppColors.primaryDark,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(approve ? 'Approve' : 'Reject'),
@@ -102,11 +108,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Admin Panel'),
-        backgroundColor: Colors.blueGrey,
-        foregroundColor: Colors.white,
+        title: const Text('Admin workspace'),
         actions: [
           IconButton(
             tooltip: 'Sync available delivery jobs',
@@ -116,7 +120,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppColors.primary,
                     ),
                   )
                 : const Icon(Icons.sync),
@@ -179,13 +183,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                      Text(name, style: const AppTypography.sectionTitle()),
                       const SizedBox(height: 8),
                       _Detail(icon: Icons.phone_outlined, text: data['phone']),
                       _Detail(
@@ -216,7 +214,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           Expanded(
                             child: FilledButton(
                               style: FilledButton.styleFrom(
-                                backgroundColor: Colors.green,
+                                backgroundColor: AppColors.primaryDark,
                               ),
                               onPressed: busy
                                   ? null
@@ -261,7 +259,7 @@ class _Detail extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.blueGrey),
+          Icon(icon, size: 18, color: AppColors.textMuted),
           const SizedBox(width: 8),
           Expanded(child: Text((text ?? 'Not provided').toString())),
         ],
@@ -289,12 +287,9 @@ class _MessageState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 64, color: Colors.blueGrey),
+            Icon(icon, size: 64, color: AppColors.textMuted),
             const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text(title, style: const AppTypography.sectionTitle()),
             const SizedBox(height: 6),
             Text(message, textAlign: TextAlign.center),
           ],

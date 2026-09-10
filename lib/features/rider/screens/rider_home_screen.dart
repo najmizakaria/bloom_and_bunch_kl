@@ -1,9 +1,11 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/services/firestore_service.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../models/delivery_job_model.dart';
 import '../../../models/order_model.dart';
 import '../../../models/user_model.dart';
@@ -37,9 +39,7 @@ class RiderHomeScreen extends StatelessWidget {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Rider Dashboard 🛵'),
-          backgroundColor: Colors.deepOrange,
-          foregroundColor: Colors.white,
+          title: const Text('Delivery workspace'),
           actions: [
             StreamBuilder<UserModel?>(
               stream: FirestoreService().streamUserData(currentUserId),
@@ -61,12 +61,15 @@ class RiderHomeScreen extends StatelessWidget {
             ),
           ],
           bottom: const TabBar(
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            indicatorColor: Colors.white,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textMuted,
+            indicatorColor: AppColors.primary,
             tabs: [
-              Tab(text: 'Available', icon: Icon(Icons.list_alt)),
-              Tab(text: 'My Delivery', icon: Icon(Icons.motorcycle)),
+              Tab(text: 'Available jobs', icon: Icon(Icons.list_alt_outlined)),
+              Tab(
+                text: 'Active delivery',
+                icon: Icon(Icons.delivery_dining_outlined),
+              ),
             ],
           ),
         ),
@@ -120,12 +123,12 @@ class RiderHomeScreen extends StatelessWidget {
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
                 leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFF3E0),
-                  child: Icon(Icons.location_city, color: Colors.deepOrange),
+                  backgroundColor: AppColors.secondarySurface,
+                  child: Icon(Icons.location_city, color: AppColors.primary),
                 ),
                 title: Text(
                   job.deliveryArea,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const AppTypography.label(),
                 ),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -188,14 +191,14 @@ class RiderHomeScreen extends StatelessWidget {
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
                 leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFFFF3E0),
-                  child: Icon(Icons.location_on, color: Colors.deepOrange),
+                  backgroundColor: AppColors.secondarySurface,
+                  child: Icon(Icons.location_on, color: AppColors.primary),
                 ),
                 title: Text(
                   order.deliveryAddress,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const AppTypography.label(),
                 ),
                 subtitle: Padding(
                   padding: const EdgeInsets.only(top: 6),

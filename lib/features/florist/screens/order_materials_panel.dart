@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../models/order_model.dart';
@@ -47,7 +48,9 @@ class OrderMaterialsPanel extends StatelessWidget {
                   trailing: Text(
                     shortage > 0 ? 'Restock $shortage' : 'Covered',
                     style: TextStyle(
-                      color: shortage > 0 ? Colors.red : Colors.green,
+                      color: shortage > 0
+                          ? AppColors.primaryDark
+                          : AppColors.primaryDark,
                     ),
                   ),
                 );

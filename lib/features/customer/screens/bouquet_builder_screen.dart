@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../widgets/product_components.dart';
 import '../../../models/flower_model.dart';
 
 class BouquetBuilderScreen extends StatefulWidget {
@@ -174,14 +176,18 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     }
 
     try {
-    await _favouritesService.saveRecipe(
-      stems: selectedStems,
-      wrapper: _selectedWrapper,
-      ribbon: _selectedRibbon,
-      totalPrice: totalPrice,
-    );
+      await _favouritesService.saveRecipe(
+        stems: selectedStems,
+        wrapper: _selectedWrapper,
+        ribbon: _selectedRibbon,
+        totalPrice: totalPrice,
+      );
     } catch (_) {
-      if(mounted)ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content:Text('Unable to save recipe. Please retry.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to save recipe. Please retry.')),
+        );
+      }
       return;
     }
 
@@ -189,7 +195,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Recipe saved to Favourites'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.primaryDark,
       ),
     );
   }
@@ -224,7 +230,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Custom bouquet added to cart'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.primaryDark,
       ),
     );
 
@@ -300,10 +306,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       const SizedBox(height: 20),
                       const Text(
                         '1. Choose Flower Stems',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTypography.sectionTitle(),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -329,10 +332,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       const SizedBox(height: 20),
                       const Text(
                         '4. Gift Message Card',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: AppTypography.sectionTitle(),
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -365,24 +365,18 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       decoration: BoxDecoration(
         color: AppColors.softBlushStart,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.primaryRosewood.withValues(alpha: 0.3),
-        ),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: const Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.calendar_month, color: AppColors.primaryRosewood),
+          Icon(Icons.calendar_month, color: AppColors.primary),
           SizedBox(width: 10),
           Expanded(
             child: Text(
               'Custom bouquets are prepared in 1–3 business days. '
               'The florist will source the flowers needed for your design.',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textDark,
-                fontWeight: FontWeight.w600,
-              ),
+              style: AppTypography.label(color: AppColors.textDark),
             ),
           ),
         ],
@@ -395,68 +389,67 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     final canAdd =
         count < _maximumPerFlower && _totalSelectedStems < _maximumTotalStems;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        leading: flower.imageUrl.isNotEmpty
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  flower.imageUrl,
-                  width: 52,
-                  height: 52,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return const SizedBox(
-                      width: 52,
-                      height: 52,
-                      child: Icon(
-                        Icons.local_florist,
-                        color: AppColors.primaryRosewood,
-                      ),
-                    );
-                  },
-                ),
-              )
-            : const SizedBox(
-                width: 52,
-                height: 52,
-                child: Icon(
-                  Icons.local_florist,
-                  size: 36,
-                  color: AppColors.primaryRosewood,
-                ),
-              ),
-        title: Text(
-          flower.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+    final quantityControl = StemQuantityControl(
+      count: count,
+      onRemove: count > 0 ? () => _decrementFlower(flower) : null,
+      onAdd: canAdd ? () => _incrementFlower(flower) : null,
+      onEdit: () => _enterExactQuantity(flower),
+    );
+    final flowerInfo = Row(
+      children: [
+        SizedBox(
+          width: 52,
+          height: 52,
+          child: ProductImage(imageUrl: flower.imageUrl),
         ),
-        subtitle: Text('RM ${flower.pricePerStem.toStringAsFixed(2)} / stem'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Remove one stem',
-              icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-              onPressed: count > 0 ? () => _decrementFlower(flower) : null,
-            ),
-            TextButton(
-              onPressed: () => _enterExactQuantity(flower),
-              child: Text(
-                '$count',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(flower.name, style: const AppTypography.label()),
+              const SizedBox(height: 4),
+              Text(
+                'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
+                style: const AppTypography.supporting(
+                  color: AppColors.textMuted,
                 ),
               ),
-            ),
-            IconButton(
-              tooltip: 'Add one stem',
-              icon: const Icon(Icons.add_circle_outline, color: Colors.green),
-              onPressed: canAdd ? () => _incrementFlower(flower) : null,
-            ),
-          ],
+            ],
+          ),
+        ),
+      ],
+    );
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final stacked =
+                constraints.maxWidth < 420 ||
+                MediaQuery.textScalerOf(context).scale(14) > 18;
+            if (stacked) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  flowerInfo,
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: quantityControl,
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: flowerInfo),
+                const SizedBox(width: 12),
+                quantityControl,
+              ],
+            );
+          },
         ),
       ),
     );
@@ -468,7 +461,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       children: [
         const Text(
           '2. Choose Wrapping Paper',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: AppTypography.sectionTitle(),
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
@@ -509,7 +502,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       children: [
         const Text(
           '3. Choose Ribbon Style',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: AppTypography.sectionTitle(),
         ),
         const SizedBox(height: 10),
         DropdownButtonFormField<String>(
@@ -545,76 +538,11 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   }
 
   Widget _buildBottomBar(double totalPrice, List<FlowerModel> flowers) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$_totalSelectedStems stems',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-                Text(
-                  'RM ${totalPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryRosewood,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryRosewood,
-                      side: const BorderSide(color: AppColors.primaryRosewood),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.favorite_border),
-                    label: const Text('Save Recipe'),
-                    onPressed: () => _saveRecipe(totalPrice, flowers),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryRosewood,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    label: const Text('Add to Cart'),
-                    onPressed: () => _addToCart(totalPrice, flowers),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return BouquetBuilderFooter(
+      stems: _totalSelectedStems,
+      totalPrice: totalPrice,
+      onSave: () => _saveRecipe(totalPrice, flowers),
+      onAdd: () => _addToCart(totalPrice, flowers),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -90,7 +92,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
           content: Text(
             'Add assembled bouquet stock before enabling Ready to Send.',
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
       return;
@@ -154,7 +156,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
           content: Text(
             'Bouquet restored as unpublished. Review it before publishing.',
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     } catch (error) {
@@ -201,7 +203,9 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: destructive ? Colors.red : Colors.teal,
+              backgroundColor: destructive
+                  ? AppColors.primaryDark
+                  : AppColors.primary,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(confirmLabel),
@@ -381,7 +385,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(editing ? 'Bouquet updated' : 'Bouquet added'),
-                  backgroundColor: Colors.green,
+                  backgroundColor: AppColors.primaryDark,
                 ),
               );
             } catch (error) {
@@ -481,7 +485,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'Customers can see this bouquet in eligible modes.',
                       ),
                       value: isPublished,
-                      activeThumbColor: Colors.teal,
+                      activeThumbColor: AppColors.primary,
                       onChanged: saving
                           ? null
                           : (value) =>
@@ -490,10 +494,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                     const Divider(height: 28),
                     const Text(
                       'READY TO SEND',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.teal,
-                      ),
+                      style: AppTypography.label(color: AppColors.primary),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -502,7 +503,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'Only already assembled bouquets belong here.',
                       ),
                       value: availableForReadyNow,
-                      activeThumbColor: Colors.teal,
+                      activeThumbColor: AppColors.primary,
                       onChanged: saving
                           ? null
                           : (value) => setDialogState(
@@ -522,10 +523,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                     const Divider(height: 32),
                     const Text(
                       'PRE-ORDER',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                      ),
+                      style: AppTypography.label(color: AppColors.primaryDark),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -534,7 +532,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'The florist prepares this design after ordering.',
                       ),
                       value: availableForPreOrder,
-                      activeThumbColor: Colors.deepPurple,
+                      activeThumbColor: AppColors.primaryDark,
                       onChanged: saving
                           ? null
                           : (value) => setDialogState(
@@ -575,12 +573,12 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       const SizedBox(height: 14),
                       const Text(
                         'Recipe for one bouquet',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: AppTypography.label(),
                       ),
                       const SizedBox(height: 4),
                       const Text(
                         'Customers will not see stock or shortages.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: AppTypography.caption(color: Colors.grey),
                       ),
                       const SizedBox(height: 8),
                       if (flowers.isEmpty)
@@ -615,9 +613,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                                     child: Text(
                                       '$count',
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const AppTypography.label(),
                                     ),
                                   ),
                                   IconButton(
@@ -645,7 +641,9 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                 child: const Text('Cancel'),
               ),
               FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.teal),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                ),
                 onPressed: saving ? null : save,
                 child: saving
                     ? const SizedBox(
@@ -678,26 +676,26 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
     ScaffoldMessenger.of(dialogContext).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? Colors.red : Colors.orange,
+        backgroundColor: error ? AppColors.primaryDark : AppColors.primaryDark,
       ),
     );
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppColors.primaryDark),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       floatingActionButton: _showArchived
           ? null
           : FloatingActionButton.extended(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
               onPressed: _showBouquetForm,
               icon: const Icon(Icons.add),
               label: const Text('Add Bouquet'),
@@ -745,7 +743,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         _showArchived
                             ? 'Archived Bouquets'
                             : '${bouquets.length} Bouquets',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const AppTypography.label(),
                       ),
                     ),
                     FilterChip(
@@ -862,10 +860,7 @@ class _BouquetCard extends StatelessWidget {
                           Expanded(
                             child: Text(
                               bouquet.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const AppTypography.productTitle(),
                             ),
                           ),
                           PopupMenuButton<String>(
@@ -885,7 +880,9 @@ class _BouquetCard extends StatelessWidget {
                                       value: 'delete',
                                       child: Text(
                                         'Delete permanently',
-                                        style: TextStyle(color: Colors.red),
+                                        style: TextStyle(
+                                          color: AppColors.primaryDark,
+                                        ),
                                       ),
                                     ),
                                   ]
@@ -902,7 +899,9 @@ class _BouquetCard extends StatelessWidget {
                                       value: 'delete',
                                       child: Text(
                                         'Delete permanently',
-                                        style: TextStyle(color: Colors.red),
+                                        style: TextStyle(
+                                          color: AppColors.primaryDark,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -911,7 +910,7 @@ class _BouquetCard extends StatelessWidget {
                       ),
                       Text(
                         '${bouquet.category} • RM ${bouquet.price.toStringAsFixed(2)}',
-                        style: const TextStyle(color: Colors.teal),
+                        style: const TextStyle(color: AppColors.primary),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -923,21 +922,21 @@ class _BouquetCard extends StatelessWidget {
                                 ? 'Ready Now: ${bouquet.readyStock}'
                                 : 'Ready Now: Off',
                             enabled: bouquet.availableForReadyNow,
-                            color: Colors.teal,
+                            color: AppColors.primary,
                           ),
                           _ModeChip(
                             label: bouquet.availableForPreOrder
                                 ? 'Pre-Order: ${bouquet.leadTimeBusinessDays}d'
                                 : 'Pre-Order: Off',
                             enabled: bouquet.availableForPreOrder,
-                            color: Colors.deepPurple,
+                            color: AppColors.primaryDark,
                           ),
                           _ModeChip(
                             label: bouquet.isPublished
                                 ? 'Published'
                                 : 'Unpublished',
                             enabled: bouquet.isPublished,
-                            color: Colors.green,
+                            color: AppColors.primaryDark,
                           ),
                         ],
                       ),
@@ -953,31 +952,25 @@ class _BouquetCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 5, 8, 5),
               child: Row(
                 children: [
-                  const Text(
-                    'Ready stock',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
+                  const Text('Ready stock', style: AppTypography.label()),
                   IconButton(
                     onPressed: bouquet.readyStock > 0 ? onDecreaseStock : null,
                     icon: const Icon(Icons.remove_circle_outline),
                   ),
                   Text(
                     '${bouquet.readyStock}',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const AppTypography.productTitle(),
                   ),
                   IconButton(
                     onPressed: onIncreaseStock,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                   const Spacer(),
-                  const Text('Ready Now', style: TextStyle(fontSize: 11)),
+                  const Text('Ready Now', style: AppTypography.caption()),
                   Switch.adaptive(
                     value:
                         bouquet.availableForReadyNow && bouquet.readyStock > 0,
-                    activeThumbColor: Colors.teal,
+                    activeThumbColor: AppColors.primary,
                     onChanged: onReadyNowChanged,
                   ),
                 ],
@@ -988,7 +981,7 @@ class _BouquetCard extends StatelessWidget {
               title: const Text('Published'),
               subtitle: const Text('Visible in eligible customer catalogues'),
               value: bouquet.isPublished,
-              activeThumbColor: Colors.teal,
+              activeThumbColor: AppColors.primary,
               onChanged: onPublishedChanged,
             ),
           ],
@@ -1018,14 +1011,7 @@ class _ModeChip extends StatelessWidget {
         color: effectiveColor.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: effectiveColor,
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: Text(label, style: AppTypography.badge(color: effectiveColor)),
     );
   }
 }
@@ -1058,9 +1044,13 @@ class _ImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.teal.shade50,
+      color: AppColors.inputFill,
       child: const Center(
-        child: Icon(Icons.add_a_photo_outlined, color: Colors.teal, size: 40),
+        child: Icon(
+          Icons.add_a_photo_outlined,
+          color: AppColors.primary,
+          size: 40,
+        ),
       ),
     );
   }

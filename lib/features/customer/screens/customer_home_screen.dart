@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,10 +8,14 @@ import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/address_service.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../widgets/product_components.dart';
 import '../../../models/bouquet_model.dart';
 import '../../../models/saved_address_model.dart';
 import 'address_book_screen.dart';
 import 'bouquet_builder_screen.dart';
+import 'bouquet_catalogue_screen.dart';
+import 'bouquet_detail_screen.dart';
+import 'cart_screen.dart';
 
 enum DeliveryMode { readyNow, preOrder }
 
@@ -29,6 +34,9 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     'Sympathy',
     'Romance',
   ];
+
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream =
+      FirebaseFirestore.instance.collection('bouquets').snapshots();
 
   String _selectedCategory = 'All';
   DeliveryMode _deliveryMode = DeliveryMode.readyNow;
@@ -111,44 +119,82 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final readyNow = _deliveryMode == DeliveryMode.readyNow;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        backgroundColor: Colors.white,
-        elevation: 0,
+        backgroundColor: AppColors.background,
         titleSpacing: 16,
-        title: GestureDetector(
+        title: InkWell(
           onTap: _openAddressSheet,
-          child: Row(
-            children: [
-              const Icon(
-                Icons.location_on,
-                color: AppColors.primaryRosewood,
-                size: 20,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  _locatingGps ? 'Detecting location...' : _address,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+          child: SizedBox(
+            height: 48,
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _locatingGps ? 'Detecting location...' : _address,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const AppTypography.label(color: AppColors.textDark),
                   ),
                 ),
-              ),
-              const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted),
-            ],
+                const Icon(
+                  Icons.keyboard_arrow_down,
+                  color: AppColors.textMuted,
+                  size: 24,
+                ),
+              ],
+            ),
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Cart',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(builder: (_) => const CartScreen()),
+            ),
+            icon: Badge(
+              isLabelVisible: context.watch<CartProvider>().itemCount > 0,
+              label: Text('${context.watch<CartProvider>().itemCount}'),
+              backgroundColor: AppColors.primary,
+              child: const Icon(Icons.shopping_bag_outlined),
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Find the perfect flowers',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              readOnly: true,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const BouquetCatalogueScreen(),
+                ),
+              ),
+              decoration: const InputDecoration(
+                hintText: 'Search bouquets or occasions',
+                prefixIcon: Icon(Icons.search_rounded),
+                suffixIcon: Icon(Icons.tune_rounded),
+              ),
+            ),
+            const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
@@ -170,42 +216,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.softBlushStart, AppColors.softBlushEnd],
-                ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    readyNow
-                        ? 'Need flowers urgently? 🌸'
-                        : 'Planning something special? 📅',
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    readyNow
-                        ? 'These bouquets are already assembled and can be sent immediately.'
-                        : 'Choose a design and we will prepare it within 1–3 business days.',
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
             InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => Navigator.push(
@@ -218,69 +228,50 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryRosewood,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.auto_awesome, color: Colors.white),
+                    ImageIcon(
+                      AssetImage('assets/icons/flower_bouquet.png'),
+                      color: AppColors.onPrimary,
+                    ),
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Build a custom bouquet • prepared in 1–3 business days',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: AppTypography.label(color: AppColors.onPrimary),
                       ),
                     ),
-                    Icon(Icons.chevron_right, color: Colors.white),
+                    Icon(Icons.chevron_right, color: AppColors.onPrimary),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 22),
-            const Text(
-              'Categories',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            const SizedBox(height: 24),
+            const Text('Categories', style: AppTypography.sectionTitle()),
             const SizedBox(height: 10),
-            SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final category = _categories[index];
-                  final selected = _selectedCategory == category;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(category),
-                      selected: selected,
-                      showCheckmark: false,
-                      selectedColor: AppColors.primaryRosewood,
-                      labelStyle: TextStyle(
-                        color: selected ? Colors.white : AppColors.textDark,
-                      ),
+            ProductFilterBar(
+              children: _categories
+                  .map(
+                    (category) => ProductCategoryChip(
+                      label: category,
+                      selected: _selectedCategory == category,
                       onSelected: (_) =>
                           setState(() => _selectedCategory = category),
                     ),
-                  );
-                },
-              ),
+                  )
+                  .toList(),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             Text(
               readyNow ? 'Ready to Send' : 'Available for Pre-Order',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: const AppTypography.sectionTitle(),
             ),
             const SizedBox(height: 12),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('bouquets')
-                  .snapshots(),
+              stream: _bouquetsStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -328,11 +319,16 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 }
 
                 return GridView.builder(
+                  padding: EdgeInsets.zero,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 0.70,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: MediaQuery.sizeOf(context).width < 360
+                        ? 1
+                        : 2,
+                    mainAxisExtent:
+                        300 +
+                        (MediaQuery.textScalerOf(context).scale(140) - 140),
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
@@ -342,6 +338,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     return _CustomerBouquetCard(
                       bouquet: bouquet,
                       readyNow: readyNow,
+                      onOpen: () => Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => BouquetDetailScreen(bouquet: bouquet),
+                        ),
+                      ),
                       onAdd: () => _addBouquetToCart(bouquet),
                     );
                   },
@@ -365,22 +367,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         decoration: BoxDecoration(
           color: selected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 6,
-                  ),
-                ]
-              : null,
         ),
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: selected ? AppColors.primaryRosewood : AppColors.textMuted,
+          style: AppTypography.label(
+            color: selected ? AppColors.primary : AppColors.textMuted,
           ),
         ),
       ),
@@ -392,110 +384,109 @@ class _CustomerBouquetCard extends StatelessWidget {
   const _CustomerBouquetCard({
     required this.bouquet,
     required this.readyNow,
+    required this.onOpen,
     required this.onAdd,
   });
 
   final BouquetModel bouquet;
   final bool readyNow;
+  final VoidCallback onOpen;
   final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                bouquet.imageUrl.isEmpty
-                    ? const Icon(Icons.local_florist, size: 50)
-                    : Image.network(
-                        bouquet.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            const Icon(Icons.local_florist, size: 50),
-                      ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                    stream: FavouritesService().isBouquetFavourited(bouquet.id),
-                    builder: (context, snapshot) {
-                      final favourited = snapshot.data?.exists ?? false;
-                      return IconButton.filledTonal(
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () =>
-                            FavouritesService().toggleBouquetFavourite(
-                              bouquetId: bouquet.id,
-                              name: bouquet.name,
-                              imageUrl: bouquet.imageUrl,
-                              price: bouquet.price,
-                            ),
-                        icon: Icon(
-                          favourited ? Icons.favorite : Icons.favorite_border,
-                          size: 17,
-                          color: AppColors.primaryRosewood,
+      child: InkWell(
+        onTap: onOpen,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  ProductImage(imageUrl: bouquet.imageUrl),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child:
+                        StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                          stream: FavouritesService().isBouquetFavourited(
+                            bouquet.id,
+                          ),
+                          builder: (context, snapshot) {
+                            final favourited = snapshot.data?.exists ?? false;
+                            return ProductFavouriteButton(
+                              selected: favourited,
+                              onPressed: () =>
+                                  FavouritesService().toggleBouquetFavourite(
+                                    bouquetId: bouquet.id,
+                                    name: bouquet.name,
+                                    imageUrl: bouquet.imageUrl,
+                                    price: bouquet.price,
+                                  ),
+                            );
+                          },
                         ),
-                      );
-                    },
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(9),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  bouquet.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  readyNow
-                      ? 'Ready for immediate delivery'
-                      : 'Prepared in ${bouquet.leadTimeBusinessDays} business day${bouquet.leadTimeBusinessDays == 1 ? '' : 's'}',
-                  maxLines: 2,
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 10,
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    bouquet.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const AppTypography.productTitle(
+                      color: AppColors.textDark,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 7),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'RM ${bouquet.price.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: AppColors.primaryRosewood,
-                          fontWeight: FontWeight.bold,
+                  const SizedBox(height: 4),
+                  Text(
+                    readyNow
+                        ? 'Ready for immediate delivery'
+                        : 'Prepared in ${bouquet.leadTimeBusinessDays} business day${bouquet.leadTimeBusinessDays == 1 ? '' : 's'}',
+                    maxLines: 2,
+                    style: const AppTypography.caption(
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'RM ${bouquet.price.toStringAsFixed(2)}',
+                          style: const AppTypography.price(
+                            color: AppColors.textDark,
+                          ),
                         ),
                       ),
-                    ),
-                    InkWell(
-                      onTap: onAdd,
-                      borderRadius: BorderRadius.circular(20),
-                      child: const CircleAvatar(
-                        radius: 14,
-                        backgroundColor: AppColors.primaryRosewood,
-                        child: Icon(Icons.add, size: 17, color: Colors.white),
+                      InkWell(
+                        onTap: onAdd,
+                        borderRadius: BorderRadius.circular(20),
+                        child: const CircleAvatar(
+                          radius: 14,
+                          backgroundColor: AppColors.primary,
+                          child: Icon(
+                            Icons.add,
+                            size: 17,
+                            color: AppColors.onPrimary,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

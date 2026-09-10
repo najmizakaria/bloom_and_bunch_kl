@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import '../../../models/flower_model.dart';
 import 'bouquet_builder_screen.dart';
@@ -38,26 +40,18 @@ class FlowerDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           flower.name,
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const AppTypography.screenTitle(),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Category: ${flower.category}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 16,
-                          ),
+                          style: AppTypography.body(color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFD87093),
+                          style: const AppTypography.total(
+                            color: AppColors.primary,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -68,15 +62,15 @@ class FlowerDetailScreen extends StatelessWidget {
                                   ? Icons.check_circle
                                   : Icons.cancel,
                               color: flower.availableForCustomOrder
-                                  ? Colors.green
-                                  : Colors.red,
+                                  ? AppColors.primaryDark
+                                  : AppColors.primaryDark,
                             ),
                             const SizedBox(width: 8),
                             Text(
                               flower.availableForCustomOrder
                                   ? 'Prepared in 1–3 business days'
                                   : 'Currently not offered',
-                              style: const TextStyle(fontSize: 16),
+                              style: const AppTypography.body(),
                             ),
                           ],
                         ),
@@ -96,8 +90,8 @@ class FlowerDetailScreen extends StatelessWidget {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD87093),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -109,7 +103,7 @@ class FlowerDetailScreen extends StatelessWidget {
                 },
                 child: const Text(
                   'Use in Custom Bouquet',
-                  style: TextStyle(fontSize: 16),
+                  style: AppTypography.button(),
                 ),
               ),
             ),

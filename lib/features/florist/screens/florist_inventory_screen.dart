@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -58,7 +60,7 @@ class FloristInventoryScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Unable to update availability: $error'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.primaryDark,
         ),
       );
     }
@@ -177,7 +179,7 @@ class FloristInventoryScreen extends StatelessWidget {
                     content: Text(
                       'Enter a valid name, category, price and stock.',
                     ),
-                    backgroundColor: Colors.orange,
+                    backgroundColor: AppColors.primaryDark,
                   ),
                 );
                 return;
@@ -231,7 +233,7 @@ class FloristInventoryScreen extends StatelessWidget {
                           ? 'Flower updated successfully'
                           : 'Flower added successfully',
                     ),
-                    backgroundColor: Colors.green,
+                    backgroundColor: AppColors.primaryDark,
                   ),
                 );
               } catch (error) {
@@ -246,7 +248,7 @@ class FloristInventoryScreen extends StatelessWidget {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   SnackBar(
                     content: Text('Unable to save flower: $error'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.primaryDark,
                   ),
                 );
               }
@@ -266,9 +268,9 @@ class FloristInventoryScreen extends StatelessWidget {
                           height: 150,
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            color: Colors.teal.shade50,
+                            color: AppColors.inputFill,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.teal.shade200),
+                            border: Border.all(color: AppColors.inputBorder),
                           ),
                           child: _buildFormImage(selectedImage, imageUrl),
                         ),
@@ -333,8 +335,8 @@ class FloristInventoryScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                   ),
                   onPressed: isUploading ? null : saveFlower,
                   child: isUploading
@@ -388,20 +390,20 @@ class FloristInventoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       appBar: showAppBar
           ? AppBar(
               title: const Text('Manage Flowers'),
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onPrimary,
             )
           : null,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           _showAddFlowerDialog(context);
         },
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         icon: const Icon(Icons.add),
         label: const Text('Add Flower'),
       ),
@@ -458,7 +460,7 @@ class FloristInventoryScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Unable to update stock: $error'),
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.primaryDark,
                       ),
                     );
                   }
@@ -472,7 +474,7 @@ class FloristInventoryScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Unable to update stock: $error'),
-                        backgroundColor: Colors.red,
+                        backgroundColor: AppColors.primaryDark,
                       ),
                     );
                   }
@@ -508,9 +510,7 @@ class _FlowerInventoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      elevation: 1,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           Padding(
@@ -541,10 +541,7 @@ class _FlowerInventoryCard extends StatelessWidget {
                     children: [
                       Text(
                         flower.name.isEmpty ? 'Unnamed Flower' : flower.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const AppTypography.productTitle(),
                       ),
                       const SizedBox(height: 3),
                       Text(
@@ -556,9 +553,8 @@ class _FlowerInventoryCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                        style: const TextStyle(
-                          color: Colors.teal,
-                          fontWeight: FontWeight.bold,
+                        style: const AppTypography.price(
+                          color: AppColors.primary,
                         ),
                       ),
                       Text(
@@ -567,7 +563,7 @@ class _FlowerInventoryCard extends StatelessWidget {
                       if (flower.shortageQuantity > 0)
                         Text(
                           'Restock ${flower.shortageQuantity} stems',
-                          style: const TextStyle(color: Colors.red),
+                          style: const TextStyle(color: AppColors.primaryDark),
                         ),
                       const SizedBox(height: 8),
                       _FlowerStockBadge(
@@ -590,10 +586,7 @@ class _FlowerInventoryCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
             child: Row(
               children: [
-                const Text(
-                  'Stock',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
+                const Text('Stock', style: AppTypography.label()),
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Decrease stock',
@@ -605,12 +598,10 @@ class _FlowerInventoryCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     '${flower.stockQuantity}',
-                    style: TextStyle(
+                    style: AppTypography.productTitle(
                       color: flower.stockQuantity <= 5
-                          ? Colors.orange
+                          ? AppColors.primaryDark
                           : Colors.black87,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
@@ -620,10 +611,10 @@ class _FlowerInventoryCard extends StatelessWidget {
                   icon: const Icon(Icons.add_circle_outline),
                 ),
                 const Spacer(),
-                const Text('Custom orders', style: TextStyle(fontSize: 12)),
+                const Text('Custom orders', style: AppTypography.caption()),
                 Switch.adaptive(
                   value: flower.availableForCustomOrder,
-                  activeThumbColor: Colors.teal,
+                  activeThumbColor: AppColors.primary,
                   onChanged: onAvailabilityChanged,
                 ),
               ],
@@ -649,7 +640,7 @@ class _FlowerStockBadge extends StatelessWidget {
 
     if (stock <= 0) {
       label = 'Out of stock';
-      color = Colors.red;
+      color = AppColors.primaryDark;
       icon = Icons.cancel_outlined;
     } else if (!available) {
       label = 'Unavailable';
@@ -657,11 +648,11 @@ class _FlowerStockBadge extends StatelessWidget {
       icon = Icons.visibility_off_outlined;
     } else if (stock <= 5) {
       label = 'Low stock';
-      color = Colors.orange;
+      color = AppColors.primaryDark;
       icon = Icons.warning_amber_rounded;
     } else {
       label = 'In stock';
-      color = Colors.green;
+      color = AppColors.primaryDark;
       icon = Icons.check_circle_outline;
     }
 
@@ -669,14 +660,7 @@ class _FlowerStockBadge extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 5),
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(label, style: AppTypography.badge(color: color)),
       ],
     );
   }
@@ -688,9 +672,13 @@ class _FlowerImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.teal.shade50,
+      color: AppColors.inputFill,
       child: const Center(
-        child: Icon(Icons.local_florist_outlined, color: Colors.teal, size: 36),
+        child: Icon(
+          Icons.local_florist_outlined,
+          color: AppColors.primary,
+          size: 36,
+        ),
       ),
     );
   }
@@ -715,7 +703,7 @@ class _EmptyFlowerInventory extends StatelessWidget {
             const SizedBox(height: 14),
             const Text(
               'No flowers in inventory',
-              style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+              style: AppTypography.sectionTitle(),
             ),
             const SizedBox(height: 6),
             const Text(

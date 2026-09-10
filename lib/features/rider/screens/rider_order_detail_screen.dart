@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/order_service.dart';
@@ -149,8 +151,8 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery Route'),
-        backgroundColor: Colors.deepOrange,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -197,18 +199,16 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Card(
-                    color: Colors.blue.shade50,
+                    color: AppColors.inputFill,
                     child: ListTile(
                       title: const Text(
                         'Current Status',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        style: AppTypography.label(),
                       ),
                       subtitle: Text(
                         widget.order.orderStatus,
-                        style: TextStyle(
-                          color: Colors.blue,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                        style: AppTypography.sectionTitle(
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ),
@@ -217,38 +217,38 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
 
                   const Text(
                     'Drop-off Details',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: AppTypography.sectionTitle(),
                   ),
                   const Divider(),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(
                       Icons.location_on,
-                      color: Colors.deepOrange,
+                      color: AppColors.primary,
                     ),
                     title: Text(widget.order.deliveryAddress),
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.person, color: Colors.deepOrange),
+                    leading: const Icon(Icons.person, color: AppColors.primary),
                     title: Text(widget.order.recipientName),
                   ),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.phone, color: Colors.deepOrange),
+                    leading: const Icon(Icons.phone, color: AppColors.primary),
                     title: Text(widget.order.recipientPhone),
                   ),
                   if (widget.order.deliveryNote.trim().isNotEmpty)
                     Card(
-                      color: Colors.amber.shade50,
+                      color: AppColors.inputFill,
                       child: ListTile(
                         leading: const Icon(
                           Icons.sticky_note_2_outlined,
-                          color: Colors.deepOrange,
+                          color: AppColors.primary,
                         ),
                         title: const Text(
                           'Delivery instructions',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: AppTypography.label(),
                         ),
                         subtitle: Text(widget.order.deliveryNote),
                       ),
@@ -268,7 +268,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                         child: FilledButton.icon(
                           onPressed: _openNavigation,
                           style: FilledButton.styleFrom(
-                            backgroundColor: Colors.deepOrange,
+                            backgroundColor: AppColors.primary,
                           ),
                           icon: const Icon(Icons.navigation_outlined),
                           label: const Text('Navigate'),
@@ -285,28 +285,18 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
       bottomNavigationBar: isOutForDelivery
           ? Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black12,
-                    blurRadius: 10,
-                    offset: const Offset(0, -5),
-                  ),
-                ],
-              ),
+              decoration: BoxDecoration(color: Colors.white),
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _markAsDelivered,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
+                  backgroundColor: AppColors.primaryDark,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
                         'Mark as Delivered',
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: const AppTypography.sectionTitle(
                           color: Colors.white,
                         ),
                       ),

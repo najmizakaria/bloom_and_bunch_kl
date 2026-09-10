@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/auth_service.dart';
@@ -13,8 +15,8 @@ class FloristHomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Florist Dashboard 📋'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         actions: [
           // 👇 NEW: Inventory Button
           IconButton(
@@ -65,21 +67,22 @@ class FloristHomeScreen extends StatelessWidget {
               // Color code the status
               Color statusColor = Colors.grey;
               if (order.orderStatus == 'Awaiting Preparation') {
-                statusColor = Colors.orange;
+                statusColor = AppColors.primaryDark;
               }
-              if (order.orderStatus == 'Processing') statusColor = Colors.blue;
+              if (order.orderStatus == 'Processing') {
+                statusColor = AppColors.primaryDark;
+              }
               if (order.orderStatus == 'Ready for Delivery') {
-                statusColor = Colors.green;
+                statusColor = AppColors.primaryDark;
               }
 
               return Card(
-                elevation: 3,
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(
                     'Order: ${order.orderId.substring(0, 8).toUpperCase()}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                    style: const AppTypography.label(),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,9 +91,8 @@ class FloristHomeScreen extends StatelessWidget {
                       Text('Recipient: ${order.recipientName}'),
                       Text(
                         'RM ${order.totalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          color: Colors.teal,
-                          fontWeight: FontWeight.bold,
+                        style: const AppTypography.price(
+                          color: AppColors.primary,
                         ),
                       ),
                     ],
@@ -107,10 +109,7 @@ class FloristHomeScreen extends StatelessWidget {
                     ),
                     child: Text(
                       order.orderStatus,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.label(color: statusColor),
                     ),
                   ),
                   onTap: () {

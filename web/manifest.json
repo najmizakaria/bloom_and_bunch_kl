@@ -1,6 +1,6 @@
 {
-    "name": "bloom_and_bunch_kl",
-    "short_name": "bloom_and_bunch_kl",
+    "name": "bloombunch",
+    "short_name": "bloombunch",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

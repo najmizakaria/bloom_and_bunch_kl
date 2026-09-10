@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -20,7 +22,7 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
     'Preparing': 'Processing',
     'Ready': 'Ready for Delivery',
     'Delivered': 'Delivered',
- 'Cancelled': 'Cancelled',
+    'Cancelled': 'Cancelled',
   };
 
   String _shortOrderId(String orderId) {
@@ -82,11 +84,11 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Orders'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         actions: [
           IconButton(
             tooltip: 'Log out',
@@ -147,17 +149,6 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
                         child: ChoiceChip(
                           selected: selected,
                           label: Text('${entry.key} $count'),
-                          selectedColor: Colors.teal,
-                          backgroundColor: Colors.grey.shade100,
-                          labelStyle: TextStyle(
-                            color: selected ? Colors.white : Colors.black87,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          side: BorderSide(
-                            color: selected
-                                ? Colors.teal
-                                : Colors.grey.shade300,
-                          ),
                           onSelected: (_) {
                             setState(() {
                               _selectedStatus = entry.value;
@@ -208,11 +199,11 @@ class _OrderCard extends StatelessWidget {
   Color _statusColor() {
     switch (order.orderStatus) {
       case 'Awaiting Preparation':
-        return Colors.orange;
+        return AppColors.primaryDark;
       case 'Processing':
-        return Colors.blue;
+        return AppColors.primaryDark;
       case 'Ready for Delivery':
-        return Colors.green;
+        return AppColors.primaryDark;
       case 'Delivered':
         return Colors.grey;
       default:
@@ -241,9 +232,7 @@ class _OrderCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
-      elevation: 1,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -265,10 +254,7 @@ class _OrderCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'ORDER #$orderId',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
+                      style: const AppTypography.productTitle(),
                     ),
                   ),
                   Container(
@@ -282,11 +268,7 @@ class _OrderCard extends StatelessWidget {
                     ),
                     child: Text(
                       _statusLabel(),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTypography.badge(color: statusColor),
                     ),
                   ),
                 ],
@@ -294,13 +276,17 @@ class _OrderCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 'Placed $orderDate',
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                style: AppTypography.caption(color: Colors.grey.shade600),
               ),
               const Divider(height: 24),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.schedule, size: 20, color: Colors.teal),
+                  const Icon(
+                    Icons.schedule,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -308,12 +294,12 @@ class _OrderCard extends StatelessWidget {
                       children: [
                         const Text(
                           'Delivery time',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                          style: AppTypography.caption(color: Colors.grey),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           order.deliveryTimeSlot,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          style: const AppTypography.label(),
                         ),
                       ],
                     ),
@@ -327,7 +313,7 @@ class _OrderCard extends StatelessWidget {
                   const Icon(
                     Icons.person_outline,
                     size: 20,
-                    color: Colors.teal,
+                    color: AppColors.primary,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -336,14 +322,14 @@ class _OrderCard extends StatelessWidget {
                       children: [
                         const Text(
                           'Recipient',
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                          style: AppTypography.caption(color: Colors.grey),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           order.recipientName.isEmpty
                               ? 'Not provided'
                               : order.recipientName,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: const AppTypography.label(),
                         ),
                       ],
                     ),
@@ -356,22 +342,21 @@ class _OrderCard extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.10),
+                    color: AppColors.primaryDark.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Row(
                     children: [
                       Icon(
                         Icons.warning_amber_rounded,
-                        color: Colors.orange,
+                        color: AppColors.primaryDark,
                         size: 19,
                       ),
                       SizedBox(width: 8),
                       Text(
                         'Preparation required',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w600,
+                        style: AppTypography.label(
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ],
@@ -388,11 +373,7 @@ class _OrderCard extends StatelessWidget {
                   const Spacer(),
                   Text(
                     'RM ${order.totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: Colors.teal,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const AppTypography.price(color: AppColors.primary),
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right, color: Colors.grey),
@@ -425,10 +406,7 @@ class _EmptyOrdersState extends StatelessWidget {
               color: Colors.grey.shade400,
             ),
             const SizedBox(height: 16),
-            Text(
-              message,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text(message, style: const AppTypography.sectionTitle()),
             const SizedBox(height: 6),
             const Text(
               'Orders will appear here automatically.',

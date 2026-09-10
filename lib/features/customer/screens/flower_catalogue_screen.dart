@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../models/flower_model.dart';
@@ -110,9 +112,6 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                           );
                         },
                         child: Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -140,16 +139,13 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
                                   children: [
                                     Text(
                                       flower.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      style: const AppTypography.label(),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       'RM ${flower.pricePerStem.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        color: Color(0xFFD87093),
-                                        fontWeight: FontWeight.bold,
+                                      style: const AppTypography.price(
+                                        color: AppColors.primary,
                                       ),
                                     ),
                                   ],

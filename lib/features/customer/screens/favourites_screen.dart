@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
@@ -43,9 +44,9 @@ class FavouritesScreen extends StatelessWidget {
           centerTitle: true,
           automaticallyImplyLeading: false,
           bottom: const TabBar(
-            labelColor: AppColors.primaryRosewood,
+            labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textMuted,
-            indicatorColor: AppColors.primaryRosewood,
+            indicatorColor: AppColors.primary,
             tabs: [
               Tab(text: 'Saved Bouquets'),
               Tab(text: 'Saved Recipes'),
@@ -83,9 +84,6 @@ class FavouritesScreen extends StatelessWidget {
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                       child: ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
@@ -102,14 +100,11 @@ class FavouritesScreen extends StatelessWidget {
                                   color: AppColors.secondarySurface,
                                   child: const Icon(
                                     Icons.local_florist,
-                                    color: AppColors.primaryRosewood,
+                                    color: AppColors.primary,
                                   ),
                                 ),
                         ),
-                        title: Text(
-                          name,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                        title: Text(name, style: const AppTypography.label()),
                         subtitle: Text('RM ${price.toStringAsFixed(2)}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -117,7 +112,7 @@ class FavouritesScreen extends StatelessWidget {
                             IconButton(
                               icon: const Icon(
                                 Icons.add_shopping_cart,
-                                color: AppColors.primaryRosewood,
+                                color: AppColors.primary,
                               ),
                               onPressed: () => _add(context, {
                                 'type': 'ready',
@@ -128,7 +123,7 @@ class FavouritesScreen extends StatelessWidget {
                             IconButton(
                               icon: const Icon(
                                 Icons.favorite,
-                                color: Colors.redAccent,
+                                color: AppColors.primaryDark,
                               ),
                               onPressed: () =>
                                   favouritesService.toggleBouquetFavourite(
@@ -177,9 +172,6 @@ class FavouritesScreen extends StatelessWidget {
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
                       child: Padding(
                         padding: const EdgeInsets.all(14),
                         child: Column(
@@ -190,15 +182,12 @@ class FavouritesScreen extends StatelessWidget {
                               children: [
                                 const Text(
                                   'Custom Recipe',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
+                                  style: AppTypography.productTitle(),
                                 ),
                                 IconButton(
                                   icon: const Icon(
                                     Icons.delete_outline,
-                                    color: Colors.redAccent,
+                                    color: AppColors.primaryDark,
                                     size: 20,
                                   ),
                                   onPressed: () =>
@@ -208,17 +197,15 @@ class FavouritesScreen extends StatelessWidget {
                             ),
                             Text(
                               '$wrapper · $ribbon',
-                              style: const TextStyle(
+                              style: const AppTypography.supporting(
                                 color: AppColors.textMuted,
-                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${stems.length} stem type(s)',
-                              style: const TextStyle(
+                              style: const AppTypography.supporting(
                                 color: AppColors.textMuted,
-                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -227,15 +214,13 @@ class FavouritesScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   'RM ${totalPrice.toStringAsFixed(2)}',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryRosewood,
-                                    fontSize: 16,
+                                  style: const AppTypography.price(
+                                    color: AppColors.primary,
                                   ),
                                 ),
                                 OutlinedButton(
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: AppColors.primaryRosewood,
+                                    foregroundColor: AppColors.primary,
                                   ),
                                   onPressed: () => _add(context, {
                                     'type': 'custom',
@@ -280,9 +265,7 @@ class FavouritesScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+              style: const AppTypography.productTitle(
                 color: AppColors.textDark,
               ),
             ),

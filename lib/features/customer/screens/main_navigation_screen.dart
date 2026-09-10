@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../../../core/providers/cart_provider.dart';
-import '../../../core/theme/app_colors.dart';
 import 'customer_home_screen.dart';
-import 'favourites_screen.dart';
 import 'bouquet_builder_screen.dart';
-import 'cart_screen.dart';
+import 'bouquet_catalogue_screen.dart';
+import 'order_history_screen.dart';
 import 'profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -20,60 +17,48 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _tabs = const [
     CustomerHomeScreen(),
-    FavouritesScreen(),
+    BouquetCatalogueScreen(),
     BouquetBuilderScreen(),
-    CartScreen(),
+    OrderHistoryScreen(),
     ProfileScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final cartCount = context.watch<CartProvider>().itemCount;
-
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _tabs,
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 12,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: BottomNavigationBar(
-            currentIndex: _currentIndex,
-            onTap: (index) => setState(() => _currentIndex = index),
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: Colors.white,
-            selectedItemColor: AppColors.primaryRosewood,
-            unselectedItemColor: AppColors.textMuted,
-            showSelectedLabels: false,
-            showUnselectedLabels: false,
-            elevation: 0,
-            items: [
-              const BottomNavigationBarItem(icon: Icon(Icons.home_rounded), label: 'Home'),
-              const BottomNavigationBarItem(icon: Icon(Icons.favorite_rounded), label: 'Favourites'),
-              const BottomNavigationBarItem(icon: Icon(Icons.auto_awesome_rounded), label: 'Customize'),
-              BottomNavigationBarItem(
-                icon: Badge(
-                  label: Text('$cartCount'),
-                  isLabelVisible: cartCount > 0,
-                  backgroundColor: AppColors.primaryRosewood,
-                  child: const Icon(Icons.shopping_cart_rounded),
-                ),
-                label: 'Cart',
-              ),
-              const BottomNavigationBarItem(icon: Icon(Icons.person_rounded), label: 'Profile'),
-            ],
+      body: IndexedStack(index: _currentIndex, children: _tabs),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        destinations: const [
+          NavigationDestination(
+            selectedIcon: Icon(Icons.home_rounded),
+            icon: Icon(Icons.home_outlined),
+            label: 'Home',
           ),
-        ),
+          NavigationDestination(
+            selectedIcon: Icon(Icons.grid_view_rounded),
+            icon: Icon(Icons.grid_view_outlined),
+            label: 'Browse',
+          ),
+          NavigationDestination(
+            selectedIcon: ImageIcon(
+              AssetImage('assets/icons/flower_bouquet.png'),
+            ),
+            icon: ImageIcon(AssetImage('assets/icons/flower_bouquet.png')),
+            label: 'Create',
+          ),
+          NavigationDestination(
+            selectedIcon: Icon(Icons.receipt_long_rounded),
+            icon: Icon(Icons.receipt_long_outlined),
+            label: 'Orders',
+          ),
+          NavigationDestination(
+            selectedIcon: Icon(Icons.person_rounded),
+            icon: Icon(Icons.person_outline_rounded),
+            label: 'Profile',
+          ),
+        ],
       ),
     );
   }

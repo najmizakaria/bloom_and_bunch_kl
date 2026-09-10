@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -33,11 +35,11 @@ class FloristDashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Florist Dashboard'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -162,28 +164,28 @@ class FloristDashboardScreen extends StatelessWidget {
                         title: 'New',
                         count: newOrders.length,
                         icon: Icons.notifications_none,
-                        color: Colors.orange,
+                        color: AppColors.statusNew,
                         onTap: onOpenOrders,
                       ),
                       _DashboardStatCard(
                         title: 'Preparing',
                         count: preparingOrders.length,
                         icon: Icons.local_florist_outlined,
-                        color: Colors.blue,
+                        color: AppColors.statusPreparing,
                         onTap: onOpenOrders,
                       ),
                       _DashboardStatCard(
                         title: 'Ready',
                         count: readyOrders.length,
                         icon: Icons.inventory_2_outlined,
-                        color: Colors.green,
+                        color: AppColors.statusReady,
                         onTap: onOpenOrders,
                       ),
                       _DashboardStatCard(
                         title: 'Low Stock',
                         count: lowStockFlowers.length,
                         icon: Icons.warning_amber_rounded,
-                        color: Colors.red,
+                        color: AppColors.statusLowStock,
                         onTap: onOpenProducts,
                       ),
                     ],
@@ -262,9 +264,7 @@ class _TodaySummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF00897B), Color(0xFF26A69A)],
-        ),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -281,16 +281,12 @@ class _TodaySummaryCard extends StatelessWidget {
               children: [
                 const Text(
                   "Today's Orders",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                  style: AppTypography.supporting(color: Colors.white70),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '$totalOrders orders',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const AppTypography.display(color: Colors.white),
                 ),
                 Text(
                   '$completedOrders completed today',
@@ -323,8 +319,11 @@ class _DashboardStatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      color: color.withValues(alpha: 0.08),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withValues(alpha: 0.28)),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -333,17 +332,22 @@ class _DashboardStatCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: color),
-              const Spacer(),
-              Text(
-                '$count',
-                style: TextStyle(
-                  color: color,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Icon(icon, color: color, size: 22),
                 ),
               ),
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text('$count', style: AppTypography.display(color: color)),
+              Text(
+                title,
+                style: const AppTypography.label(color: AppColors.textDark),
+              ),
             ],
           ),
         ),
@@ -369,8 +373,8 @@ class _AttentionCard extends StatelessWidget {
       return const Card(
         child: ListTile(
           leading: CircleAvatar(
-            backgroundColor: Color(0xFFE8F5E9),
-            child: Icon(Icons.check, color: Colors.green),
+            backgroundColor: Color(0xFFE7F2EC),
+            child: Icon(Icons.check, color: AppColors.statusReady),
           ),
           title: Text('Everything looks good'),
           subtitle: Text('There are no urgent warnings right now.'),
@@ -385,8 +389,11 @@ class _AttentionCard extends StatelessWidget {
             ListTile(
               onTap: onOpenProducts,
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFFFEBEE),
-                child: Icon(Icons.warning_amber_rounded, color: Colors.red),
+                backgroundColor: Color(0xFFFBE8E6),
+                child: Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppColors.statusLowStock,
+                ),
               ),
               title: Text('$lowStockCount flowers have low stock'),
               subtitle: const Text('Stock quantity is 5 stems or fewer.'),
@@ -396,8 +403,11 @@ class _AttentionCard extends StatelessWidget {
           if (preparingCount > 0)
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE3F2FD),
-                child: Icon(Icons.local_florist_outlined, color: Colors.blue),
+                backgroundColor: Color(0xFFFFF1D9),
+                child: Icon(
+                  Icons.local_florist_outlined,
+                  color: AppColors.statusPreparing,
+                ),
               ),
               title: Text('$preparingCount orders are being prepared'),
               subtitle: const Text('Check whether any bouquet is ready.'),
@@ -436,10 +446,7 @@ class _NextOrderCard extends StatelessWidget {
                 children: [
                   Text(
                     'ORDER #$shortOrderId',
-                    style: const TextStyle(
-                      color: Colors.teal,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const AppTypography.label(color: AppColors.primary),
                   ),
                   const Spacer(),
                   _StatusBadge(status: order.orderStatus),
@@ -450,10 +457,7 @@ class _NextOrderCard extends StatelessWidget {
                 order.recipientName.isEmpty
                     ? 'Recipient not provided'
                     : order.recipientName,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const AppTypography.sectionTitle(),
               ),
               const SizedBox(height: 8),
               Row(
@@ -467,14 +471,15 @@ class _NextOrderCard extends StatelessWidget {
                 const SizedBox(height: 10),
                 const Row(
                   children: [
-                    Icon(Icons.info_outline, size: 18, color: Colors.orange),
+                    Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: AppColors.primaryDark,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'Preparation required',
-                      style: TextStyle(
-                        color: Colors.orange,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTypography.label(color: AppColors.primaryDark),
                     ),
                   ],
                 ),
@@ -514,13 +519,13 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case 'Awaiting Preparation':
-        color = Colors.orange;
+        color = AppColors.statusNew;
         break;
       case 'Processing':
-        color = Colors.blue;
+        color = AppColors.statusPreparing;
         break;
       case 'Ready for Delivery':
-        color = Colors.green;
+        color = AppColors.statusReady;
         break;
       default:
         color = Colors.grey;
@@ -532,14 +537,7 @@ class _StatusBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
-        status,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      child: Text(status, style: AppTypography.badge(color: color)),
     );
   }
 }
@@ -555,12 +553,9 @@ class _EmptyNextOrderCard extends StatelessWidget {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.task_alt, size: 48, color: Colors.green),
+              Icon(Icons.task_alt, size: 48, color: AppColors.primaryDark),
               SizedBox(height: 12),
-              Text(
-                'No active orders',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-              ),
+              Text('No active orders', style: AppTypography.productTitle()),
               SizedBox(height: 4),
               Text(
                 'New customer orders will appear here.',
