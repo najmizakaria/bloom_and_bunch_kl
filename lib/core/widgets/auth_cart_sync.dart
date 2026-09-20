@@ -4,13 +4,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
 
-/// Sits above AuthGate. Watches Firebase's auth state and clears the shared
-/// CartProvider whenever the logged-in uid changes — otherwise the same
-/// in-memory cart instance would leak items between different accounts on
-/// the same device.
+/// Switches the cart storage scope with authentication, isolating accounts
+/// while preserving each account's own cart and pending checkout retry.
 class AuthCartSync extends StatefulWidget {
   final Widget child;
-  const AuthCartSync({super.key, required this.child});
+  final GlobalKey<NavigatorState>? navigatorKey;
+  final Stream<User?>? authChanges;
+  const AuthCartSync({
+    super.key,
+    required this.child,
+    this.navigatorKey,
+    this.authChanges,
+  });
 
   @override
   State<AuthCartSync> createState() => _AuthCartSyncState();
@@ -23,15 +28,26 @@ class _AuthCartSyncState extends State<AuthCartSync> {
   @override
   void initState() {
     super.initState();
-    _sub = FirebaseAuth.instance.authStateChanges().listen((user) {
-      final newUid = user?.uid;
-      if (newUid != _lastUid) {
-        _lastUid = newUid;
-        if (mounted) {
-          context.read<CartProvider>().clear();
-        }
-      }
-    });
+    _sub = (widget.authChanges ?? FirebaseAuth.instance.authStateChanges())
+        .listen((user) {
+          final newUid = user?.uid;
+          if (newUid != _lastUid) {
+            final hadUser = _lastUid != null;
+            _lastUid = newUid;
+            if (hadUser) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted && _lastUid == newUid) {
+                  widget.navigatorKey?.currentState?.popUntil(
+                    (route) => route.isFirst,
+                  );
+                }
+              });
+            }
+            if (mounted) {
+              context.read<CartProvider>().switchUser(newUid);
+            }
+          }
+        });
   }
 
   @override

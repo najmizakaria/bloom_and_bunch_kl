@@ -7,7 +7,9 @@ class OrderService {
 
   Future<List<String>> placeOrder(Map<String, dynamic> request) async {
     final result = await _functions.httpsCallable('placeOrder').call(request);
-    return List<String>.from(result.data['orderIds'] as List);
+    final ids = List<String>.from(result.data['orderIds'] as List);
+    if (ids.isEmpty) throw StateError('Missing order confirmation.');
+    return ids;
   }
 
   Future<void> transition(String orderId, String action) async {
@@ -18,6 +20,7 @@ class OrderService {
   }
 
   static String message(Object error) {
+    if (error is StateError) return error.message.toString();
     if (error is FirebaseFunctionsException) {
       if (error.code == 'not-found') {
         return 'The order service is not deployed yet. Please contact the store.';

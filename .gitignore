@@ -63,3 +63,5 @@ functions/.npm-cache/
 .firebase/
 .firebase-audit/
 *-debug.log
+
+ios/Flutter/AppKeys.xcconfig

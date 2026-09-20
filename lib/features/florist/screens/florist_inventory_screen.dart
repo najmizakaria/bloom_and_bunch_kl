@@ -1,9 +1,9 @@
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
-import 'dart:io';
+import '../../../core/services/product_image.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -66,14 +66,8 @@ class FloristInventoryScreen extends StatelessWidget {
     }
   }
 
-  Future<String> _uploadImage(File image) async {
-    final fileName = 'flowers/${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-    final reference = FirebaseStorage.instance.ref().child(fileName);
-
-    await reference.putFile(image);
-
-    return reference.getDownloadURL();
+  Future<String> _uploadImage(ProductImage image) async {
+    return image.upload('flowers');
   }
 
   void _showAddFlowerDialog(BuildContext context) {
@@ -103,7 +97,7 @@ class FloristInventoryScreen extends StatelessWidget {
       text: existingFlower?.stockQuantity.toString() ?? '',
     );
 
-    File? selectedImage;
+    ProductImage? selectedImage;
     String imageUrl = existingFlower?.imageUrl ?? '';
     bool isUploading = false;
 
@@ -156,9 +150,23 @@ class FloristInventoryScreen extends StatelessWidget {
               }
 
               if (selectedFile != null) {
-                setDialogState(() {
-                  selectedImage = File(selectedFile.path);
-                });
+                try {
+                  final image = await ProductImage.read(selectedFile);
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() => selectedImage = image);
+                } catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          error is StateError
+                              ? error.message.toString()
+                              : 'Could not read this image.',
+                        ),
+                      ),
+                    );
+                  }
+                }
               }
             }
 
@@ -208,10 +216,22 @@ class FloristInventoryScreen extends StatelessWidget {
                 };
 
                 if (isEditing) {
-                  await FirebaseFirestore.instance
+                  final ref = FirebaseFirestore.instance
                       .collection('flowers')
-                      .doc(existingFlower.flowerId)
-                      .update(data);
+                      .doc(existingFlower.flowerId);
+                  await FirebaseFirestore.instance.runTransaction((
+                    transaction,
+                  ) async {
+                    final current = await transaction.get(ref);
+                    if (!current.exists ||
+                        current.data()?['stockQuantity'] !=
+                            existingFlower.stockQuantity) {
+                      throw StateError(
+                        'Flower stock changed. Reopen the flower before saving.',
+                      );
+                    }
+                    transaction.update(ref, data);
+                  });
                 } else {
                   data['createdAt'] = FieldValue.serverTimestamp();
 
@@ -363,11 +383,11 @@ class FloristInventoryScreen extends StatelessWidget {
     stockController.dispose();
   }
 
-  Widget _buildFormImage(File? selectedImage, String existingImageUrl) {
+  Widget _buildFormImage(ProductImage? selectedImage, String existingImageUrl) {
     if (selectedImage != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(11),
-        child: Image.file(selectedImage, fit: BoxFit.cover),
+        child: Image.memory(selectedImage.bytes, fit: BoxFit.cover),
       );
     }
 

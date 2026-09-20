@@ -6,6 +6,8 @@ import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/reorder_service.dart';
+import '../../../models/bouquet_model.dart';
+import 'bouquet_detail_screen.dart';
 
 class FavouritesScreen extends StatelessWidget {
   Future<void> _add(BuildContext context, Map<String, dynamic> item) async {
@@ -17,13 +19,64 @@ class FavouritesScreen extends StatelessWidget {
           const SnackBar(content: Text('Added at the current price.')),
         );
       }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is StateError
+                  ? error.message.toString()
+                  : 'Could not add this item. Please retry.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openBouquet(BuildContext context, String id) async {
+    try {
+      final document = await FirebaseFirestore.instance
+          .doc('bouquets/$id')
+          .get();
+      if (!document.exists ||
+          document.data()?['isPublished'] == false ||
+          document.data()?['archived'] == true) {
+        throw StateError('This bouquet is no longer offered.');
+      }
+      final bouquet = BouquetModel.fromMap(document.data()!, document.id);
+      if (context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BouquetDetailScreen(bouquet: bouquet),
+          ),
+        );
+      }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'This item is no longer available. Please check the catalogue.',
+              'Could not load this bouquet. Check the catalogue or retry.',
             ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _save(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update favourites. Please retry.'),
           ),
         );
       }
@@ -59,6 +112,11 @@ class FavouritesScreen extends StatelessWidget {
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: favouritesService.favouriteBouquetsStream(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Could not load favourites. Please retry.'),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -114,24 +172,22 @@ class FavouritesScreen extends StatelessWidget {
                                 Icons.add_shopping_cart,
                                 color: AppColors.primary,
                               ),
-                              onPressed: () => _add(context, {
-                                'type': 'ready',
-                                'bouquetId': bouquetId,
-                                'fulfillmentType': 'ready_now',
-                              }),
+                              onPressed: () => _openBouquet(context, bouquetId),
                             ),
                             IconButton(
                               icon: const Icon(
                                 Icons.favorite,
                                 color: AppColors.primaryDark,
                               ),
-                              onPressed: () =>
-                                  favouritesService.toggleBouquetFavourite(
-                                    bouquetId: bouquetId,
-                                    name: name,
-                                    imageUrl: imageUrl,
-                                    price: price,
-                                  ),
+                              onPressed: () => _save(
+                                context,
+                                () => favouritesService.toggleBouquetFavourite(
+                                  bouquetId: bouquetId,
+                                  name: name,
+                                  imageUrl: imageUrl,
+                                  price: price,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -146,6 +202,11 @@ class FavouritesScreen extends StatelessWidget {
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: favouritesService.favouriteRecipesStream(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text('Could not load favourites. Please retry.'),
+                  );
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -190,8 +251,12 @@ class FavouritesScreen extends StatelessWidget {
                                     color: AppColors.primaryDark,
                                     size: 20,
                                   ),
-                                  onPressed: () =>
-                                      favouritesService.deleteRecipe(recipeId),
+                                  onPressed: () => _save(
+                                    context,
+                                    () => favouritesService.deleteRecipe(
+                                      recipeId,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),

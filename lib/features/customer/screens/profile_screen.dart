@@ -4,6 +4,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/notification_service.dart';
+import '../../../core/services/order_service.dart';
+import '../../../core/widgets/reauthentication_dialog.dart';
+import '../../../core/widgets/legal_documents.dart';
+import 'package:provider/provider.dart';
+import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 import 'address_book_screen.dart';
@@ -29,7 +35,28 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _notificationsEnabled = true;
+  bool _notificationBusy = false, _deleting = false;
+  Future<void> _setNotifications(bool enabled) async {
+    if (_notificationBusy) return;
+    setState(() => _notificationBusy = true);
+    try {
+      await NotificationService.instance.setEnabled(enabled);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is StateError
+                  ? error.message.toString()
+                  : OrderService.message(error),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _notificationBusy = false);
+    }
+  }
 
   Future<void> _switchToRider(BuildContext context) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -49,10 +76,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     BuildContext context,
     String currentPhone,
   ) async {
-    final controller = TextEditingController(text: currentPhone);
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-
+    final controller = TextEditingController(text: currentPhone);
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -60,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.phone,
+          maxLength: 30,
           decoration: const InputDecoration(hintText: 'e.g. 012-3456789'),
         ),
         actions: [
@@ -70,16 +97,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () async {
-              await FirestoreService().updateUserFields(uid, {
-                'phone': controller.text.trim(),
-              });
-              if (context.mounted) Navigator.pop(context);
+              try {
+                if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+                await FirestoreService().updateUserFields(uid, {
+                  'phone': controller.text.trim(),
+                });
+                if (context.mounted) Navigator.pop(context);
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Could not save your phone number. Please retry.',
+                      ),
+                    ),
+                  );
+                }
+              }
             },
             child: const Text('Save'),
           ),
         ],
       ),
     );
+    controller.dispose();
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
@@ -108,24 +149,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirmed != true) return;
 
+    if (_deleting) return;
+    setState(() => _deleting = true);
     try {
-      final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid != null) {
-        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      final user = FirebaseAuth.instance.currentUser;
+      String? password;
+      if (user?.providerData.any(
+            (provider) => provider.providerId == 'password',
+          ) ==
+          true) {
+        if (!context.mounted) return;
+        password = await showDialog<String>(
+          context: context,
+          builder: (_) => const ReauthenticationDialog(),
+        );
+        if (password == null) return;
       }
-      await FirebaseAuth.instance.currentUser?.delete();
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'requires-recent-login') {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Please log out and log back in, then try deleting your account again.',
-              ),
+      await AuthService().reauthenticateForDeletion(password: password);
+      if (!context.mounted) return;
+      final uid = user!.uid;
+      final cart = context.read<CartProvider>();
+      await AuthService().deleteAccount();
+      await cart.forgetDeletedUser(uid);
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is FirebaseAuthException
+                  ? 'Could not confirm your identity. Please sign in again and retry.'
+                  : error is StateError
+                  ? error.message.toString()
+                  : OrderService.message(error),
             ),
-          );
-        }
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
   }
 
@@ -416,15 +477,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Order status updates',
                     style: AppTypography.caption(),
                   ),
-                  value: _notificationsEnabled,
-                  onChanged: (val) {
-                    setState(() => _notificationsEnabled = val);
-                    if (uid != null) {
-                      FirestoreService().updateUserFields(uid, {
-                        'notificationsEnabled': val,
-                      });
-                    }
-                  },
+                  value: userData?['notificationsEnabled'] == true,
+                  onChanged: _notificationBusy || !NotificationService.supported
+                      ? null
+                      : _setNotifications,
                 ),
               ),
 
@@ -456,7 +512,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon: Icons.delete_outline,
                 title: 'Delete Account',
                 titleColor: AppColors.primaryDark,
-                onTap: () => _confirmDeleteAccount(context),
+                subtitle: _deleting
+                    ? 'Deleting your account…'
+                    : userData?['deletionPending'] == true
+                    ? 'Deletion pending. Tap to retry.'
+                    : null,
+                onTap: _deleting ? null : () => _confirmDeleteAccount(context),
               ),
               const SizedBox(height: 20),
             ],
@@ -494,23 +555,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showStaticDoc(BuildContext context, String title) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(
-          child: Text(
-            'Add your actual $title content here before publishing the app.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
+    LegalDocuments.show(context, title);
   }
 }
 

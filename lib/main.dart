@@ -7,7 +7,11 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/cart_provider.dart';
 import 'core/widgets/auth_cart_sync.dart';
+import 'core/widgets/notification_session.dart';
 import 'features/auth/screens/auth_gate.dart';
+
+final appNavigatorKey = GlobalKey<NavigatorState>();
+final appMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +40,15 @@ class BloomAndBunchApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => CartProvider(),
       child: AuthCartSync(
+        navigatorKey: appNavigatorKey,
         child: MaterialApp(
+          navigatorKey: appNavigatorKey,
+          scaffoldMessengerKey: appMessengerKey,
+          builder: (context, child) => NotificationSession(
+            messengerKey: appMessengerKey,
+            navigatorKey: appNavigatorKey,
+            child: child!,
+          ),
           title: 'Bloom & Bunch KL',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,

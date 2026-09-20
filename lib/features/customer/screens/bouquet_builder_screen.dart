@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../../../core/utils/money.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/cart_provider.dart';
@@ -63,7 +64,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       final count = _stemCounts[flower.flowerId] ?? 0;
       stemsTotal += flower.pricePerStem * count;
     }
-    return stemsTotal + _wrapperPrice + _ribbonPrice;
+    return Money.round(stemsTotal + _wrapperPrice + _ribbonPrice);
   }
 
   void _decrementFlower(FlowerModel flower) {
@@ -217,7 +218,8 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           flower.flowerId: flower.name,
     };
 
-    context.read<CartProvider>().addCustomItem(
+    final cart = context.read<CartProvider>();
+    final added = cart.addCustomItem(
       unitPrice: totalPrice,
       stems: selectedStems,
       stemNames: selectedNames,
@@ -226,6 +228,12 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       cardNote: _cardNoteController.text.trim(),
       leadTimeBusinessDays: 2,
     );
+    if (!added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
+      );
+      return;
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

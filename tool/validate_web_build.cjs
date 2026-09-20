@@ -47,4 +47,7 @@ if (!compiledApp.includes(firebaseKey)) {
   fail('the Firebase Web key was not compiled into build/web/main.dart.js.');
 }
 
+const workerConfig = path.join(projectRoot, 'build/web/firebase-messaging-config.js');
+if (!fs.existsSync(workerConfig) || !fs.readFileSync(workerConfig, 'utf8').includes(firebaseKey)) fail('the notification worker configuration is missing.');
+if (!fs.existsSync(path.join(projectRoot, 'build/web/firebase-messaging-sw.js'))) fail('the notification service worker is missing.');
 console.log('Web build validation passed.');

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/services/auth_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_documents.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/pill_button.dart';
 import 'login_screen.dart';
@@ -198,6 +199,7 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
                 height: 1.5,
               ),
             ),
+            const PolicyLinks(),
             Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,

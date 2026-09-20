@@ -35,6 +35,15 @@ class OrderStatuses {
   // Kept temporarily while older Firestore orders are migrated.
   static const String legacyPending = 'Pending';
 
+  static String normalize(String value) => switch (value) {
+    legacyPending => awaitingPreparation,
+    completed => delivered,
+    _ => value,
+  };
+
+  static bool isPast(String value) =>
+      [delivered, cancelled].contains(normalize(value));
+
   static bool requiresFloristPreparation(String value) {
     return value == awaitingPreparation ||
         value == legacyPending ||

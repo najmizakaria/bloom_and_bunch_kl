@@ -7,6 +7,7 @@ import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/address_service.dart';
 import '../../../core/services/favourites_service.dart';
+import '../../../core/widgets/action_feedback.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/product_components.dart';
 import '../../../models/bouquet_model.dart';
@@ -74,7 +75,20 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       ),
     );
     if (mounted && address != null) {
-      setState(() => _address = address.address);
+      try {
+        await AddressService().setDefault(address.id);
+        if (mounted) setState(() => _address = address.address);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not select your delivery address. Please retry.',
+              ),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -93,7 +107,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   void _addBouquetToCart(BouquetModel bouquet) {
-    context.read<CartProvider>().addReadyMadeItem(
+    final cart = context.read<CartProvider>();
+    final added = cart.addReadyMadeItem(
       bouquetId: bouquet.id,
       name: bouquet.name,
       imageUrl: bouquet.imageUrl,
@@ -103,6 +118,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
           ? bouquet.leadTimeBusinessDays
           : 0,
     );
+    if (!added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
+      );
+      return;
+    }
 
     final modeLabel = FulfillmentTypes.customerLabel(_fulfillmentType);
 
@@ -341,7 +362,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                       onOpen: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
-                          builder: (_) => BouquetDetailScreen(bouquet: bouquet),
+                          builder: (_) => BouquetDetailScreen(
+                            bouquet: bouquet,
+                            initialFulfillmentType: _fulfillmentType,
+                          ),
                         ),
                       ),
                       onAdd: () => _addBouquetToCart(bouquet),
@@ -419,13 +443,16 @@ class _CustomerBouquetCard extends StatelessWidget {
                             final favourited = snapshot.data?.exists ?? false;
                             return ProductFavouriteButton(
                               selected: favourited,
-                              onPressed: () =>
-                                  FavouritesService().toggleBouquetFavourite(
-                                    bouquetId: bouquet.id,
-                                    name: bouquet.name,
-                                    imageUrl: bouquet.imageUrl,
-                                    price: bouquet.price,
-                                  ),
+                              onPressed: () => ActionFeedback.run(
+                                context,
+                                () =>
+                                    FavouritesService().toggleBouquetFavourite(
+                                      bouquetId: bouquet.id,
+                                      name: bouquet.name,
+                                      imageUrl: bouquet.imageUrl,
+                                      price: bouquet.price,
+                                    ),
+                              ),
                             );
                           },
                         ),

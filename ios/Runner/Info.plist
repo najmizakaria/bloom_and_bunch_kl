@@ -66,5 +66,18 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<key>NSCameraUsageDescription</key>
+	<string>Take a product photo for the bouquet or flower catalogue.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a product photo for the bouquet or flower catalogue.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Find your location when you choose to set a delivery pin.</string>
+	<key>MapsAPIKey</key>
+	<string>$(MAPS_API_KEY_IOS)</string>
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_CLIENT_ID_IOS)</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>$(GOOGLE_REVERSED_CLIENT_ID_IOS)</string></array></dict></array>
 </dict>
 </plist>

@@ -19,7 +19,7 @@ before(async()=>{
  for(const uid of ['rider_a_test','rider_b_test'])await db.collection('users').doc(uid).set({role:'rider'});
 });
 after(async()=>{if(db)await db.terminate();});
-const address={recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street'};
+const address={recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street, Kuala Lumpur',note:'Guard house',latitude:3.139,longitude:101.6869};
 function request(uid,id,items,total){return {auth:{uid},data:{checkoutId:id,items,addressId:'test',address,expectedTotal:total}};}
 const custom={quantity:1,fulfillmentType:'custom',customStems:{rose_test:100},wrapper:'Kraft Paper (Classic)',ribbon:'Red Satin',cardNote:''};
 test('backend: custom reservation, retry, prepare, restock and consume exactly once',{skip:!enabled},async()=>{

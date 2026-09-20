@@ -21,6 +21,7 @@ function money(v){if(typeof v!=='number'||!Number.isFinite(v)||v<0||v>100000)fai
 function normalizeItems(items){
  if(!Array.isArray(items)||!items.length||items.length>20)fail('Cart must contain 1–20 items.');
  return items.map(i=>{
+  if(!i||typeof i!=='object'||Array.isArray(i))fail('Invalid cart item.');
   const quantity=integer(i.quantity,20),mode=i.fulfillmentType;
   if(!['ready_now','pre_order','custom'].includes(mode))fail('Choose a fulfillment mode.');
   if(mode!=='custom')return {quantity,fulfillmentType:mode,bouquetId:id(i.bouquetId)};
@@ -48,7 +49,7 @@ function buildPlan(items,bouquets,flowers){
    name='Custom Bouquet';recipe=i.customStems;cents=wrappers[i.wrapper]+ribbons[i.ribbon];itemLead=2;
    for(const [key,count] of Object.entries(recipe)){
     const f=flowers[key];if(!f||f.availableForCustomOrder===false)fail('A selected flower is no longer offered.','failed-precondition');
-    cents+=money(f.pricePerStem)*count;names[key]=f.name;
+    money(f.pricePerStem);cents+=f.pricePerStem*100*count;names[key]=f.name;
    }
   }else{
    const b=bouquets[i.bouquetId];
@@ -64,7 +65,7 @@ function buildPlan(items,bouquets,flowers){
    }
   }
   lead=Math.max(lead,itemLead);
-  const snapshot={...i,type:i.fulfillmentType==='custom'?'custom':'ready',name,imageUrl,unitPrice:cents/100,leadTimeBusinessDays:itemLead,recipeStems:recipe,customStemNames:names};
+  const snapshot={...i,type:i.fulfillmentType==='custom'?'custom':'ready',name,imageUrl,unitPrice:Math.round(cents)/100,leadTimeBusinessDays:itemLead,recipeStems:recipe,customStemNames:names};
   if(i.fulfillmentType==='ready_now')ready.push(snapshot);
   else{planned.push(snapshot);for(const [k,q]of Object.entries(recipe))materialRequirements[k]=(materialRequirements[k]??0)+q*i.quantity;}
  }
@@ -75,4 +76,3 @@ function buildPlan(items,bouquets,flowers){
  return {ready,planned,readyRequirements,materialRequirements,lead};
 }
 module.exports={OrderError,fail,text,id,integer,stems,money,normalizeItems,address,addBusinessDays,buildPlan};
-

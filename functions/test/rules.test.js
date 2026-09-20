@@ -1,7 +1,7 @@
 const {test,before,after}=require('node:test');
 const {readFileSync}=require('node:fs');
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
-const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,Timestamp}=require('firebase/firestore');
+const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,Timestamp,deleteDoc}=require('firebase/firestore');
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let env;
 before(async()=>{if(!enabled)return;
@@ -49,9 +49,9 @@ test('rules: florist cannot forge reservations; sourceability independent from s
  await assertFails(updateDoc(doc(f,'flowers','rose'),{reservedQuantity:0}));
  await assertFails(updateDoc(doc(f,'flowers','rose'),{stockQuantity:-1}));
 });
-test('rules: addresses validate on both create and update',{skip:!enabled},async()=>{
+test('rules: address writes require the server-coordinated default path',{skip:!enabled},async()=>{
  const c=env.authenticatedContext('customer').firestore(),ref=doc(c,'users','customer','addresses','home');
- await assertSucceeds(setDoc(ref,{label:'Home',address:'12 Main Road',recipientName:'A',recipientPhone:'123',note:'',isDefault:true,latitude:null,longitude:null}));
+ await assertFails(setDoc(ref,{label:'Home',address:'12 Main Road',recipientName:'A',recipientPhone:'123',note:'',isDefault:true,latitude:null,longitude:null}));
  await assertFails(updateDoc(ref,{address:'x'.repeat(601)}));
  await assertFails(updateDoc(ref,{latitude:100,longitude:3}));
  await assertFails(setDoc(doc(c,'users','other','addresses','home'),{label:'Home'}));
@@ -73,3 +73,18 @@ test('rider applications cannot be approved by clients',{skip:!enabled},async()=
  await assertSucceeds(getDoc(doc(admin,'rider_applications','customer')));
 });
 
+
+test('rules stop deleting accounts from recreating profiles or subcollections',{skip:!enabled},async()=>{
+ const uid='rule_delete_pending';
+ await env.withSecurityRulesDisabled(async c=>{
+  await setDoc(doc(c.firestore(),'users',uid),{uid,name:'Pending',email:'pending@example.com',phone:'123',role:'customer',createdAt:Timestamp.now(),deletionPending:true});
+  await setDoc(doc(c.firestore(),'account_deletions',uid),{status:'pending'});
+ });
+ const client=env.authenticatedContext(uid).firestore();
+ await assertSucceeds(getDoc(doc(client,'users',uid)));
+ await assertFails(updateDoc(doc(client,'users',uid),{deletionPending:false}));
+ await assertFails(setDoc(doc(client,'users',uid,'favourite_bouquets','rose'),{name:'Rose',imageUrl:'',price:10,savedAt:Timestamp.now()}));
+ await assertFails(deleteDoc(doc(client,'users',uid)));
+ await env.withSecurityRulesDisabled(c=>deleteDoc(doc(c.firestore(),'users',uid)));
+ await assertFails(setDoc(doc(client,'users',uid),{uid,name:'Recreated',email:'pending@example.com',phone:'123',role:'customer',createdAt:Timestamp.now()}));
+});

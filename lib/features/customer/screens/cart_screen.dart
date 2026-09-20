@@ -41,6 +41,11 @@ class CartScreen extends StatelessWidget {
 
           return Column(
             children: [
+              if (cart.errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Text(cart.errorMessage!),
+                ),
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),

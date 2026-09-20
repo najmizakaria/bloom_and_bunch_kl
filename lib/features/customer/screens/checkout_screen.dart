@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/address_service.dart';
@@ -25,7 +27,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _load() async {
     try {
-      var a = await AddressService().defaultAddress();
+      final pending = context.read<CartProvider>().pendingRequest;
+      var a = pending == null
+          ? await AddressService().defaultAddress()
+          : SavedAddressModel.fromMap(
+              Map<String, dynamic>.from(pending['address'] as Map),
+              pending['addressId'] as String,
+            );
       if (a == null && mounted) {
         a = await AddressBookScreen.create(context);
       }
@@ -46,7 +54,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         builder: (_) => const AddressBookScreen(selectionMode: true),
       ),
     );
-    if (mounted && a != null) context.read<CartProvider>().resetCheckout();
+    if (mounted &&
+        a != null &&
+        (a.id != _address?.id ||
+            a.toMap().toString() != _address?.toMap().toString())) {
+      context.read<CartProvider>().resetCheckout();
+    }
     if (mounted && a != null) {
       setState(() {
         _address = a;
@@ -61,15 +74,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _busy = true;
       _error = null;
     });
+    final uid = FirebaseAuth.instance.currentUser?.uid;
     try {
-      final ids = await OrderService().placeOrder({
+      final request = await cart.prepareCheckout({
         'checkoutId': cart.checkoutId,
         'items': cart.items.map((i) => i.toMap()).toList(),
         'expectedTotal': cart.totalPrice,
         'addressId': _address!.id,
         'address': _address!.toMap(),
       });
-      cart.clear();
+      if (uid == null || FirebaseAuth.instance.currentUser?.uid != uid) return;
+      final ids = await OrderService().placeOrder(request);
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      cart.checkoutSucceeded();
       if (!mounted) return;
       if (ids.length > 1) {
         await showDialog<void>(
@@ -96,6 +113,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       );
     } catch (e) {
+      if (FirebaseAuth.instance.currentUser?.uid != uid) return;
+      if (e is FirebaseFunctionsException &&
+          [
+            'invalid-argument',
+            'failed-precondition',
+            'permission-denied',
+            'not-found',
+          ].contains(e.code)) {
+        cart.checkoutRejected();
+      }
       if (mounted) setState(() => _error = OrderService.message(e));
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -141,7 +168,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           : '${_address!.recipientName} · ${_address!.recipientPhone}\n${_address!.address}',
                     ),
                     trailing: TextButton(
-                      onPressed: _busy ? null : _change,
+                      onPressed: _busy || cart.hasPendingCheckout
+                          ? null
+                          : _change,
                       child: const Text('Change'),
                     ),
                   ),
@@ -164,7 +193,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   onPressed: _busy || _address == null || cart.isEmpty
                       ? null
                       : () => _place(cart),
-                  child: Text(_busy ? 'Confirming order…' : 'Place order'),
+                  child: Text(
+                    _busy
+                        ? 'Confirming order…'
+                        : cart.hasPendingCheckout
+                        ? 'Retry and confirm order'
+                        : 'Place order',
+                  ),
                 ),
               ],
             ),

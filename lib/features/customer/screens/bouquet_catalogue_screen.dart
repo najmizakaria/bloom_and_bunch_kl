@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
+import '../../../core/widgets/action_feedback.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/product_components.dart';
 import '../../../models/bouquet_model.dart';
@@ -242,13 +243,16 @@ class _BouquetTile extends StatelessWidget {
                             final selected = snapshot.data?.exists ?? false;
                             return ProductFavouriteButton(
                               selected: selected,
-                              onPressed: () =>
-                                  FavouritesService().toggleBouquetFavourite(
-                                    bouquetId: bouquet.id,
-                                    name: bouquet.name,
-                                    imageUrl: bouquet.imageUrl,
-                                    price: bouquet.price,
-                                  ),
+                              onPressed: () => ActionFeedback.run(
+                                context,
+                                () =>
+                                    FavouritesService().toggleBouquetFavourite(
+                                      bouquetId: bouquet.id,
+                                      name: bouquet.name,
+                                      imageUrl: bouquet.imageUrl,
+                                      price: bouquet.price,
+                                    ),
+                              ),
                             );
                           },
                         ),

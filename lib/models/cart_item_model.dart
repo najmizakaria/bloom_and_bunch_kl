@@ -35,10 +35,32 @@ class CartItemModel {
     this.cardNote,
   });
 
+  factory CartItemModel.fromMap(Map<String, dynamic> data) => CartItemModel(
+    id: data['id'] as String,
+    type: data['type'] as String,
+    name: data['name'] as String,
+    imageUrl: data['imageUrl'] as String,
+    unitPrice: (data['unitPrice'] as num).toDouble(),
+    quantity: data['quantity'] as int,
+    bouquetId: data['bouquetId'] as String?,
+    fulfillmentType: data['fulfillmentType'] as String,
+    leadTimeBusinessDays: data['leadTimeBusinessDays'] as int? ?? 0,
+    customStems: data['customStems'] == null
+        ? null
+        : Map<String, int>.from(data['customStems'] as Map),
+    customStemNames: data['customStemNames'] == null
+        ? null
+        : Map<String, String>.from(data['customStemNames'] as Map),
+    wrapper: data['wrapper'] as String?,
+    ribbon: data['ribbon'] as String?,
+    cardNote: data['cardNote'] as String?,
+  );
+
   double get lineTotal => unitPrice * quantity;
 
   Map<String, dynamic> toMap() {
     return {
+      'id': id,
       'type': type,
       'name': name,
       'imageUrl': imageUrl,

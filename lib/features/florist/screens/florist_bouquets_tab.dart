@@ -1,10 +1,11 @@
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
-import 'dart:io';
+import '../../../core/services/product_image.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../models/bouquet_model.dart';
@@ -20,11 +21,8 @@ class FloristBouquetsTab extends StatefulWidget {
 class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
   bool _showArchived = false;
 
-  Future<String> _uploadImage(File image) async {
-    final fileName = 'bouquets/${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final reference = FirebaseStorage.instance.ref().child(fileName);
-    await reference.putFile(image);
-    return reference.getDownloadURL();
+  Future<String> _uploadImage(ProductImage image) async {
+    return image.upload('bouquets');
   }
 
   Future<void> _changeReadyStock(BouquetModel bouquet, int change) async {
@@ -260,7 +258,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
     var leadTimeBusinessDays = existingBouquet?.leadTimeBusinessDays ?? 2;
     final recipeStems = <String, int>{...?existingBouquet?.recipeStems};
 
-    File? selectedImage;
+    ProductImage? selectedImage;
     var imageUrl = existingBouquet?.imageUrl ?? '';
     var saving = false;
     final imagePicker = ImagePicker();
@@ -299,7 +297,21 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               imageQuality: 75,
             );
             if (!dialogContext.mounted || picked == null) return;
-            setDialogState(() => selectedImage = File(picked.path));
+            try {
+              final image = await ProductImage.read(picked);
+              if (!dialogContext.mounted) return;
+              setDialogState(() => selectedImage = image);
+            } catch (error) {
+              if (dialogContext.mounted) {
+                _showDialogMessage(
+                  dialogContext,
+                  error is StateError
+                      ? error.message.toString()
+                      : 'Could not read this image.',
+                  error: true,
+                );
+              }
+            }
           }
 
           Future<void> save() async {
@@ -332,6 +344,15 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               return;
             }
 
+            if (cleanedRecipe.length > 30 ||
+                cleanedRecipe.values.any((n) => n > 100) ||
+                cleanedRecipe.values.fold(0, (total, n) => total + n) > 150) {
+              _showDialogMessage(
+                dialogContext,
+                'Use up to 30 flower types, 100 stems each and 150 stems per bouquet.',
+              );
+              return;
+            }
             if (availableForPreOrder && cleanedRecipe.isEmpty) {
               _showDialogMessage(
                 dialogContext,
@@ -368,17 +389,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                 'stockCount': readyStock,
               };
 
-              if (editing) {
-                await FirebaseFirestore.instance
-                    .collection('bouquets')
-                    .doc(existingBouquet.id)
-                    .update(data);
-              } else {
-                data['createdAt'] = FieldValue.serverTimestamp();
-                await FirebaseFirestore.instance
-                    .collection('bouquets')
-                    .add(data);
-              }
+              data.remove('updatedAt');
+              await FirebaseFunctions.instanceFor(
+                region: 'asia-southeast1',
+              ).httpsCallable('saveBouquet').call({
+                'bouquetId': existingBouquet?.id,
+                'bouquet': data,
+                'expectedReadyStock': existingBouquet?.readyStock,
+              });
 
               if (!dialogContext.mounted || !mounted) return;
               Navigator.pop(dialogContext);
@@ -617,7 +635,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                                     ),
                                   ),
                                   IconButton(
-                                    onPressed: saving
+                                    onPressed:
+                                        saving ||
+                                            count >= 100 ||
+                                            recipeStems.values.fold(
+                                                  0,
+                                                  (a, b) => a + b,
+                                                ) >=
+                                                150
                                         ? null
                                         : () => setDialogState(() {
                                             recipeStems[flower.flowerId] =
@@ -1019,13 +1044,13 @@ class _ModeChip extends StatelessWidget {
 class _FormImage extends StatelessWidget {
   const _FormImage({required this.selectedImage, required this.imageUrl});
 
-  final File? selectedImage;
+  final ProductImage? selectedImage;
   final String imageUrl;
 
   @override
   Widget build(BuildContext context) {
     if (selectedImage != null) {
-      return Image.file(selectedImage!, fit: BoxFit.cover);
+      return Image.memory(selectedImage!.bytes, fit: BoxFit.cover);
     }
     if (imageUrl.isNotEmpty) {
       return Image.network(

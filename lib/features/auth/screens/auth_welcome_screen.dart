@@ -2,6 +2,7 @@ import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/legal_documents.dart';
 import '../widgets/auth_scaffold.dart';
 import '../widgets/pill_button.dart';
 import 'login_screen.dart';
@@ -60,6 +61,7 @@ class AuthWelcomeScreen extends StatelessWidget {
               height: 1.5,
             ),
           ),
+          const PolicyLinks(),
         ],
       ),
     );

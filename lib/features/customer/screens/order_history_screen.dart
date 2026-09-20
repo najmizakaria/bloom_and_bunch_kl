@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/cart_provider.dart';
+import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/services/reorder_service.dart';
 import '../../../core/theme/app_colors.dart';
 import 'order_tracking_screen.dart';
@@ -21,7 +22,7 @@ String _friendlyStatus(String raw) {
   };
 }
 
-bool _isPastStatus(String raw) => raw == 'Completed' || raw == 'Cancelled';
+bool _isPastStatus(String raw) => OrderStatuses.isPast(raw);
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -40,15 +41,26 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   String _statusFilter = 'All';
 
   Future<void> _orderAgain(Map<String, dynamic> data) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
     final cart = context.read<CartProvider>();
     try {
+      var added = 0, unavailable = 0;
       for (final raw in data['items'] as List? ?? []) {
-        await ReorderService.add(cart, Map<String, dynamic>.from(raw as Map));
+        if (!mounted || FirebaseAuth.instance.currentUser?.uid != uid) return;
+        try {
+          await ReorderService.add(cart, Map<String, dynamic>.from(raw as Map));
+          added++;
+        } catch (_) {
+          unavailable++;
+        }
       }
-      if (mounted) {
+      if (mounted && FirebaseAuth.instance.currentUser?.uid == uid) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Available items were added at current prices.'),
+          SnackBar(
+            content: Text(
+              '$added item(s) added at current prices${unavailable > 0 ? '; $unavailable could not be added' : ''}.',
+            ),
           ),
         );
       }
@@ -63,7 +75,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
 
   Color _statusColor(String raw) {
     return switch (raw) {
-      'Completed' => AppColors.success,
+      'Completed' || 'Delivered' => AppColors.success,
       'Cancelled' => AppColors.error,
       'Out for Delivery' || 'Ready for Delivery' => AppColors.primary,
       _ => AppColors.warning,

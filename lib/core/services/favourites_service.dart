@@ -33,7 +33,7 @@ class FavouritesService {
     required String imageUrl,
     required double price,
   }) async {
-    if (_uid == null) return;
+    if (_uid == null) throw StateError('Please sign in.');
     final doc = _bouquetFavourites.doc(bouquetId);
     final snapshot = await doc.get();
 
@@ -62,7 +62,7 @@ class FavouritesService {
     required String ribbon,
     required double totalPrice,
   }) async {
-    if (_uid == null) return;
+    if (_uid == null) throw StateError('Please sign in.');
     await FirebaseFunctions.instanceFor(
       region: 'asia-southeast1',
     ).httpsCallable('saveRecipe').call({
@@ -74,7 +74,7 @@ class FavouritesService {
   }
 
   Future<void> deleteRecipe(String recipeId) async {
-    if (_uid == null) return;
+    if (_uid == null) throw StateError('Please sign in.');
     await _recipes.doc(recipeId).delete();
   }
 }

@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/saved_address_model.dart';
 
 class AddressService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
+    region: 'asia-southeast1',
+  );
   String get _uid =>
       FirebaseAuth.instance.currentUser?.uid ??
       (throw StateError('Please sign in.'));
@@ -34,61 +38,17 @@ class AddressService {
   }
 
   Future<void> saveAddress(SavedAddressModel address) async {
-    final ref = address.id.isEmpty
-        ? _addresses.doc()
-        : _addresses.doc(address.id);
-    final user = await _user.get();
-    final makeDefault =
-        address.isDefault || user.data()?['defaultAddressId'] == null;
-    final batch = _db.batch();
-
-    if (makeDefault) {
-      final existing = await _addresses.limit(100).get();
-      for (final document in existing.docs) {
-        if (document.id != ref.id) {
-          batch.update(document.reference, {'isDefault': false});
-        }
-      }
-      batch.update(_user, {'defaultAddressId': ref.id});
-    }
-
-    batch.set(ref, {...address.toMap(), 'isDefault': makeDefault});
-    await batch.commit();
+    await _functions.httpsCallable('saveAddress').call({
+      'addressId': address.id.isEmpty ? null : address.id,
+      'address': address.toMap(),
+    });
   }
 
   Future<void> setDefault(String id) async {
-    final addresses = await _addresses.limit(100).get();
-    if (!addresses.docs.any((document) => document.id == id)) {
-      throw StateError('Address no longer exists.');
-    }
-
-    final batch = _db.batch();
-    for (final document in addresses.docs) {
-      batch.update(document.reference, {'isDefault': document.id == id});
-    }
-    batch.update(_user, {'defaultAddressId': id});
-    await batch.commit();
+    await _functions.httpsCallable('setDefaultAddress').call({'addressId': id});
   }
 
   Future<void> deleteAddress(String id) async {
-    final user = await _user.get();
-    final batch = _db.batch();
-    batch.delete(_addresses.doc(id));
-
-    if (user.data()?['defaultAddressId'] == id) {
-      final addresses = await _addresses.limit(100).get();
-      final replacements = addresses.docs
-          .where((document) => document.id != id)
-          .toList();
-      if (replacements.isEmpty) {
-        batch.update(_user, {'defaultAddressId': FieldValue.delete()});
-      } else {
-        final replacement = replacements.first;
-        batch.update(replacement.reference, {'isDefault': true});
-        batch.update(_user, {'defaultAddressId': replacement.id});
-      }
-    }
-
-    await batch.commit();
+    await _functions.httpsCallable('deleteAddress').call({'addressId': id});
   }
 }

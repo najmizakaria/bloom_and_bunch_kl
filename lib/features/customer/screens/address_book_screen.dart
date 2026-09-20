@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../../../core/services/address_geocoder.dart';
+import 'delivery_pin_screen.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../../core/services/address_service.dart';
 import '../../../models/saved_address_model.dart';
@@ -195,23 +197,27 @@ class _AddressFormState extends State<_AddressForm> {
           timeLimit: Duration(seconds: 20),
         ),
       );
-      final places = await Geocoding().placemarkFromCoordinates(
-        p.latitude,
-        p.longitude,
-      );
-      if (!mounted) return;
-      if (places.isEmpty) throw StateError('Address not found');
-      final a = places.first;
-      _address.text = [
-        a.street,
-        a.subLocality,
-        a.locality,
-        a.postalCode,
-        a.administrativeArea,
-        a.country,
-      ].whereType<String>().where((s) => s.isNotEmpty).toSet().join(', ');
+      // Keep the GPS fix even when reverse geocoding is unavailable.
       _lat = p.latitude;
       _lng = p.longitude;
+      try {
+        final resolved = await AddressGeocoder().fromCoordinates(
+          p.latitude,
+          p.longitude,
+        );
+        if (!mounted) return;
+        _address.text = resolved.address;
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location found. Enter the address and confirm its pin before saving.',
+              ),
+            ),
+          );
+        }
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -227,8 +233,43 @@ class _AddressFormState extends State<_AddressForm> {
     }
   }
 
+  Future<void> _confirmPin() async {
+    setState(() => _busy = true);
+    var position = LatLng(_lat ?? 3.139, _lng ?? 101.6869);
+    if (_lat == null && _address.text.trim().isNotEmpty) {
+      try {
+        final resolved = await AddressGeocoder().fromAddress(
+          _address.text.trim(),
+        );
+        position = LatLng(resolved.latitude, resolved.longitude);
+      } catch (_) {}
+    }
+    if (!mounted) return;
+    final selected = await Navigator.push<LatLng>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DeliveryPinScreen(initialPosition: position),
+      ),
+    );
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (selected != null) {
+        _lat = selected.latitude;
+        _lng = selected.longitude;
+      }
+    });
+  }
+
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (_lat == null || _lng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Confirm a delivery pin before saving.')),
+      );
+      await _confirmPin();
+      if (!mounted || _lat == null || _lng == null) return;
+    }
     setState(() => _busy = true);
     try {
       await AddressService().saveAddress(
@@ -311,6 +352,16 @@ class _AddressFormState extends State<_AddressForm> {
           _field(_name, 'Recipient name', 120),
           _field(_phone, 'Phone', 30),
           _field(_note, 'Delivery note', 300, optional: true),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _confirmPin,
+            icon: const Icon(Icons.location_pin),
+            label: Text(
+              _lat == null ? 'Confirm delivery pin' : 'Review delivery pin',
+            ),
+          ),
+          const Text(
+            'After changing the street or building, confirm the entrance pin again.',
+          ),
           SwitchListTile(
             title: const Text('Use as default address'),
             value: _default,

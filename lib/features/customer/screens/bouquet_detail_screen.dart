@@ -5,13 +5,21 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
+import '../../../core/widgets/action_feedback.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/bouquet_model.dart';
 import 'cart_screen.dart';
 
 class BouquetDetailScreen extends StatefulWidget {
-  const BouquetDetailScreen({super.key, required this.bouquet});
+  const BouquetDetailScreen({
+    super.key,
+    required this.bouquet,
+    this.initialFulfillmentType,
+    this.favouritesService,
+  });
   final BouquetModel bouquet;
+  final String? initialFulfillmentType;
+  final FavouritesService? favouritesService;
 
   @override
   State<BouquetDetailScreen> createState() => _BouquetDetailScreenState();
@@ -19,17 +27,23 @@ class BouquetDetailScreen extends StatefulWidget {
 
 class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
   late bool _readyNow;
+  late final FavouritesService _favourites =
+      widget.favouritesService ?? FavouritesService();
 
   @override
   void initState() {
     super.initState();
     _readyNow =
-        widget.bouquet.availableForReadyNow && widget.bouquet.readyStock > 0;
+        !(widget.initialFulfillmentType == FulfillmentTypes.preOrder &&
+            widget.bouquet.availableForPreOrder) &&
+        widget.bouquet.availableForReadyNow &&
+        widget.bouquet.readyStock > 0;
   }
 
   void _add() {
     final bouquet = widget.bouquet;
-    context.read<CartProvider>().addReadyMadeItem(
+    final cart = context.read<CartProvider>();
+    final added = cart.addReadyMadeItem(
       bouquetId: bouquet.id,
       name: bouquet.name,
       imageUrl: bouquet.imageUrl,
@@ -39,6 +53,13 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
           : FulfillmentTypes.preOrder,
       leadTimeBusinessDays: _readyNow ? 0 : bouquet.leadTimeBusinessDays,
     );
+    if (!added) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
+      );
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${bouquet.name} added to your cart.')),
     );
@@ -57,18 +78,21 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
         title: const Text('Bouquet details'),
         actions: [
           StreamBuilder(
-            stream: FavouritesService().isBouquetFavourited(bouquet.id),
+            stream: _favourites.isBouquetFavourited(bouquet.id),
             builder: (context, snapshot) {
               final selected = snapshot.data?.exists ?? false;
               return IconButton(
                 tooltip: selected
                     ? 'Remove from favourites'
                     : 'Add to favourites',
-                onPressed: () => FavouritesService().toggleBouquetFavourite(
-                  bouquetId: bouquet.id,
-                  name: bouquet.name,
-                  imageUrl: bouquet.imageUrl,
-                  price: bouquet.price,
+                onPressed: () => ActionFeedback.run(
+                  context,
+                  () => _favourites.toggleBouquetFavourite(
+                    bouquetId: bouquet.id,
+                    name: bouquet.name,
+                    imageUrl: bouquet.imageUrl,
+                    price: bouquet.price,
+                  ),
                 ),
                 icon: Icon(
                   selected
