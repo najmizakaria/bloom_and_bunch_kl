@@ -3,7 +3,6 @@ import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/services/auth_service.dart';
 import '../../../../models/order_model.dart';
 import 'florist_order_detail_screen.dart';
 
@@ -16,6 +15,22 @@ class FloristOrdersScreen extends StatefulWidget {
 
 class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
   String _selectedStatus = 'Awaiting Preparation';
+  int _limit = 30;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _orders = _watch();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _watch() => FirebaseFirestore
+      .instance
+      .collection('orders')
+      .where(
+        'orderStatus',
+        whereIn: _selectedStatus == 'Awaiting Preparation'
+            ? ['Awaiting Preparation', 'Pending']
+            : _selectedStatus == 'Delivered'
+            ? ['Delivered', 'Completed']
+            : [_selectedStatus],
+      )
+      .orderBy('createdAt', descending: true)
+      .limit(_limit)
+      .snapshots();
 
   final Map<String, String> _filters = const {
     'New': 'Awaiting Preparation',
@@ -38,12 +53,6 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
     final month = date.month.toString().padLeft(2, '0');
 
     return '$day/$month/${date.year}';
-  }
-
-  int _countOrders(List<OrderModel> orders, String status) {
-    return orders.where((order) {
-      return order.orderStatus == status;
-    }).length;
   }
 
   List<OrderModel> _filteredOrders(List<OrderModel> orders) {
@@ -89,21 +98,9 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
         title: const Text('Orders'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
-        actions: [
-          IconButton(
-            tooltip: 'Log out',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              AuthService().signOut();
-            },
-          ),
-        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: _orders,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -142,16 +139,20 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
                   child: Row(
                     children: _filters.entries.map((entry) {
                       final selected = _selectedStatus == entry.value;
-                      final count = _countOrders(orders, entry.value);
+                      final count = selected ? orders.length : null;
 
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
                           selected: selected,
-                          label: Text('${entry.key} $count'),
+                          label: Text(
+                            count == null ? entry.key : '${entry.key} ($count)',
+                          ),
                           onSelected: (_) {
                             setState(() {
                               _selectedStatus = entry.value;
+                              _limit = 30;
+                              _orders = _watch();
                             });
                           },
                         ),
@@ -177,6 +178,14 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
                         },
                       ),
               ),
+              if (orders.length >= _limit)
+                TextButton(
+                  onPressed: () => setState(() {
+                    _limit += 30;
+                    _orders = _watch();
+                  }),
+                  child: const Text('Load more orders'),
+                ),
             ],
           );
         },

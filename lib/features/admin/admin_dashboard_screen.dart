@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/admin_service.dart';
+import '../support/store_operations_screen.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/theme/app_colors.dart';
 
@@ -112,6 +113,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       appBar: AppBar(
         title: const Text('Admin workspace'),
         actions: [
+          IconButton(tooltip: 'Store support', icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreOperationsScreen()))),
+
           IconButton(
             tooltip: 'Sync available delivery jobs',
             icon: _syncingJobs

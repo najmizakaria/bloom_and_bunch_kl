@@ -3,6 +3,7 @@ import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../core/services/order_service.dart';
+import '../../support/order_support.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -151,6 +152,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery Route'),
+        actions: [IconButton(tooltip: 'Report delivery problem', onPressed: () => reportIssue(context, widget.order.orderId), icon: const Icon(Icons.report_problem_outlined))],
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),

@@ -14,6 +14,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _currentIndex = 0;
+  final Set<int> _visited = {0};
 
   final List<Widget> _tabs = const [
     CustomerHomeScreen(),
@@ -26,10 +27,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _tabs),
+      body: IndexedStack(index: _currentIndex, children: List.generate(_tabs.length, (i) => _visited.contains(i) ? _tabs[i] : const SizedBox.shrink())),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: (index) => setState(() { _currentIndex = index; _visited.add(index); }),
         destinations: const [
           NavigationDestination(
             selectedIcon: Icon(Icons.home_rounded),

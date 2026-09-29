@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_colors.dart';
 import 'florist_dashboard_screen.dart';
 import 'florist_orders_screen.dart';
+import 'florist_profile_screen.dart';
 import 'florist_products_screen.dart';
 
 class FloristMainNavigationScreen extends StatefulWidget {
@@ -37,12 +37,7 @@ class _FloristMainNavigationScreenState
       ),
       const FloristOrdersScreen(),
       const FloristProductsScreen(),
-      const _FloristPlaceholderScreen(
-        title: 'More',
-        icon: Icons.more_horiz,
-        message: 'Store options',
-        description: 'Additional florist options will appear here.',
-      ),
+      const FloristProfileScreen(),
     ];
   }
 
@@ -73,48 +68,12 @@ class _FloristMainNavigationScreenState
             selectedIcon: Icon(Icons.inventory_2_rounded),
             label: 'Catalogue',
           ),
-          NavigationDestination(icon: Icon(Icons.more_horiz), label: 'More'),
-        ],
-      ),
-    );
-  }
-}
-
-class _FloristPlaceholderScreen extends StatelessWidget {
-  const _FloristPlaceholderScreen({
-    required this.title,
-    required this.icon,
-    required this.message,
-    required this.description,
-  });
-
-  final String title;
-  final IconData icon;
-  final String message;
-  final String description;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 64, color: AppColors.primary),
-              const SizedBox(height: 16),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(description, textAlign: TextAlign.center),
-            ],
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
-        ),
+        ],
       ),
     );
   }

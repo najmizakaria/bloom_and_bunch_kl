@@ -88,3 +88,12 @@ test('rules stop deleting accounts from recreating profiles or subcollections',{
  await env.withSecurityRulesDisabled(c=>deleteDoc(doc(c.firestore(),'users',uid)));
  await assertFails(setDoc(doc(client,'users',uid),{uid,name:'Recreated',email:'pending@example.com',phone:'123',role:'customer',createdAt:Timestamp.now()}));
 });
+
+test('rules: order feedback and event history cannot be forged or read across accounts',{skip:!enabled},async()=>{
+ await env.withSecurityRulesDisabled(async c=>{await setDoc(doc(c.firestore(),'orders','assigned','events','ready'),{status:'Ready for Delivery',createdAt:Timestamp.now()});});
+ const owner=env.authenticatedContext('customer').firestore(),other=env.authenticatedContext('other').firestore();
+ await assertSucceeds(getDocs(collection(owner,'orders','assigned','events')));
+ await assertFails(getDocs(collection(other,'orders','assigned','events')));
+ await assertFails(setDoc(doc(owner,'orders','assigned','events','fake'),{status:'Delivered',createdAt:Timestamp.now()}));
+ await assertFails(updateDoc(doc(owner,'orders','assigned'),{feedback:{rating:5},paymentStatus:'paid',support:{status:'resolved'}}));
+});

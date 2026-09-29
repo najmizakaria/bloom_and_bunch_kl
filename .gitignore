@@ -65,3 +65,8 @@ functions/.npm-cache/
 *-debug.log
 
 ios/Flutter/AppKeys.xcconfig
+
+# Release signing credentials
+android/key.properties
+*.jks
+*.keystore

@@ -54,7 +54,7 @@ class _NotificationSessionState extends State<NotificationSession> {
           .catchError((Object _) {}),
     );
     _messages = FirebaseMessaging.onMessage.listen((message) {
-      if (FirebaseAuth.instance.currentUser == null) return;
+      if (FirebaseAuth.instance.currentUser == null || message.data['customerId'] != FirebaseAuth.instance.currentUser?.uid) return;
       widget.messengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(

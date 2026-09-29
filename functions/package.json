@@ -6,7 +6,9 @@
     "node": "22"
   },
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:emulators": "node test/require-emulators.cjs",
+    "seed:demo": "node ../tool/seed_demo.cjs"
   },
   "dependencies": {
     "firebase-admin": "^14.3.0",

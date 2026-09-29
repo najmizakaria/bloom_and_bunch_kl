@@ -4,12 +4,13 @@ const {initializeApp}=require('firebase-admin/app');
 const {getFirestore,FieldValue,Timestamp}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
 const d=require('./domain');
+const storePolicy=require('./store-policy');
 initializeApp();
 const db=getFirestore();
 // Callable endpoints must be reachable by Firebase clients so the callable
 // protocol can validate their ID token. Application authorization still runs
 // in callable() and in each role-specific handler below.
-const options={region:'asia-southeast1',maxInstances:10,invoker:'public'};
+const options={region:'asia-southeast1',maxInstances:10,invoker:'public',enforceAppCheck:process.env.ENFORCE_APP_CHECK==='true'};
 function hasRole(profile,role){return profile?.role===role||(Array.isArray(profile?.roles)&&profile.roles.includes(role));}
 function deliveryEligible(order){return order?.riderId==null&&typeof order?.deliveryAddress==='string'&&order.deliveryAddress.trim().length>0&&
  Number.isFinite(order.latitude)&&Math.abs(order.latitude)<=90&&Number.isFinite(order.longitude)&&Math.abs(order.longitude)<=180;}
@@ -31,13 +32,30 @@ function callable(handler){return onCall(options,async req=>{
  try {if(!req.auth)throw new HttpsError('unauthenticated','Please sign in.');return await handler(req);}
  catch(e){if(e instanceof HttpsError)throw e;if(e instanceof d.OrderError)throw new HttpsError(e.code,e.message);console.error(e);throw new HttpsError('internal','Unable to finish this action. Please retry.');}
 });}
+async function readPlan(tx, items) {
+ const bouquets={},flowers={};
+ for(const key of new Set(items.filter(i=>i.bouquetId).map(i=>i.bouquetId))){const s=await tx.get(db.doc('bouquets/'+key));if(s.exists)bouquets[key]=s.data();}
+ const flowerIds=new Set();
+ for(const i of items)Object.keys(i.fulfillmentType==='custom'?i.customStems:i.fulfillmentType==='pre_order'?d.stems(bouquets[i.bouquetId]?.recipeStems):{}).forEach(k=>flowerIds.add(k));
+ for(const key of flowerIds){const s=await tx.get(db.doc('flowers/'+key));if(s.exists)flowers[key]=s.data();}
+ return {plan:d.buildPlan(items,bouquets,flowers),bouquets,flowers};
+}
+exports.quoteCheckout=callable(async req=>{
+ const items=d.normalizeItems(req.data?.items),address=d.address(req.data?.address);
+ return db.runTransaction(async tx=>{
+  const profile=await tx.get(db.doc('users/'+req.auth.uid));
+  if(!hasRole(profile.data(),'customer')||profile.data()?.deletionPending)d.fail('Customer access required.','permission-denied');
+  const {plan}=await readPlan(tx,items);
+  return storePolicy.quote(plan,address);
+ });
+});
 exports.placeOrder=callable(async req=>{
  const uid=req.auth.uid,payload=req.data??{},checkoutId=d.id(payload.checkoutId);
  const addressId=d.id(payload.addressId);
  const items=d.normalizeItems(payload.items);
  const confirmedAddress=d.address(payload.address);
  const expectedCents=d.money(payload.expectedTotal);
- const fingerprint=createHash('sha256').update(JSON.stringify({items,addressId,confirmedAddress,expectedCents})).digest('hex');
+ const fingerprint=createHash('sha256').update(JSON.stringify({items,addressId,confirmedAddress,expectedCents,...(payload.quoteId?{quoteId:payload.quoteId}:{})})).digest('hex');
  const requestRef=db.collection('users').doc(uid).collection('checkouts').doc(checkoutId);
  const userRef=db.collection('users').doc(uid);
  const readyRef=db.collection('orders').doc(),plannedRef=db.collection('orders').doc();
@@ -54,20 +72,21 @@ exports.placeOrder=callable(async req=>{
   const submittedAddress=d.address(addressSnapshot.data());
   if(JSON.stringify(submittedAddress)!==JSON.stringify(confirmedAddress))d.fail('Your saved address changed. Select it again and confirm the delivery location.','failed-precondition');
   if(!deliveryEligible({...submittedAddress,riderId:null}))d.fail('Confirm a delivery pin in your Address Book before ordering.','failed-precondition');
-  const bouquetIds=[...new Set(items.filter(i=>i.bouquetId).map(i=>i.bouquetId))];
-  const bouquets={},flowers={};
-  for(const key of bouquetIds){const s=await tx.get(db.collection('bouquets').doc(key));if(s.exists)bouquets[key]=s.data();}
-  const flowerIds=new Set();
-  for(const i of items){
-   const recipe=i.fulfillmentType==='custom'?i.customStems:i.fulfillmentType==='pre_order'?d.stems(bouquets[i.bouquetId]?.recipeStems):{};
-   Object.keys(recipe).forEach(k=>flowerIds.add(k));
-  }
-  for(const key of flowerIds){const s=await tx.get(db.collection('flowers').doc(key));if(s.exists)flowers[key]=s.data();}
-  const plan=d.buildPlan(items,bouquets,flowers);
-  const total=[...plan.ready,...plan.planned].reduce((sum,i)=>sum+d.money(i.unitPrice)*i.quantity,0);
+  const {plan,bouquets,flowers}=await readPlan(tx,items);
+  const quote=storePolicy.quote(plan,submittedAddress);
+  if((payload.quoteId||quote.mode!=='demo')&&payload.quoteId!==quote.quoteId)d.fail('Delivery details changed. Refresh your order summary before confirming.','failed-precondition');
+  const total=quote.totalSen;
   if(total!==expectedCents)d.fail('Prices have changed. Refresh the items in your cart before ordering.','failed-precondition');
+  const counts={};for(const g of quote.groups)counts[g.date]=(counts[g.date]??0)+1;
+  const capacity=[];
+  if(storePolicy.configured.dailyDeliveryCapacity>0)for(const [date,count]of Object.entries(counts)){
+   const ref=db.doc('delivery_capacity/'+date),s=await tx.get(ref),used=s.data()?.acceptedGroups??0;
+   if(used+count>storePolicy.configured.dailyDeliveryCapacity)d.fail('Delivery capacity is full for the estimated date. Contact the store or try later.','failed-precondition');
+   capacity.push({ref,acceptedGroups:used+count});
+  }
   // A shared profile write serializes checkout against account deletion.
   tx.update(userRef,{updatedAt:FieldValue.serverTimestamp()});
+  for(const c of capacity)tx.set(c.ref,{acceptedGroups:c.acceptedGroups,updatedAt:FieldValue.serverTimestamp()});
   for(const [key,count]of Object.entries(plan.readyRequirements)){
    const b=bouquets[key],stock=(b.readyStock??b.stockCount??0)-count;
    tx.update(db.collection('bouquets').doc(key),{readyStock:stock,stockCount:stock,availableForReadyNow:stock>0,readyToSend:stock>0,updatedAt:FieldValue.serverTimestamp()});
@@ -76,21 +95,24 @@ exports.placeOrder=callable(async req=>{
    tx.update(db.collection('flowers').doc(key),{reservedQuantity:(flowers[key].reservedQuantity??0)+count,updatedAt:FieldValue.serverTimestamp()});
   }
   const orderIds=[];
-  const now=new Date();
   for(const [ref,group,isReady] of [[readyRef,plan.ready,true],[plannedRef,plan.planned,false]]){
    if(!group.length)continue;
+   const pricing=quote.groups.find(g=>g.kind===(isReady?'ready_now':'planned'));
    const mode=isReady?'ready_now':group.every(i=>i.fulfillmentType==='custom')?'custom':'pre_order';
     const order={schemaVersion:2,customerId:uid,checkoutGroupId:checkoutId,riderId:null,
      ...submittedAddress,addressId,
-    items:group,totalAmount:group.reduce((sum,i)=>sum+d.money(i.unitPrice)*i.quantity,0)/100,
+    items:group,totalAmount:pricing.totalSen/100,subtotalAmount:pricing.subtotalSen/100,deliveryFee:pricing.deliveryFeeSen/100,
+    orderMode:quote.mode,paymentStatus:quote.mode==='demo'?'not_required':'pending',paymentInstructions:quote.paymentInstructions,
+    estimatedDispatchDate:pricing.date,quoteId:quote.quoteId,
     fulfillmentType:mode,requiresPrepTime:!isReady,leadTimeBusinessDays:isReady?0:plan.lead,
     orderStatus:isReady?'Ready for Delivery':'Awaiting Preparation',
-    requestedDeliveryDate:Timestamp.fromDate(isReady?now:d.addBusinessDays(now,plan.lead)),
-    deliveryTimeSlot:isReady?'As soon as a rider accepts':plan.lead+' business days (weekends excluded)',
+    requestedDeliveryDate:Timestamp.fromDate(new Date(pricing.date+'T00:00:00+08:00')),
+    deliveryTimeSlot:quote.timingNotice,
     materialRequirements:isReady?{}:plan.materialRequirements,
      materialState:isReady?'not_required':'reserved',
      createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()};
     tx.create(ref,order);
+    tx.create(ref.collection('events').doc(),{status:order.orderStatus,createdAt:FieldValue.serverTimestamp()});
     if(isReady)writeAvailableJob(tx,ref.id,order);
    orderIds.push(ref.id);
   }
@@ -153,7 +175,9 @@ exports.transitionOrder=callable(async req=>{
     if(action==='ready')writeAvailableJob(tx,orderId,{...o,orderStatus:target});else tx.delete(jobRef);
   }else d.fail('Unknown action.');
   tx.update(db.doc(`users/${uid}`),{updatedAt:FieldValue.serverTimestamp()});
-  tx.update(ref,updates);return {status:updates.orderStatus};
+  tx.update(ref,updates);
+  tx.create(ref.collection('events').doc(),{status:updates.orderStatus,createdAt:FieldValue.serverTimestamp()});
+  return {status:updates.orderStatus};
  });
 });
 
@@ -174,6 +198,57 @@ exports.saveRecipe=callable(async req=>{
   tx.update(db.doc('users/'+uid),{updatedAt:FieldValue.serverTimestamp()});
   tx.create(ref,{stems:Object.entries(item.customStems).map(([flowerId,quantity])=>({flowerId,quantity})),wrapper:item.wrapper,ribbon:item.ribbon,totalPrice:item.unitPrice,savedAt:FieldValue.serverTimestamp()});
   return {id:ref.id};
+ });
+});
+
+// Order-linked feedback and support are bounded and written only by the server.
+exports.submitOrderFeedback=callable(async req=>{
+ const orderId=d.id(req.data?.orderId),rating=d.integer(req.data?.rating,5),comment=d.text(req.data?.comment??'','feedback',500,true);
+ const ref=db.doc('orders/'+orderId),user=db.doc('users/'+req.auth.uid);
+ return db.runTransaction(async tx=>{
+  const profile=await tx.get(user),s=await tx.get(ref),o=s.data();
+  if(!profile.exists||profile.data().deletionPending||o?.customerId!==req.auth.uid)d.fail('Only the customer can rate this order.','permission-denied');
+  if(!['Delivered','Completed'].includes(o.orderStatus))d.fail('Feedback is available after delivery.','failed-precondition');
+  if(o.feedback)return {saved:true};
+  tx.update(user,{updatedAt:FieldValue.serverTimestamp()});
+  tx.update(ref,{feedback:{rating,comment,createdAt:FieldValue.serverTimestamp()}});
+  return {saved:true};
+ });
+});
+exports.reportOrderIssue=callable(async req=>{
+ const orderId=d.id(req.data?.orderId),reason=d.text(req.data?.reason,'issue reason',40),comment=d.text(req.data?.comment??'','issue details',500,true);
+ if(!['late_delivery','wrong_address','recipient_unavailable','damaged_bouquet','cancellation_request','other'].includes(reason))d.fail('Choose an issue reason.');
+ const ref=db.doc('orders/'+orderId),user=db.doc('users/'+req.auth.uid);
+ return db.runTransaction(async tx=>{
+  const profile=await tx.get(user),s=await tx.get(ref),o=s.data();
+  if(!profile.exists||profile.data().deletionPending||!o||(o.customerId!==req.auth.uid&&!(hasRole(profile.data(),'rider')&&o.riderId===req.auth.uid)))d.fail('You cannot report an issue for this order.','permission-denied');
+  if(o.support?.status==='open')return {saved:true};
+  const count=o.supportCount??0;if(count>=10)d.fail('Please contact the store for further help with this order.','resource-exhausted');
+  tx.update(user,{updatedAt:FieldValue.serverTimestamp()});
+  tx.update(ref,{supportCount:count+1,support:{status:'open',reason,comment,reportedBy:o.customerId===req.auth.uid?'customer':'rider',createdAt:FieldValue.serverTimestamp()}});
+  return {saved:true};
+ });
+});
+exports.resolveOrderIssue=callable(async req=>{
+ const orderId=d.id(req.data?.orderId),response=d.text(req.data?.response,'resolution',500),ref=db.doc('orders/'+orderId);
+ return db.runTransaction(async tx=>{
+  const profile=await tx.get(db.doc('users/'+req.auth.uid)),s=await tx.get(ref),o=s.data();
+  if(profile.data()?.deletionPending||!(hasRole(profile.data(),'admin')||hasRole(profile.data(),'florist')))d.fail('Store staff access required.','permission-denied');
+  if(!o?.support)d.fail('No support request found.','not-found');
+  if(o.support.status==='resolved')return {saved:true};
+  tx.update(ref,{support:{...o.support,status:'resolved',response,resolvedAt:FieldValue.serverTimestamp()}});
+  return {saved:true};
+ });
+});
+exports.confirmManualPayment=callable(async req=>{
+ const ref=db.doc('orders/'+d.id(req.data?.orderId));
+ return db.runTransaction(async tx=>{
+  const profile=await tx.get(db.doc('users/'+req.auth.uid)),s=await tx.get(ref),o=s.data();
+  if(profile.data()?.deletionPending||!(hasRole(profile.data(),'admin')||hasRole(profile.data(),'florist')))d.fail('Store staff access required.','permission-denied');
+  if(o?.orderMode!=='manual')d.fail('This order does not use manual payment.','failed-precondition');
+  if(o.paymentStatus==='paid')return {saved:true};
+  if(o.orderStatus==='Cancelled')d.fail('Cancelled orders require store review.','failed-precondition');
+  tx.update(ref,{paymentStatus:'paid',paidAt:FieldValue.serverTimestamp()});return {saved:true};
  });
 });
 
@@ -317,7 +392,8 @@ async function processAccountDeletion(uid){
    for(const order of orders.docs.slice(i,i+400)){
     const updates={[field]:`deleted_${field}`,updatedAt:FieldValue.serverTimestamp()};
     if(field==='customerId')Object.assign(updates,{recipientName:'Deleted customer',recipientPhone:'',deliveryAddress:'',deliveryNote:'',latitude:null,longitude:null,addressId:null,
-     items:(order.data().items??[]).map(item=>({...item,cardNote:''}))});
+     items:(order.data().items??[]).map(item=>({...item,cardNote:''})),feedback:FieldValue.delete(),support:FieldValue.delete()});
+    if(field==='riderId'&&order.data().support?.reportedBy==='rider')updates.support=FieldValue.delete();
     batch.update(order.ref,updates);
    }
    await batch.commit();
@@ -371,6 +447,7 @@ exports.unregisterNotificationDevice=callable(async req=>{
  await db.runTransaction(async tx=>{const device=await tx.get(ref);if(device.data()?.uid===req.auth.uid)tx.delete(ref);});return {removed:true};
 });
 exports.notifyOrderStatus=onDocumentUpdated({document:'orders/{orderId}',region:'asia-southeast1',retry:true},async event=>{
+ if(process.env.FUNCTIONS_EMULATOR==='true'&&process.env.GCLOUD_PROJECT?.startsWith('demo-'))return;
  const before=event.data?.before.data(),order=event.data?.after.data();
  if(!order||before?.orderStatus===order.orderStatus||!order.customerId||order.customerId.startsWith('deleted_'))return;
  const profile=await db.doc(`users/${order.customerId}`).get();

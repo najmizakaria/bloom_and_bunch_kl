@@ -195,7 +195,7 @@ class CartScreen extends StatelessWidget {
                       Row(
                         children: [
                           const Text(
-                            'Total',
+                            'Items subtotal',
                             style: AppTypography.body(
                               color: AppColors.textMuted,
                             ),
@@ -209,6 +209,8 @@ class CartScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 12),
+                      const Text('Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.'),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,

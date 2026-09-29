@@ -1,3 +1,4 @@
+import '../config/app_environment.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,12 +12,12 @@ class NotificationService {
   final _messaging = FirebaseMessaging.instance;
   String? _token;
   static bool get supported =>
-      kIsWeb ||
+      !AppEnvironment.isDemo && (kIsWeb ||
       [
         TargetPlatform.android,
         TargetPlatform.iOS,
         TargetPlatform.macOS,
-      ].contains(defaultTargetPlatform);
+      ].contains(defaultTargetPlatform));
   Future<String> _getToken() async {
     const vapid = String.fromEnvironment('FCM_VAPID_KEY_WEB');
     final token = await _messaging.getToken(

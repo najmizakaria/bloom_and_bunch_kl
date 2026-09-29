@@ -37,7 +37,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   ];
 
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream =
-      FirebaseFirestore.instance.collection('bouquets').snapshots();
+      FirebaseFirestore.instance.collection('bouquets').limit(20).snapshots();
 
   String _selectedCategory = 'All';
   DeliveryMode _deliveryMode = DeliveryMode.readyNow;
@@ -476,7 +476,7 @@ class _CustomerBouquetCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     readyNow
-                        ? 'Ready for immediate delivery'
+                        ? 'Ready; dispatch depends on rider availability'
                         : 'Prepared in ${bouquet.leadTimeBusinessDays} business day${bouquet.leadTimeBusinessDays == 1 ? '' : 's'}',
                     maxLines: 2,
                     style: const AppTypography.caption(

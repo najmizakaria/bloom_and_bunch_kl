@@ -1,0 +1,11 @@
+{
+  "mode": "demo",
+  "paymentInstructions": "Demonstration only. No payment is collected and no real delivery is booked.",
+  "deliveryFeeSen": 0,
+  "serviceArea": null,
+  "operatingWeekdays": [1, 2, 3, 4, 5],
+  "openingHour": 9,
+  "cutoffHour": 17,
+  "holidays": [],
+  "dailyDeliveryCapacity": 0
+}

@@ -30,9 +30,10 @@ class _BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
     'Sympathy',
   ];
   late final TextEditingController _searchController;
-  late final _bouquetsStream = FirebaseFirestore.instance
-      .collection('bouquets')
-      .snapshots();
+  int _limit = 40;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream = _watchBouquets();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _watchBouquets() => FirebaseFirestore.instance.collection('bouquets').orderBy(FieldPath.documentId).limit(_limit).snapshots();
+  Widget _loadMore() => SliverToBoxAdapter(child: TextButton(onPressed: () => setState(() { _limit += 40; _bouquetsStream = _watchBouquets(); }), child: const Text('Load more bouquets')));
   String _query = '';
   String _category = 'All';
   bool _readyOnly = false;
@@ -171,7 +172,7 @@ class _BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
                           a.name.toLowerCase().compareTo(b.name.toLowerCase()),
                     );
 
-              if (bouquets.isEmpty) {
+              if (bouquets.isEmpty && (snapshot.data?.docs.length ?? 0) < _limit) {
                 return const SliverFillRemaining(
                   child: _CatalogueMessage(
                     icon: Icons.local_florist_outlined,
@@ -181,7 +182,7 @@ class _BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
                 );
               }
 
-              return SliverPadding(
+              return SliverMainAxisGroup(slivers: [SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 sliver: SliverGrid.builder(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -198,7 +199,7 @@ class _BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
                   itemBuilder: (context, index) =>
                       _BouquetTile(bouquet: bouquets[index]),
                 ),
-              );
+              ), if ((snapshot.data?.docs.length ?? 0) >= _limit) _loadMore()]);
             },
           ),
         ],

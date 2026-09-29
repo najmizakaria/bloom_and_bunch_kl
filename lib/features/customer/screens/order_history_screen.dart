@@ -32,11 +32,13 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  late final _ordersStream = FirebaseFirestore.instance
-      .collection('orders')
-      .where('customerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-      .orderBy('createdAt', descending: true)
-      .snapshots();
+  int _limit = 30;
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _ordersStream = _watchOrders();
+  Stream<QuerySnapshot<Map<String, dynamic>>> _watchOrders() => FirebaseFirestore.instance
+      .collection('orders').where('customerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+      .where('orderStatus', whereIn: _showPast ? ['Delivered', 'Completed', 'Cancelled'] : ['Awaiting Preparation', 'Pending', 'Processing', 'Ready for Delivery', 'Out for Delivery'])
+      .orderBy('createdAt', descending: true).limit(_limit).snapshots();
+  Widget _loadMore() => TextButton(onPressed: () => setState(() { _limit += 30; _ordersStream = _watchOrders(); }), child: const Text('Load older orders'));
   bool _showPast = false;
   String _statusFilter = 'All';
 
@@ -123,14 +125,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         child: _segment(
                           'Active',
                           !_showPast,
-                          () => setState(() => _showPast = false),
+                          () => setState(() { _showPast = false; _limit = 30; _ordersStream = _watchOrders(); }),
                         ),
                       ),
                       Expanded(
                         child: _segment(
                           'Past',
                           _showPast,
-                          () => setState(() => _showPast = true),
+                          () => setState(() { _showPast = true; _limit = 30; _ordersStream = _watchOrders(); }),
                         ),
                       ),
                     ],
@@ -207,7 +209,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   return rightTab && rightStatus;
                 }).toList();
 
-                if (docs.isEmpty) {
+                if (docs.isEmpty && (snapshot.data?.docs.length ?? 0) < _limit) {
                   return _OrderMessage(
                     icon: _showPast
                         ? Icons.history_rounded
@@ -219,7 +221,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   );
                 }
 
-                return ListView.separated(
+                return Column(children: [Expanded(child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                   itemCount: docs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -366,7 +368,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       ),
                     );
                   },
-                );
+                )), if ((snapshot.data?.docs.length ?? 0) >= _limit) _loadMore()]);
               },
             ),
           ),

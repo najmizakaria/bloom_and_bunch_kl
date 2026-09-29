@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
+import '../../../core/services/app_monitoring.dart';
 import '../../../core/widgets/action_feedback.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/bouquet_model.dart';
@@ -33,6 +34,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
   @override
   void initState() {
     super.initState();
+    AppMonitoring.event('product_viewed');
     _readyNow =
         !(widget.initialFulfillmentType == FulfillmentTypes.preOrder &&
             widget.bouquet.availableForPreOrder) &&
@@ -60,6 +62,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
       return;
     }
 
+    AppMonitoring.event('cart_added');
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${bouquet.name} added to your cart.')),
     );
@@ -186,7 +189,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
                     icon: Icons.bolt_rounded,
                     title: 'Ready to send',
                     subtitle:
-                        '${bouquet.readyStock} available for immediate delivery',
+                        '${bouquet.readyStock} available; dispatch depends on a rider',
                     onTap: () => setState(() => _readyNow = true),
                   ),
                 if (readyAvailable && preorderAvailable)
@@ -212,7 +215,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
                   icon: Icons.local_shipping_outlined,
                   title: 'Delivery across KL',
                   subtitle:
-                      'Your final delivery timing is confirmed at checkout.',
+                      'Check delivery coverage, fees and estimated dispatch at checkout.',
                 ),
               ],
             ),

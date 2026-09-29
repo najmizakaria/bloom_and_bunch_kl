@@ -255,6 +255,15 @@ service cloud.firestore {
       // Server-calculated prices, stock reservations, rider assignment, and
       // status transitions are written only by authenticated callables.
       allow write: if false;
+      match /events/{eventId} {
+        // Status and timestamp only; never client-supplied messages or identities.
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
+          || isStaff()
+          || (hasRole('rider') && get(/databases/$(database)/documents/orders/$(orderId)).data.riderId == request.auth.uid)
+        );
+        allow write: if false;
+      }
     }
 
     // Sanitized dispatch feed. Exact address, coordinates, contact details,
