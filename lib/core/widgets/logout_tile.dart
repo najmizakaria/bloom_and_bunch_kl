@@ -1,6 +1,7 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 import 'action_confirmation.dart';
 
 class LogoutTile extends StatefulWidget {
@@ -37,17 +38,26 @@ class _LogoutTileState extends State<LogoutTile> {
   }
 
   @override
-  Widget build(BuildContext context) => ListTile(
-    leading: const Icon(Icons.logout),
-    title: const Text('Log out'),
-    onTap: _busy ? null : _logout,
-    trailing: _busy
-        ? const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          )
-        : null,
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.only(bottom: 8),
+    elevation: 2,
+    shadowColor: Colors.black.withValues(alpha: 0.10),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(16),
+      side: const BorderSide(color: AppColors.inputBorder),
+    ),
+    child: ListTile(
+      leading: const Icon(Icons.logout, color: AppColors.primary),
+      title: const Text('Log out'),
+      onTap: _busy ? null : _logout,
+      trailing: _busy
+          ? const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.chevron_right),
+    ),
   );
 }
 

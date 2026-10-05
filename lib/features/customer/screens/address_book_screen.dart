@@ -11,11 +11,10 @@ import '../../../models/saved_address_model.dart';
 
 class AddressBookScreen extends StatelessWidget {
   static Future<SavedAddressModel?> create(BuildContext context) async {
-    await Navigator.push<void>(
+    return Navigator.push<SavedAddressModel>(
       context,
-      MaterialPageRoute(builder: (_) => const _AddressForm()),
+      MaterialPageRoute(builder: (_) => const DeliveryAddressFormScreen()),
     );
-    return AddressService().defaultAddress();
   }
 
   final bool selectionMode;
@@ -23,7 +22,9 @@ class AddressBookScreen extends StatelessWidget {
   Future<void> _edit(BuildContext context, [SavedAddressModel? address]) async {
     await Navigator.push(
       context,
-      MaterialPageRoute<void>(builder: (_) => _AddressForm(existing: address)),
+      MaterialPageRoute<SavedAddressModel>(
+        builder: (_) => DeliveryAddressFormScreen(existing: address),
+      ),
     );
   }
 
@@ -134,15 +135,28 @@ class AddressBookScreen extends StatelessWidget {
   );
 }
 
-class _AddressForm extends StatefulWidget {
+class DeliveryAddressFormScreen extends StatefulWidget {
   final SavedAddressModel? existing;
-  const _AddressForm({this.existing});
+  const DeliveryAddressFormScreen({
+    super.key,
+    this.existing,
+    this.service,
+    this.detectLocationOnOpen = true,
+    this.selectPin,
+  });
+  final AddressService? service;
+  final bool detectLocationOnOpen;
+  final Future<LatLng?> Function(BuildContext, LatLng)? selectPin;
   @override
-  State<_AddressForm> createState() => _AddressFormState();
+  State<DeliveryAddressFormScreen> createState() =>
+      _DeliveryAddressFormScreenState();
 }
 
-class _AddressFormState extends State<_AddressForm> {
+class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
   final _form = GlobalKey<FormState>();
+  late final AddressService _service = widget.service ?? AddressService();
+  late final String _addressId = widget.existing?.id ?? _service.newAddressId();
+  String? _saveError;
   final _label = TextEditingController(),
       _address = TextEditingController(),
       _name = TextEditingController(),
@@ -163,7 +177,7 @@ class _AddressFormState extends State<_AddressForm> {
     _lat = a?.latitude;
     _lng = a?.longitude;
     _loadProfile();
-    if (a == null) {
+    if (a == null && widget.detectLocationOnOpen) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _detect();
       });
@@ -239,21 +253,25 @@ class _AddressFormState extends State<_AddressForm> {
   Future<void> _confirmPin() async {
     setState(() => _busy = true);
     var position = LatLng(_lat ?? 3.139, _lng ?? 101.6869);
-    if (_lat == null && _address.text.trim().isNotEmpty) {
+    if (widget.selectPin == null &&
+        _lat == null &&
+        _address.text.trim().isNotEmpty) {
       try {
-        final resolved = await AddressGeocoder().fromAddress(
-          _address.text.trim(),
-        );
+        final resolved = await AddressGeocoder()
+            .fromAddress(_address.text.trim())
+            .timeout(const Duration(seconds: 10));
         position = LatLng(resolved.latitude, resolved.longitude);
       } catch (_) {}
     }
     if (!mounted) return;
-    final selected = await Navigator.push<LatLng>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => DeliveryPinScreen(initialPosition: position),
-      ),
-    );
+    final selected = widget.selectPin != null
+        ? await widget.selectPin!(context, position)
+        : await Navigator.push<LatLng>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DeliveryPinScreen(initialPosition: position),
+            ),
+          );
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -267,36 +285,30 @@ class _AddressFormState extends State<_AddressForm> {
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
     if (_lat == null || _lng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Confirm a delivery pin before saving.')),
-      );
+      setState(() => _saveError = 'Confirm a delivery pin before saving.');
       await _confirmPin();
       if (!mounted || _lat == null || _lng == null) return;
     }
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _saveError = null;
+    });
     try {
-      await AddressService().saveAddress(
-        SavedAddressModel(
-          id: widget.existing?.id ?? '',
-          label: _label.text.trim(),
-          address: _address.text.trim(),
-          recipientName: _name.text.trim(),
-          recipientPhone: _phone.text.trim(),
-          note: _note.text.trim(),
-          isDefault: _default,
-          latitude: _lat,
-          longitude: _lng,
-        ),
+      final submitted = SavedAddressModel(
+        id: _addressId,
+        label: _label.text.trim(),
+        address: _address.text.trim(),
+        recipientName: _name.text.trim(),
+        recipientPhone: _phone.text.trim(),
+        note: _note.text.trim(),
+        isDefault: _default,
+        latitude: _lat,
+        longitude: _lng,
       );
-      if (mounted) Navigator.pop(context);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to save address. Please retry.'),
-          ),
-        );
-      }
+      await _service.saveAddress(submitted);
+      if (mounted) Navigator.pop(context, submitted);
+    } catch (error) {
+      if (mounted) setState(() => _saveError = AddressService.message(error));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -322,7 +334,7 @@ class _AddressFormState extends State<_AddressForm> {
       enabled: !_busy,
       maxLength: max,
       decoration: InputDecoration(
-        labelText: label,
+        labelText: optional ? '$label (optional)' : '$label *',
         border: const OutlineInputBorder(),
       ),
       onChanged: c == _address
@@ -353,6 +365,7 @@ class _AddressFormState extends State<_AddressForm> {
             label: const Text('Use current location'),
           ),
           const Text('Check your unit, building and street before saving.'),
+          const Text('* Required'),
           const SizedBox(height: 16),
           _field(_label, 'Label', 60),
           _field(_address, 'Full address', 600),
@@ -363,7 +376,7 @@ class _AddressFormState extends State<_AddressForm> {
             onPressed: _busy ? null : _confirmPin,
             icon: const Icon(Icons.location_pin),
             label: Text(
-              _lat == null ? 'Confirm delivery pin' : 'Review delivery pin',
+              _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin *',
             ),
           ),
           const Text(
@@ -374,6 +387,17 @@ class _AddressFormState extends State<_AddressForm> {
             value: _default,
             onChanged: _busy ? null : (v) => setState(() => _default = v),
           ),
+          if (_saveError != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Semantics(
+                liveRegion: true,
+                child: Text(
+                  _saveError!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ),
           FilledButton(
             onPressed: _busy ? null : _save,
             child: Text(_busy ? 'Please wait…' : 'Save address'),

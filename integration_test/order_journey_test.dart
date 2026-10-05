@@ -1,3 +1,6 @@
+import 'package:bloom_and_bunch_kl/features/customer/screens/address_book_screen.dart';
+import 'package:bloom_and_bunch_kl/core/services/address_service.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:bloom_and_bunch_kl/core/services/favourites_service.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/become_rider_screen.dart';
 import 'package:bloom_and_bunch_kl/features/auth/screens/auth_gate.dart';
@@ -38,7 +41,12 @@ void main() {
       );
       await tester.pump();
     }
-    expect(finder, findsWidgets);
+    expect(
+      finder,
+      findsWidgets,
+      reason:
+          'Visible text: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(" | ")}',
+    );
   }
 
   testWidgets('real callable checkout, rider delivery and owner feedback', (
@@ -55,6 +63,69 @@ void main() {
       password: 'DemoPass123!',
     );
     final db = FirebaseFirestore.instance;
+    final addressNavigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(
+        key: const Key('create-address-journey'),
+        navigatorKey: addressNavigator,
+        home: const Scaffold(body: Text('Address test root')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final addressClosed = addressNavigator.currentState!.push(
+      MaterialPageRoute(
+        builder: (_) => DeliveryAddressFormScreen(
+          detectLocationOnOpen: false,
+          selectPin: (_, _) async => const LatLng(3.139, 101.687),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<void> addressField(String label, String value) async {
+      final field = find.byWidgetPredicate(
+        (w) => w is TextField && w.decoration?.labelText == label,
+      );
+      await tester.scrollUntilVisible(
+        field,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(field, value);
+    }
+
+    await addressField('Label *', 'Browser created address');
+    await addressField('Full address *', '12 Test Street, Kuala Lumpur');
+    await addressField('Recipient name *', 'Browser recipient');
+    await addressField('Phone *', '0123456789');
+    await tester.scrollUntilVisible(
+      find.text('Confirm delivery pin *'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm delivery pin *'));
+    await tester.pumpAndSettle();
+    expect(find.text('Review delivery pin *'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Save address'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Save address').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Save address'));
+    await waitFor(tester, find.text('Address test root'));
+    await addressClosed;
+    await tester.pumpAndSettle();
+    final savedAddress = await AddressService().defaultAddress();
+    expect(savedAddress!.label, 'Browser created address');
+    expect(savedAddress.address, '12 Test Street, Kuala Lumpur');
+    expect(savedAddress.latitude, 3.139);
+    expect(
+      (await db.doc('users/demo_customer').get()).data()!['defaultAddressId'],
+      savedAddress.id,
+    );
     final product = await db.doc('bouquets/demo_bouquet').get();
     final stock = product.data()!['readyStock'] as int;
     final cart = CartProvider();

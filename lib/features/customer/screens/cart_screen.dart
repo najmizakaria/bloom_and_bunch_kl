@@ -190,56 +190,81 @@ class CartScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(color: Colors.white),
-                child: SafeArea(
-                  top: false,
-                  child: Column(
-                    children: [
-                      Row(
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.45,
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: const Border(
+                      top: BorderSide(color: AppColors.inputBorder),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.09),
+                        blurRadius: 12,
+                        offset: const Offset(0, -3),
+                      ),
+                    ],
+                  ),
+                  child: SingleChildScrollView(
+                    child: SafeArea(
+                      top: false,
+                      child: Column(
                         children: [
-                          const Text(
-                            'Items subtotal',
-                            style: AppTypography.body(
-                              color: AppColors.textMuted,
-                            ),
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            runSpacing: 8,
+                            spacing: 16,
+                            children: [
+                              const Text(
+                                'Items subtotal',
+                                style: AppTypography.body(
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              Text(
+                                'RM ${cart.totalPrice.toStringAsFixed(2)}',
+                                style: const AppTypography.total(
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
-                          const Spacer(),
-                          Text(
-                            'RM ${cart.totalPrice.toStringAsFixed(2)}',
-                            style: const AppTypography.total(
-                              color: AppColors.primary,
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.',
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(48, 52),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: AppColors.onPrimary,
+                              ),
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CheckoutScreen(),
+                                ),
+                              ),
+                              child: const Text(
+                                'Proceed to Checkout',
+                                style: AppTypography.button(),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.',
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: AppColors.onPrimary,
-                          ),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const CheckoutScreen(),
-                            ),
-                          ),
-                          child: const Text(
-                            'Proceed to Checkout',
-                            style: AppTypography.button(),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

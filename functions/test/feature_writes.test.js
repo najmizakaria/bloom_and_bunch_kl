@@ -166,3 +166,12 @@ test('sync removes legacy stale jobs for assigned and missing orders',{skip:!ena
  const result=await api.syncDeliveryJobs.run(request('repair_sync_admin'));
  assert.ok(result.removedStale>=2);assert.equal((await db.doc('delivery_jobs/repair_sync_0').get()).exists,false);assert.equal((await db.doc('delivery_jobs/repair_missing_order').get()).exists,false);
 });
+
+test('stable address IDs prevent duplicate documents after a retried save',{skip:!enabled},async()=>{
+ const uid='repair_address_retry';await profile(uid);
+ const data={addressId:'stable_retry',address:{...address,label:'Retry address'}};
+ const [a,b]=await Promise.all([api.saveAddress.run(request(uid,data)),api.saveAddress.run(request(uid,data))]);
+ assert.equal(a.id,'stable_retry');assert.deepEqual(a,b);
+ const docs=await db.collection('users/'+uid+'/addresses').get();assert.equal(docs.size,1);
+ assert.equal((await db.doc('users/'+uid).get()).data().defaultAddressId,'stable_retry');
+});

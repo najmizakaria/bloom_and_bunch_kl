@@ -157,7 +157,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                                                   ),
                                             ),
                                           );
-                                      if (context.mounted && accepted != null) {
+                                      if (mounted && accepted != null) {
                                         _select(1);
                                       }
                                     },

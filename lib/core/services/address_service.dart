@@ -37,11 +37,20 @@ class AddressService {
     return SavedAddressModel.fromMap(doc.data(), doc.id);
   }
 
-  Future<void> saveAddress(SavedAddressModel address) async {
-    await _functions.httpsCallable('saveAddress').call({
-      'addressId': address.id.isEmpty ? null : address.id,
+  String newAddressId() => _addresses.doc().id;
+
+  Future<String> saveAddress(SavedAddressModel address) async {
+    final result = await _functions.httpsCallable('saveAddress').call({
+      'addressId': address.id.isEmpty ? newAddressId() : address.id,
       'address': address.toMap(),
     });
+    final id = result.data['id'];
+    if (id is! String || id.isEmpty) {
+      throw StateError(
+        'The address service did not confirm saving. Please retry.',
+      );
+    }
+    return id;
   }
 
   Future<void> setDefault(String id) async {
@@ -50,5 +59,29 @@ class AddressService {
 
   Future<void> deleteAddress(String id) async {
     await _functions.httpsCallable('deleteAddress').call({'addressId': id});
+  }
+
+  static String message(Object error) {
+    if (error is FirebaseFunctionsException) {
+      switch (error.code) {
+        case 'not-found':
+          return 'The address service is unavailable. Please contact the store to enable address saving.';
+        case 'unauthenticated':
+          return 'Please sign in again before saving your address.';
+        case 'permission-denied':
+          return 'Your account cannot save this address. Please sign in again or contact the store.';
+        case 'unavailable':
+        case 'deadline-exceeded':
+          return 'Connection interrupted. Your details are kept here. Tap Save address to retry.';
+        case 'invalid-argument':
+        case 'failed-precondition':
+          return error.message ??
+              'Check the address details and delivery pin before saving.';
+        default:
+          return 'The address could not be saved. Your details are kept here. Please retry.';
+      }
+    }
+    if (error is StateError) return error.message.toString();
+    return 'Unable to save your address. Check your connection and retry.';
   }
 }

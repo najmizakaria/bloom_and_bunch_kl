@@ -295,7 +295,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Build a custom bouquet • prepared in 1–3 business days',
+                        'Let’s build your own bouquet',
                         style: AppTypography.label(color: AppColors.onPrimary),
                       ),
                     ),
@@ -434,23 +434,44 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   Widget _modeButton(String label, DeliveryMode mode) {
     final selected = _deliveryMode == mode;
 
-    return GestureDetector(
-      onTap: () => setState(() {
-        _deliveryMode = mode;
-        _bouquetsStream = _watchBouquets();
-      }),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
           borderRadius: BorderRadius.circular(10),
-        ),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: AppTypography.label(
-            color: selected ? AppColors.primary : AppColors.textMuted,
+          onTap: () => setState(() {
+            _deliveryMode = mode;
+            _bouquetsStream = _watchBouquets();
+          }),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            constraints: const BoxConstraints(minHeight: 48),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.inputBorder,
+                width: selected ? 1.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: selected ? 0.16 : 0.09),
+                  blurRadius: selected ? 9 : 6,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTypography.label(
+                color: selected ? AppColors.primary : AppColors.textMuted,
+              ),
+            ),
           ),
         ),
       ),

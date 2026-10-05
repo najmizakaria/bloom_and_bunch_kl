@@ -8,5 +8,11 @@ for(const [name,key]of [['AUTH','FIREBASE_AUTH_EMULATOR_HOST'],['FIRESTORE','FIR
 }
 if(process.env.UX_JOURNEY_FILTER)args.push(`--dart-define=JOURNEY_FILTER=${process.env.UX_JOURNEY_FILTER}`);
 if(process.env.UX_FUNCTIONS_PORT)args.push(`--dart-define=FUNCTIONS_EMULATOR_PORT=${process.env.UX_FUNCTIONS_PORT}`);
+// WebDriver otherwise chooses the runner's system Chrome, which may differ
+// from the Chrome for Testing installed alongside ChromeDriver in CI.
+if(process.env.CHROME_EXECUTABLE) {
+ const chromeArg=`--chrome-binary=${process.env.CHROME_EXECUTABLE}`;
+ args.push(process.platform==='win32'?`"${chromeArg}"`:chromeArg);
+}
 const result=spawnSync(process.platform==='win32'?'flutter.bat':'flutter',args,{stdio:'inherit',shell:process.platform==='win32'});
 process.exit(result.status??1);
