@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/widgets/live_order_detail.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/foundation.dart';
@@ -9,21 +11,35 @@ import 'package:geocoding/geocoding.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../models/order_model.dart';
 
-class RiderOrderDetailScreen extends StatefulWidget {
+class RiderOrderDetailScreen extends StatelessWidget {
+  const RiderOrderDetailScreen({super.key, required this.order, this.watch});
   final OrderModel order;
-
-  const RiderOrderDetailScreen({super.key, required this.order});
-
+  final OrderWatch? watch;
   @override
-  State<RiderOrderDetailScreen> createState() => _RiderOrderDetailScreenState();
+  Widget build(BuildContext context) => LiveOrderDetail(
+    orderId: order.orderId,
+    watch: watch,
+    builder: (latest) => _RiderOrderDetailContent(order: latest),
+  );
 }
 
-class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
+class _RiderOrderDetailContent extends StatefulWidget {
+  final OrderModel order;
+
+  const _RiderOrderDetailContent({required this.order});
+
+  @override
+  State<_RiderOrderDetailContent> createState() =>
+      _RiderOrderDetailContentState();
+}
+
+class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
   bool _isLoading = false;
 
   LatLng? _deliveryLocation;
   bool _isLoadingMap = true;
-  // Default fallback center (Kuala Lumpur) if address lookup fails on web
+  bool _approximate = false;
+  int _mapRequest = 0;
 
   @override
   void initState() {
@@ -31,7 +47,22 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     _fetchCoordinates();
   }
 
+  @override
+  void didUpdateWidget(covariant _RiderOrderDetailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.order.deliveryAddress != widget.order.deliveryAddress ||
+        oldWidget.order.latitude != widget.order.latitude ||
+        oldWidget.order.longitude != widget.order.longitude) {
+      _fetchCoordinates();
+    }
+  }
+
   Future<void> _fetchCoordinates() async {
+    final request = ++_mapRequest;
+    setState(() {
+      _isLoadingMap = true;
+      _approximate = false;
+    });
     try {
       if (widget.order.latitude != null && widget.order.longitude != null) {
         setState(() {
@@ -45,7 +76,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
       }
       if (kIsWeb) {
         // 🌐 WEB HANDLING: Avoids CORS network crashes on web browsers
-        // Defaults map to KL location if web geocoding is restricted
+        // Written address remains available when geocoding is unavailable.
         setState(() {
           _deliveryLocation = null;
           _isLoadingMap = false;
@@ -57,8 +88,10 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
           widget.order.deliveryAddress,
         );
 
+        if (!mounted || request != _mapRequest) return;
         if (locations.isNotEmpty && mounted) {
           setState(() {
+            _approximate = true;
             _deliveryLocation = LatLng(
               locations.first.latitude,
               locations.first.longitude,
@@ -73,7 +106,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && request == _mapRequest) {
         setState(() {
           _deliveryLocation = null;
           _isLoadingMap = false;
@@ -112,9 +145,9 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Complete delivery?'),
+        title: const Text('Confirm delivered?'),
         content: const Text(
-          'Confirm the bouquet has been handed to the recipient or left according to their instructions.',
+          'Confirm the bouquet has been handed to the recipient or left according to their instructions. The order will wait for customer receipt confirmation.',
         ),
         actions: [
           TextButton(
@@ -123,7 +156,7 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Mark Delivered'),
+            child: const Text('Confirm delivered'),
           ),
         ],
       ),
@@ -151,8 +184,16 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Delivery Route'),
-        actions: [IconButton(tooltip: 'Report delivery problem', onPressed: () => reportIssue(context, widget.order.orderId), icon: const Icon(Icons.report_problem_outlined))],
+        actions: [
+          IconButton(
+            tooltip: 'Report delivery problem',
+            onPressed: () => reportIssue(context, widget.order.orderId),
+            icon: const Icon(Icons.report_problem_outlined),
+          ),
+        ],
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),
@@ -168,14 +209,29 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                   : _deliveryLocation == null
                   ? Container(
                       color: Colors.grey.shade200,
-                      child: const Center(
-                        child: Text(
-                          'Could not load map.\nPlease check address details.',
-                          textAlign: TextAlign.center,
+                      child: Center(
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'Map unavailable. Use the written delivery address.',
+                                textAlign: TextAlign.center,
+                              ),
+                              if (!kIsWeb)
+                                TextButton(
+                                  onPressed: _fetchCoordinates,
+                                  child: const Text('Retry map'),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     )
                   : GoogleMap(
+                      key: ValueKey(
+                        '${_deliveryLocation!.latitude},${_deliveryLocation!.longitude}',
+                      ),
                       initialCameraPosition: CameraPosition(
                         target: _deliveryLocation!,
                         zoom: 15.0,
@@ -195,6 +251,27 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
                     ),
             ),
 
+            if (_approximate)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Approximate address marker. Confirm the exact entrance with the recipient.',
+                ),
+              ),
+            if (widget.order.hasOpenIssue)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'An open delivery issue pauses completion. Contact the store.',
+                ),
+              ),
+            if (widget.order.orderStatus == 'Awaiting Customer Confirmation')
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'Delivery recorded. Waiting for customer receipt confirmation.',
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
@@ -289,7 +366,9 @@ class _RiderOrderDetailScreenState extends State<RiderOrderDetailScreen> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white),
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _markAsDelivered,
+                onPressed: _isLoading || widget.order.hasOpenIssue
+                    ? null
+                    : _markAsDelivered,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primaryDark,
                   padding: const EdgeInsets.symmetric(vertical: 16),

@@ -1,3 +1,6 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/widgets/pending_icon_button.dart';
+import '../widgets/product_components.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -9,7 +12,36 @@ import '../../../core/services/reorder_service.dart';
 import '../../../models/bouquet_model.dart';
 import 'bouquet_detail_screen.dart';
 
-class FavouritesScreen extends StatelessWidget {
+class FavouritesScreen extends StatefulWidget {
+  const FavouritesScreen({super.key});
+  @override
+  State<FavouritesScreen> createState() => _FavouritesScreenState();
+}
+
+class _FavouritesScreenState extends State<FavouritesScreen> {
+  final favouritesService = FavouritesService();
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _bouquets = favouritesService
+      .favouriteBouquetsStream();
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _recipes = favouritesService
+      .favouriteRecipesStream();
+  Widget _retry(bool recipes) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Could not load favourites. Check your connection.'),
+        TextButton(
+          onPressed: () => setState(() {
+            if (recipes) {
+              _recipes = favouritesService.favouriteRecipesStream();
+            } else {
+              _bouquets = favouritesService.favouriteBouquetsStream();
+            }
+          }),
+          child: const Text('Retry'),
+        ),
+      ],
+    ),
+  );
   Future<void> _add(BuildContext context, Map<String, dynamic> item) async {
     final cart = context.read<CartProvider>();
     try {
@@ -83,18 +115,16 @@ class FavouritesScreen extends StatelessWidget {
     }
   }
 
-  const FavouritesScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    final favouritesService = FavouritesService();
-
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
+          leading: const PageBackButton(),
+          centerTitle: false,
           title: const Text('Favourites'),
-          centerTitle: true,
+
           automaticallyImplyLeading: false,
           bottom: const TabBar(
             labelColor: AppColors.primary,
@@ -110,12 +140,10 @@ class FavouritesScreen extends StatelessWidget {
           children: [
             // Saved ready-made bouquets
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: favouritesService.favouriteBouquetsStream(),
+              stream: _bouquets,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Could not load favourites. Please retry.'),
-                  );
+                  return _retry(false);
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -145,22 +173,11 @@ class FavouritesScreen extends StatelessWidget {
                       child: ListTile(
                         leading: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: imageUrl.isNotEmpty
-                              ? Image.network(
-                                  imageUrl,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                )
-                              : Container(
-                                  width: 50,
-                                  height: 50,
-                                  color: AppColors.secondarySurface,
-                                  child: const Icon(
-                                    Icons.local_florist,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
+                          child: SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: ProductImage(imageUrl: imageUrl),
+                          ),
                         ),
                         title: Text(name, style: const AppTypography.label()),
                         subtitle: Text('RM ${price.toStringAsFixed(2)}'),
@@ -174,7 +191,9 @@ class FavouritesScreen extends StatelessWidget {
                               ),
                               onPressed: () => _openBouquet(context, bouquetId),
                             ),
-                            IconButton(
+                            PendingIconButton(
+                              key: ValueKey(bouquetId),
+                              tooltip: 'Remove from favourites',
                               icon: const Icon(
                                 Icons.favorite,
                                 color: AppColors.primaryDark,
@@ -200,12 +219,10 @@ class FavouritesScreen extends StatelessWidget {
 
             // Saved custom recipes
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: favouritesService.favouriteRecipesStream(),
+              stream: _recipes,
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const Center(
-                    child: Text('Could not load favourites. Please retry.'),
-                  );
+                  return _retry(true);
                 }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());

@@ -1,7 +1,9 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/services/order_service.dart';
+import '../../../core/widgets/action_confirmation.dart';
 import '../../../models/delivery_job_model.dart';
 
 class RiderAvailableJobScreen extends StatefulWidget {
@@ -18,6 +20,17 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
   bool _accepting = false;
 
   Future<void> _accept() async {
+    if (_accepting) return;
+    if (!await confirmAction(
+          context,
+          title: 'Accept delivery?',
+          message:
+              'You will be responsible for delivering this order. Recipient details unlock after acceptance.',
+          action: 'Accept delivery',
+        ) ||
+        !mounted) {
+      return;
+    }
     setState(() => _accepting = true);
     try {
       await OrderService().transition(widget.job.orderId, 'accept');
@@ -27,7 +40,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
           content: Text('Delivery accepted. Full details unlocked.'),
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, widget.job.orderId);
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -43,6 +56,8 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Available Delivery'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,

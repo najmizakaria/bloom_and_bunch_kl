@@ -2,7 +2,7 @@ name: Project checks
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [main, main2, master]
 permissions:
   contents: read
 jobs:

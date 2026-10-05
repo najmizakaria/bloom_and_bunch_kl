@@ -1,17 +1,13 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
 
 class AuthScaffold extends StatelessWidget {
-  const AuthScaffold({
-    super.key,
-    required this.child,
-    this.showBackButton = false,
-  });
+  const AuthScaffold({super.key, required this.child});
 
   final Widget child;
-  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -40,15 +36,7 @@ class AuthScaffold extends StatelessWidget {
                               height: 48,
                               child: Align(
                                 alignment: Alignment.centerLeft,
-                                child: showBackButton
-                                    ? IconButton(
-                                        tooltip: 'Back',
-                                        onPressed: () => Navigator.pop(context),
-                                        icon: const Icon(
-                                          Icons.arrow_back_rounded,
-                                        ),
-                                      )
-                                    : null,
+                                child: const PageBackButton(),
                               ),
                             ),
                             child,

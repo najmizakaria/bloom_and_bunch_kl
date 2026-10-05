@@ -60,6 +60,7 @@ test('failed Auth deletion keeps the profile and cleanup can retry',{skip:!enabl
  await db.doc('users/'+uid+'/favourite_recipes/recipe').set({stems:[]});
  await db.doc('users/'+uid+'/checkouts/checkout').set({orderIds:['repair_delete_history']});
  await db.doc('orders/repair_delete_history').set({customerId:uid,riderId:uid,floristId:null,orderStatus:'Delivered',recipientName:'Buyer',recipientPhone:'0123456789',deliveryAddress:'Private',latitude:3,longitude:101,items:[{quantity:3,cardNote:'Private note'}]});
+ await db.doc('orders/repair_delete_history/issues/private').set({status:'resolved',comment:'Private issue details',createdAt:new Date()});
  await db.doc('rider_applications/'+uid).set({name:'Buyer'});
  await db.doc(tokenPath('repair_delete_token')).set({uid,token:'repair_delete_token'});
  const original=auth.deleteUser;auth.deleteUser=async()=>{throw Object.assign(new Error('Injected Auth failure'),{code:'auth/internal-error'});};
@@ -68,6 +69,11 @@ test('failed Auth deletion keeps the profile and cleanup can retry',{skip:!enabl
  assert.equal((await db.doc('users/'+uid).get()).exists,true);
  assert.equal((await auth.getUser(uid)).uid,uid);
  assert.equal((await db.doc('users/'+uid).get()).data().deletionPending,true);
+ const originalRecursiveDelete=db.recursiveDelete;
+ db.recursiveDelete=async ref=>{if(ref.path==='orders/repair_delete_history/issues')throw new Error('Injected issue cleanup failure');return originalRecursiveDelete.call(db,ref);};
+ try {await assert.rejects(()=>api.deleteAccount.run(request(uid)),e=>e.code==='internal');}
+ finally {db.recursiveDelete=originalRecursiveDelete;}
+ assert.equal((await db.doc('orders/repair_delete_history').get()).data().customerId,uid);
  const result=await api.deleteAccount.run(request(uid));assert.equal(result.deleted,true);
  await api.finishAccountDeletion.run({params:{uid}});
  assert.equal((await db.doc('users/'+uid).get()).exists,false);
@@ -79,6 +85,7 @@ test('failed Auth deletion keeps the profile and cleanup can retry',{skip:!enabl
  assert.equal((await db.doc(tokenPath('repair_delete_token')).get()).exists,false);
  await assert.rejects(()=>auth.getUser(uid),e=>e.code==='auth/user-not-found');
  const order=(await db.doc('orders/repair_delete_history').get()).data();
+ assert.equal((await db.collection('orders/repair_delete_history/issues').get()).empty,true);
  assert.equal(order.customerId,'deleted_customerId');assert.equal(order.riderId,'deleted_riderId');assert.equal(order.deliveryAddress,'');assert.equal(order.latitude,null);assert.equal(order.items[0].cardNote,'');assert.equal(order.items[0].quantity,3);
 });
 test('notifications persist preferences and cannot remove another user device',{skip:!enabled},async()=>{

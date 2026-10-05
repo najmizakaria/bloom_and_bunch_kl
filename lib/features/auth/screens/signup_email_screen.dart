@@ -90,7 +90,6 @@ class _SignupEmailScreenState extends State<SignupEmailScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      showBackButton: true,
       child: Form(
         key: _formKey,
         child: Column(

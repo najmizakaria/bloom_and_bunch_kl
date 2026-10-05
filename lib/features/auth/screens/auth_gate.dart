@@ -9,7 +9,8 @@ import 'auth_welcome_screen.dart';
 // Placeholder dashboards (we will replace these with full features in later sprints)
 import '../../customer/screens/main_navigation_screen.dart';
 import '../../florist/screens/florist_main_navigation_screen.dart';
-import '../../admin/admin_dashboard_screen.dart';
+import '../../admin/admin_main_screen.dart';
+import '../../../core/widgets/logout_tile.dart';
 
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
@@ -76,8 +77,13 @@ class _AuthGateState extends State<AuthGate> {
                         child: const Text('Retry'),
                       ),
                       TextButton(
-                        onPressed: () => authService.signOut(),
-                        child: const Text('Sign out'),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (_) => const AccountMoreScreen(),
+                          ),
+                        ),
+                        child: const Text('More'),
                       ),
                     ],
                   ),
@@ -94,7 +100,7 @@ class _AuthGateState extends State<AuthGate> {
               case 'rider':
                 return const RiderHomeScreen();
               case 'admin':
-                return const AdminDashboardScreen();
+                return const AdminMainScreen();
               case 'customer':
               default:
                 return const MainNavigationScreen();

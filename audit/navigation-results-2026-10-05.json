@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-05",
+  "branch": "main2",
+  "flutterPassed": 72,
+  "browserJourneysPassedTogether": 4,
+  "browserAllEnabled": true,
+  "analysis": "No issues",
+  "appBarHeadersChecked": 31,
+  "whitespaceCheck": "Passed",
+  "deployed": false,
+  "backendChanged": false,
+  "report": "docs/navigation-consistency-2026-10-05.md"
+}

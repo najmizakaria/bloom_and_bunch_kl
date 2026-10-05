@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/widgets/live_order_detail.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import '../../../core/services/order_service.dart';
@@ -6,17 +8,30 @@ import 'package:flutter/material.dart';
 import '../../../models/order_model.dart';
 import 'order_materials_panel.dart';
 
-class FloristOrderDetailScreen extends StatefulWidget {
-  const FloristOrderDetailScreen({super.key, required this.order});
+class FloristOrderDetailScreen extends StatelessWidget {
+  const FloristOrderDetailScreen({super.key, required this.order, this.watch});
+  final OrderModel order;
+  final OrderWatch? watch;
+  @override
+  Widget build(BuildContext context) => LiveOrderDetail(
+    orderId: order.orderId,
+    watch: watch,
+    builder: (latest) => _FloristOrderDetailContent(order: latest),
+  );
+}
+
+class _FloristOrderDetailContent extends StatefulWidget {
+  const _FloristOrderDetailContent({required this.order});
 
   final OrderModel order;
 
   @override
-  State<FloristOrderDetailScreen> createState() =>
-      _FloristOrderDetailScreenState();
+  State<_FloristOrderDetailContent> createState() =>
+      _FloristOrderDetailContentState();
 }
 
-class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
+class _FloristOrderDetailContentState
+    extends State<_FloristOrderDetailContent> {
   late String _currentStatus;
   bool _isUpdating = false;
 
@@ -26,7 +41,14 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     _currentStatus = widget.order.orderStatus;
   }
 
+  @override
+  void didUpdateWidget(covariant _FloristOrderDetailContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _currentStatus = widget.order.orderStatus;
+  }
+
   String? get _nextStatus {
+    if (widget.order.hasOpenIssue) return null;
     switch (_currentStatus) {
       case 'Awaiting Preparation':
         return 'Processing';
@@ -67,6 +89,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         return 1;
       case 'Ready for Delivery':
       case 'Out for Delivery':
+      case 'Awaiting Customer Confirmation':
       case 'Completed':
       case 'Delivered':
         return 2;
@@ -85,9 +108,14 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         return 'Bouquet Ready';
       case 'Out for Delivery':
         return 'Out for Delivery';
+      case 'Awaiting Customer Confirmation':
+        return 'Awaiting Customer Receipt';
       case 'Completed':
+        return widget.order.receiptConfirmed
+            ? 'Receipt Confirmed'
+            : 'Completed (Legacy)';
       case 'Delivered':
-        return 'Order Completed';
+        return 'Delivered (Legacy)';
       default:
         return _currentStatus;
     }
@@ -103,9 +131,14 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         return 'The order is waiting for a rider to collect it.';
       case 'Out for Delivery':
         return 'A rider has collected and is delivering this order.';
+      case 'Awaiting Customer Confirmation':
+        return 'The rider recorded delivery. The customer must confirm receipt.';
       case 'Completed':
+        return widget.order.receiptConfirmed
+            ? 'The customer confirmed receiving this order.'
+            : 'Completed under the older workflow. Customer receipt confirmation was not recorded.';
       case 'Delivered':
-        return 'This order has been delivered successfully.';
+        return 'Delivery was recorded in the older workflow. Receipt confirmation was not recorded.';
       default:
         return 'Check the current order status.';
     }
@@ -133,7 +166,6 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     setState(() => _isUpdating = true);
     try {
       await OrderService().transition(widget.order.orderId, 'cancel');
-      if (mounted) setState(() => _currentStatus = 'Cancelled');
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -204,10 +236,6 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         return;
       }
 
-      setState(() {
-        _currentStatus = newStatus;
-      });
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -247,12 +275,16 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Order Details'),
         actions: [
           if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
             IconButton(
               tooltip: 'Cancel planned order',
-              onPressed: _isUpdating ? null : _cancelOrder,
+              onPressed: _isUpdating || widget.order.hasOpenIssue
+                  ? null
+                  : _cancelOrder,
               icon: const Icon(Icons.cancel_outlined),
             ),
         ],
@@ -268,6 +300,13 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
             _buildOrderHeading(),
             const SizedBox(height: 16),
             _buildStatusCard(),
+            if (widget.order.hasOpenIssue)
+              const Padding(
+                padding: EdgeInsets.all(12),
+                child: Text(
+                  'An open issue pauses order transitions. Contact the administrator.',
+                ),
+              ),
             if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
               OrderMaterialsPanel(order: widget.order),
             const SizedBox(height: 16),
@@ -286,7 +325,7 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                     children: [
                       Icon(Icons.info_outline, color: Colors.grey),
                       SizedBox(width: 10),
-                      Text('No items found for this order.'),
+                      Expanded(child: Text('No items found for this order.')),
                     ],
                   ),
                 ),
@@ -314,14 +353,11 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
         ? fullId.toUpperCase()
         : fullId.substring(0, 8).toUpperCase();
 
-    return Row(
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
       children: [
-        Expanded(
-          child: Text(
-            'Order #$shortId',
-            style: const AppTypography.sectionTitle(),
-          ),
-        ),
+        Text('Order #$shortId', style: const AppTypography.sectionTitle()),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -480,13 +516,13 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
                     ],
                   ),
                 ),
-                Text(
-                  'RM ${unitPrice.toStringAsFixed(2)}',
-                  style: const AppTypography.price(),
-                ),
               ],
             ),
 
+            Text(
+              'RM ${unitPrice.toStringAsFixed(2)}',
+              style: const AppTypography.price(),
+            ),
             if (isCustom || stems.isNotEmpty) ...[
               const Divider(height: 24),
               const Text(
@@ -650,10 +686,11 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
   }
 
   Widget _buildOrderTotal() {
-    return Row(
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
       children: [
         const Text('Order Total', style: AppTypography.productTitle()),
-        const Spacer(),
         Text(
           'RM ${widget.order.totalAmount.toStringAsFixed(2)}',
           style: const AppTypography.total(color: AppColors.primary),
@@ -675,8 +712,8 @@ class _FloristOrderDetailScreenState extends State<FloristOrderDetailScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: BoxDecoration(color: Colors.white),
-        child: SizedBox(
-          height: 50,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 50),
           child: ElevatedButton.icon(
             onPressed: _isUpdating ? null : _confirmStatusUpdate,
             style: ElevatedButton.styleFrom(
@@ -739,35 +776,37 @@ class _ProgressStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = reached ? AppColors.primary : Colors.grey.shade300;
 
-    return SizedBox(
-      width: 72,
-      child: Column(
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 250),
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: reached ? AppColors.primary : Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: color, width: active ? 3 : 2),
+    return Flexible(
+      child: SizedBox(
+        width: 72,
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: reached ? AppColors.primary : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: active ? 3 : 2),
+              ),
+              child: Icon(
+                reached ? Icons.check : icon,
+                color: reached ? Colors.white : Colors.grey,
+                size: 20,
+              ),
             ),
-            child: Icon(
-              reached ? Icons.check : icon,
-              color: reached ? Colors.white : Colors.grey,
-              size: 20,
+            const SizedBox(height: 7),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: AppTypography.caption(
+                color: reached ? AppColors.primary : Colors.grey,
+                fontWeight: active ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: AppTypography.caption(
-              color: reached ? AppColors.primary : Colors.grey,
-              fontWeight: active ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -46,7 +46,9 @@ test('backend: custom reservation, retry, prepare, restock and consume exactly o
  const other=o.riderId==='rider_a_test'?'rider_b_test':'rider_a_test';
  await assert.rejects(()=>api.transitionOrder.run({auth:{uid:other},data:{orderId,action:'deliver'}}),/assigned/);
  await api.transitionOrder.run({auth:{uid:o.riderId},data:{orderId,action:'deliver'}});
- assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Delivered');
+ assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Awaiting Customer Confirmation');
+ await api.transitionOrder.run({auth:{uid:'buyer_test'},data:{orderId,action:'confirmReceived'}});
+ assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Completed');
  assert.equal((await db.collection('delivery_jobs').doc(orderId).get()).exists,false);
 });
 test('backend: simultaneous last-bouquet checkout never oversells',{skip:!enabled},async()=>{

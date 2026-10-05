@@ -44,7 +44,22 @@ class UserModel {
 
   // Convert Firestore JSON Map -> Dart Object
   factory UserModel.fromMap(Map<String, dynamic> map) {
-    final legacyRole = map['role']?.toString() ?? 'customer';
+    if (map['role'] == null &&
+        (map['roles'] is! List || (map['roles'] as List).isEmpty)) {
+      throw const FormatException('Account roles are missing.');
+    }
+    final legacyRole =
+        map['role']?.toString() ?? (map['roles'] as List).first.toString();
+    if (!allowedRoles.contains(legacyRole)) {
+      throw const FormatException('Invalid account role.');
+    }
+    if (map['roles'] != null &&
+        (map['roles'] is! List ||
+            (map['roles'] as List).any(
+              (role) => role is! String || !allowedRoles.contains(role),
+            ))) {
+      throw const FormatException('Invalid account roles.');
+    }
     final storedRoles = (map['roles'] as List<dynamic>? ?? const [])
         .whereType<String>()
         .where(allowedRoles.contains)
@@ -62,7 +77,9 @@ class UserModel {
       roles: roles,
       activeRole: roles.contains(requestedActiveRole)
           ? requestedActiveRole
-          : legacyRole,
+          : roles.contains(legacyRole)
+          ? legacyRole
+          : roles.first,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }

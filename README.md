@@ -2,7 +2,15 @@
 
 Flutter application for bouquet ordering, florist preparation, rider delivery and store administration in Kuala Lumpur.
 
-Customers browse ready bouquets or create/pre-order an arrangement. The backend calculates current prices, delivery fees and stock reservations. Florists prepare orders; approved riders accept and complete deliveries. Customers can track orders, report issues and submit feedback after delivery. Store staff review issues, manual payments and feedback.
+Customers browse ready bouquets or create/pre-order an arrangement. The backend calculates current prices, delivery fees and stock reservations. Florists prepare orders; approved riders accept jobs and confirm delivery. The owning customer then confirms receipt to complete the order. Customers can track orders, report issues and submit feedback after completion. Store staff review issues, manual payments and feedback.
+
+## Supervisor feedback integration
+
+The missing worktree improvements have been adapted to main2's existing checkout and data model. Home search/filters keep customer bottom navigation; florist dashboard cards select the corresponding order filter; every role has logout in More. Riders use the same bottom NavigationBar pattern as customers, with Available jobs, Deliveries, History and More. Page headers show a left-side back arrow and left-aligned titles: Back pops a detail route, returns another workspace tab to Home, or stays disabled on Home when there is no previous route. Admin Rider history offers rider, status, MYT creation-date and open-issue filters. Live order lists use cursor pages of 20 records with Previous, Next, Refresh and retry controls.
+
+New delivery transitions are `Out for Delivery → Awaiting Customer Confirmation → Completed`. Only the assigned rider confirms delivery, and only the owning customer confirms receipt. An open delivery issue pauses both actions. Store resolution records a response without completing the order. Issue history is retained under `orders/{id}/issues`; the customer timeline uses actual server activity in Malaysia time. Older Delivered records remain distinct and do not imply customer confirmation.
+
+See [implementation and manual release guide](docs/main2-feedback-integration-2026-10-05.md) for the comparison, validation and the Firebase/device tasks to do manually.
 
 ## Current scope
 
@@ -57,7 +65,7 @@ For the real browser journey, start a ChromeDriver matching installed Chrome on 
 firebase emulators:exec --project demo-bloom --only auth,firestore,storage,functions "node tool/run_app_journey.cjs"
 ```
 
-The journey seeds demo data, adds a bouquet through the UI, checks out over real callable transport, verifies stock, signs in as a rider to complete the order through the service, and verifies owner feedback. It does not simulate every rider screen or real external integrations. CI runs both suites and a demo web build. Live Google OAuth, Maps, FCM/APNs, image pickers and real-device release behavior require the manual checks in the release checklist.
+The connected browser suite uses demo accounts and actual UI controls for ready checkout, rider acceptance/delivery, customer receipt/feedback, customer problem reporting and admin resolution. It also covers custom recipe saving and mixed checkout, preserved Browse intent, florist dashboard shortcuts, paginated inventory, admin history at large text, related deliveries, concurrent favorites and approved-role switching. Backend tests supply additional race, authorization and negative-case coverage. This does not establish every screen or external integration. See the [role and acceptance review](docs/persona-acceptance-review-2026-10-05.md) for precise coverage and limits. CI runs both suites and a demo web build. Live Google OAuth, Maps, FCM/APNs, image pickers and real-device release behavior require the release checklist.
 
 ## Store rules
 
@@ -83,9 +91,9 @@ flowchart LR
 
 `lib/core` holds configuration, shared components, services and cart state. `lib/features` separates auth/customer/florist/rider/admin/support. `lib/models` holds snapshots. `functions/domain.js` validates order/material logic; `store-policy.js` calculates coverage/calendar/fees; `index.js` coordinates trusted writes.
 
-Collections: users and private address/favourite subcollections; flowers; bouquets; orders; sanitized delivery_jobs; rider_applications; private notification records and deletion jobs. New order fields include quote/payment/fee/dispatch snapshots, bounded feedback and support maps. `orders/{id}/events` contains server-written status/timestamp activity. `delivery_capacity/{date}` is server-only. Existing order read permissions protect feedback/support; events inherit order ownership/staff/assigned-rider access. Customer deletion removes feedback/support comments while historical status events remain without customer identifiers or free text.
+Collections: users and private address/favourite subcollections; flowers; bouquets; orders; sanitized delivery_jobs; rider_applications; private notification records and deletion jobs. New order fields include quote/payment/fee/dispatch snapshots, bounded feedback and support maps. `orders/{id}/events` contains server-written status/timestamp activity; `orders/{id}/issues` retains report/resolution history. `delivery_capacity/{date}` is server-only. Events/issues inherit order ownership/staff/assigned-rider access and deny client writes. Customer deletion removes feedback/support and issue comments while historical status events remain without customer identifiers or free text. Deletion is blocked while delivery awaits customer receipt.
 
-Catalogue/history screens load bounded batches with explicit Load more actions. Catalogue search filters the loaded batches; load more to search additional products. Customer tabs initialize on demand. This bounds initial work but is not full-text server search or cursor pagination. Profile with realistic data before adding a search service.
+Home shows a bounded bouquet preview; Browse and staff inventory/catalogue use cursor pages with Next/Previous controls. Browse search applies to the displayed page. Category and fulfillment mode filters run before pagination, with compatibility checks for older product fields. Order/history lists use cursor pagination. Customer and florist workspace tabs initialize on demand. Florist dashboard summaries explicitly cover the latest 100 orders and a preview of 100 flowers. Profile with realistic data before adding a search service. See the [main2 smoothness fixes and validation](docs/smoothness-fixes-2026-10-05.md).
 
 ## Monitoring and release
 
@@ -93,4 +101,4 @@ Monitoring is disabled by default. `--dart-define=ENABLE_MONITORING=true` enable
 
 App Check is optional with `ENABLE_APP_CHECK=true` and web `APP_CHECK_WEB_SITE_KEY`. Register the correct platform providers first, test token issuance, then enable callable enforcement using server `ENFORCE_APP_CHECK=true`. Do not enable enforcement before compatible clients are ready. Database/Storage App Check enforcement is a separate console setting.
 
-See [release checklist](docs/release-checklist.md), [user study kit](docs/user-study-kit.md), [implementation record](docs/implementation-2026-09-21.md) and [original review](docs/improvement-and-user-testing-plan-2026-09-21.md).
+See [release checklist](docs/release-checklist.md), [user study kit](docs/user-study-kit.md), [implementation record](docs/main2-feedback-integration-2026-10-05.md) and [original review](docs/improvement-and-user-testing-plan-2026-09-21.md).

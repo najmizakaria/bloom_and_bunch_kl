@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,23 +7,21 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/cart_provider.dart';
-import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/services/reorder_service.dart';
 import '../../../core/theme/app_colors.dart';
 import 'order_tracking_screen.dart';
 import 'cart_screen.dart';
+import '../../../core/widgets/firestore_page.dart';
 
 String _friendlyStatus(String raw) {
   return switch (raw) {
     'Awaiting Preparation' || 'Pending' => 'Received',
     'Processing' => 'Assembling',
     'Ready for Delivery' => 'Ready for collection',
-    'Completed' => 'Delivered',
+    'Completed' => 'Completed',
     _ => raw,
   };
 }
-
-bool _isPastStatus(String raw) => OrderStatuses.isPast(raw);
 
 class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
@@ -32,13 +31,32 @@ class OrderHistoryScreen extends StatefulWidget {
 }
 
 class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
-  int _limit = 30;
-  late Stream<QuerySnapshot<Map<String, dynamic>>> _ordersStream = _watchOrders();
-  Stream<QuerySnapshot<Map<String, dynamic>>> _watchOrders() => FirebaseFirestore.instance
-      .collection('orders').where('customerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
-      .where('orderStatus', whereIn: _showPast ? ['Delivered', 'Completed', 'Cancelled'] : ['Awaiting Preparation', 'Pending', 'Processing', 'Ready for Delivery', 'Out for Delivery'])
-      .orderBy('createdAt', descending: true).limit(_limit).snapshots();
-  Widget _loadMore() => TextButton(onPressed: () => setState(() { _limit += 30; _ordersStream = _watchOrders(); }), child: const Text('Load older orders'));
+  Query<Map<String, dynamic>> _query() {
+    final statuses = _showPast
+        ? ['Delivered', 'Completed', 'Cancelled']
+        : [
+            'Awaiting Preparation',
+            'Pending',
+            'Processing',
+            'Ready for Delivery',
+            'Out for Delivery',
+            'Awaiting Customer Confirmation',
+          ];
+    final selected = statuses
+        .where(
+          (s) => _statusFilter == 'All' || _friendlyStatus(s) == _statusFilter,
+        )
+        .toList();
+    return FirebaseFirestore.instance
+        .collection('orders')
+        .where('customerId', isEqualTo: FirebaseAuth.instance.currentUser?.uid)
+        .where(
+          'orderStatus',
+          whereIn: selected.isEmpty ? ['__no_status__'] : selected,
+        )
+        .orderBy('createdAt', descending: true);
+  }
+
   bool _showPast = false;
   String _statusFilter = 'All';
 
@@ -88,6 +106,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         automaticallyImplyLeading: false,
         title: const Text('Your orders'),
         actions: [
@@ -125,14 +145,20 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                         child: _segment(
                           'Active',
                           !_showPast,
-                          () => setState(() { _showPast = false; _limit = 30; _ordersStream = _watchOrders(); }),
+                          () => setState(() {
+                            _showPast = false;
+                            _statusFilter = 'All';
+                          }),
                         ),
                       ),
                       Expanded(
                         child: _segment(
                           'Past',
                           _showPast,
-                          () => setState(() { _showPast = true; _limit = 30; _ordersStream = _watchOrders(); }),
+                          () => setState(() {
+                            _showPast = true;
+                            _statusFilter = 'All';
+                          }),
                         ),
                       ),
                     ],
@@ -149,6 +175,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        key: ValueKey(_showPast),
                         initialValue: _statusFilter,
                         decoration: const InputDecoration(
                           labelText: 'Status',
@@ -165,6 +192,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                   'Assembling',
                                   'Ready for collection',
                                   'Out for Delivery',
+                                  'Awaiting Customer Confirmation',
+                                  'Completed',
                                   'Delivered',
                                   'Cancelled',
                                 ]
@@ -185,43 +214,14 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _ordersStream,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                if (snapshot.hasError) {
-                  return const _OrderMessage(
-                    icon: Icons.cloud_off_outlined,
-                    title: 'Orders could not be loaded',
-                    message: 'Check your connection and try again.',
-                  );
-                }
-
-                final docs = (snapshot.data?.docs ?? const []).where((doc) {
-                  final raw = (doc.data()['orderStatus'] ?? 'Pending')
-                      .toString();
-                  final rightTab = _isPastStatus(raw) == _showPast;
-                  final rightStatus =
-                      _statusFilter == 'All' ||
-                      _friendlyStatus(raw) == _statusFilter;
-                  return rightTab && rightStatus;
-                }).toList();
-
-                if (docs.isEmpty && (snapshot.data?.docs.length ?? 0) < _limit) {
-                  return _OrderMessage(
-                    icon: _showPast
-                        ? Icons.history_rounded
-                        : Icons.local_florist_outlined,
-                    title: _showPast ? 'No past orders' : 'Nothing in progress',
-                    message: _showPast
-                        ? 'Completed and cancelled orders will appear here.'
-                        : 'Your next order will be easy to track from this screen.',
-                  );
-                }
-
-                return Column(children: [Expanded(child: ListView.separated(
+            child: FirestorePage(
+              key: ValueKey('$_showPast/$_statusFilter'),
+              query: _query(),
+              emptyMessage: _showPast
+                  ? 'No past orders match this filter.'
+                  : 'No active orders match this filter.',
+              builder: (context, docs) {
+                return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
                   itemCount: docs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
@@ -368,7 +368,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                       ),
                     );
                   },
-                )), if ((snapshot.data?.docs.length ?? 0) >= _limit) _loadMore()]);
+                );
               },
             ),
           ),
@@ -394,40 +394,6 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
           style: AppTypography.label(
             color: selected ? AppColors.primary : AppColors.textMuted,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _OrderMessage extends StatelessWidget {
-  const _OrderMessage({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 54, color: AppColors.primary),
-            const SizedBox(height: 14),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textMuted),
-            ),
-          ],
         ),
       ),
     );

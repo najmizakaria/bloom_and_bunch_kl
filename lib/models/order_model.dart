@@ -3,11 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants/fulfillment_constants.dart';
 
 class OrderModel {
-  static String _normalizedStatus(String? s) => s == 'Pending' || s == null
-      ? 'Awaiting Preparation'
-      : s == 'Completed'
-      ? 'Delivered'
-      : s;
+  static String _normalizedStatus(String? s) =>
+      s == 'Pending' || s == null ? 'Awaiting Preparation' : s;
   final String orderId;
   final String customerId;
   final String? floristId;
@@ -27,6 +24,10 @@ class OrderModel {
   final bool requiresPrepTime;
   final List<Map<String, dynamic>> items;
   final DateTime createdAt;
+  final int deliveryWorkflowVersion;
+  final DateTime? customerAcceptedAt;
+  final bool hasOpenIssue;
+  bool get receiptConfirmed => customerAcceptedAt != null;
 
   const OrderModel({
     required this.orderId,
@@ -49,6 +50,9 @@ class OrderModel {
     required this.requiresPrepTime,
     required this.items,
     required this.createdAt,
+    this.deliveryWorkflowVersion = 1,
+    this.customerAcceptedAt,
+    this.hasOpenIssue = false,
   });
 
   factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -62,6 +66,10 @@ class OrderModel {
 
     return OrderModel(
       orderId: documentId,
+      hasOpenIssue: map['support'] is Map && map['support']['status'] == 'open',
+      deliveryWorkflowVersion:
+          (map['deliveryWorkflowVersion'] as num?)?.toInt() ?? 1,
+      customerAcceptedAt: (map['customerAcceptedAt'] as Timestamp?)?.toDate(),
       customerId: (map['customerId'] ?? '').toString(),
       floristId: map['floristId']?.toString(),
       riderId: map['riderId']?.toString(),
@@ -86,7 +94,9 @@ class OrderModel {
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList(),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt:
+          (map['createdAt'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }

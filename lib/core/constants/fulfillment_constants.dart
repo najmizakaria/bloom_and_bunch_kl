@@ -28,6 +28,7 @@ class OrderStatuses {
   static const String processing = 'Processing';
   static const String readyForDelivery = 'Ready for Delivery';
   static const String outForDelivery = 'Out for Delivery';
+  static const String awaitingConfirmation = 'Awaiting Customer Confirmation';
   static const String completed = 'Completed';
   static const String delivered = 'Delivered';
   static const String cancelled = 'Cancelled';
@@ -37,12 +38,27 @@ class OrderStatuses {
 
   static String normalize(String value) => switch (value) {
     legacyPending => awaitingPreparation,
-    completed => delivered,
     _ => value,
   };
 
   static bool isPast(String value) =>
-      [delivered, cancelled].contains(normalize(value));
+      [delivered, completed, cancelled].contains(normalize(value));
+
+  static String label(String value, {bool receiptConfirmed = false}) =>
+      switch (normalize(value)) {
+        awaitingPreparation => 'Order received',
+        processing => 'Bouquet being prepared',
+        readyForDelivery => 'Ready for rider collection',
+        outForDelivery => 'Rider is delivering your order',
+        awaitingConfirmation => 'Delivered — awaiting your confirmation',
+        completed =>
+          receiptConfirmed
+              ? 'Receipt confirmed — order completed'
+              : 'Completed (legacy record)',
+        delivered => 'Delivered (legacy record)',
+        cancelled => 'Order cancelled',
+        _ => value,
+      };
 
   static bool requiresFloristPreparation(String value) {
     return value == awaitingPreparation ||

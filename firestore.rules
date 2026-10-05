@@ -264,6 +264,14 @@ service cloud.firestore {
         );
         allow write: if false;
       }
+      match /issues/{issueId} {
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/orders/$(orderId)).data.customerId == request.auth.uid
+          || isStaff()
+          || (hasRole('rider') && get(/databases/$(database)/documents/orders/$(orderId)).data.riderId == request.auth.uid)
+        );
+        allow write: if false;
+      }
     }
 
     // Sanitized dispatch feed. Exact address, coordinates, contact details,

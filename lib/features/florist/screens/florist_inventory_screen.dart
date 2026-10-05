@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/widgets/firestore_page.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import '../../../core/services/product_image.dart';
@@ -413,6 +415,8 @@ class FloristInventoryScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: showAppBar
           ? AppBar(
+              leading: const PageBackButton(),
+              centerTitle: false,
               title: const Text('Manage Flowers'),
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.onPrimary,
@@ -427,37 +431,14 @@ class FloristInventoryScreen extends StatelessWidget {
         icon: const Icon(Icons.add),
         label: const Text('Add Flower'),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
+      body: FirestorePage(
+        query: FirebaseFirestore.instance
             .collection('flowers')
-            .orderBy('category')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Unable to load flowers.\n${snapshot.error}',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const _EmptyFlowerInventory();
-          }
-
-          final flowers = snapshot.data!.docs.map((document) {
-            return FlowerModel.fromMap(
-              document.data() as Map<String, dynamic>,
-              document.id,
-            );
+            .orderBy('category'),
+        emptyMessage: 'No flowers yet. Use Add Flower to create one.',
+        builder: (context, docs) {
+          final flowers = docs.map((document) {
+            return FlowerModel.fromMap(document.data(), document.id);
           }).toList();
 
           return ListView.builder(
@@ -604,7 +585,9 @@ class _FlowerInventoryCard extends StatelessWidget {
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            child: Row(
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 4,
               children: [
                 const Text('Stock', style: AppTypography.label()),
                 const SizedBox(width: 8),
@@ -630,7 +613,6 @@ class _FlowerInventoryCard extends StatelessWidget {
                   onPressed: onIncreaseStock,
                   icon: const Icon(Icons.add_circle_outline),
                 ),
-                const Spacer(),
                 const Text('Custom orders', style: AppTypography.caption()),
                 Switch.adaptive(
                   value: flower.availableForCustomOrder,
@@ -676,7 +658,8 @@ class _FlowerStockBadge extends StatelessWidget {
       icon = Icons.check_circle_outline;
     }
 
-    return Row(
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 5),
@@ -698,40 +681,6 @@ class _FlowerImagePlaceholder extends StatelessWidget {
           Icons.local_florist_outlined,
           color: AppColors.primary,
           size: 36,
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyFlowerInventory extends StatelessWidget {
-  const _EmptyFlowerInventory();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.local_florist_outlined,
-              size: 68,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'No flowers in inventory',
-              style: AppTypography.sectionTitle(),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Use Add Flower to create your first flower.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
         ),
       ),
     );

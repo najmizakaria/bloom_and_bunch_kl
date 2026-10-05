@@ -58,7 +58,7 @@ void main() {
     );
     expect(
       OrderModel.fromMap({'orderStatus': 'Completed'}, 'a').orderStatus,
-      'Delivered',
+      'Completed',
     );
   });
   test('legacy and multi-role user profiles choose a safe active role', () {

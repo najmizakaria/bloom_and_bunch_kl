@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -26,12 +27,14 @@ class ProductImage extends StatelessWidget {
               imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => placeholder,
+              loadingBuilder: (_, child, progress) =>
+                  progress == null ? child : placeholder,
             ),
     );
   }
 }
 
-class ProductFavouriteButton extends StatelessWidget {
+class ProductFavouriteButton extends StatefulWidget {
   const ProductFavouriteButton({
     super.key,
     required this.selected,
@@ -39,20 +42,37 @@ class ProductFavouriteButton extends StatelessWidget {
   });
 
   final bool selected;
-  final VoidCallback onPressed;
+  final FutureOr<void> Function() onPressed;
+  @override
+  State<ProductFavouriteButton> createState() => _ProductFavouriteButtonState();
+}
+
+class _ProductFavouriteButtonState extends State<ProductFavouriteButton> {
+  bool _busy = false;
+  Future<void> _run() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await Future<void>.sync(widget.onPressed);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return IconButton.filled(
-      tooltip: selected ? 'Remove from favourites' : 'Add to favourites',
+      tooltip: widget.selected ? 'Remove from favourites' : 'Add to favourites',
       style: IconButton.styleFrom(
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primary,
         minimumSize: const Size(48, 48),
       ),
-      onPressed: onPressed,
+      onPressed: _busy ? null : _run,
       icon: Icon(
-        selected ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+        widget.selected
+            ? Icons.favorite_rounded
+            : Icons.favorite_border_rounded,
         size: 20,
       ),
     );

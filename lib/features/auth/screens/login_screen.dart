@@ -82,7 +82,6 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
-      showBackButton: true,
       child: Form(
         key: _formKey,
         child: Column(

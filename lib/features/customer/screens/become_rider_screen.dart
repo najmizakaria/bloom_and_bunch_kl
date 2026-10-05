@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -6,7 +7,8 @@ import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 class BecomeRiderScreen extends StatefulWidget {
-  const BecomeRiderScreen({super.key});
+  const BecomeRiderScreen({super.key, this.watchApplication});
+  final Stream<Map<String, dynamic>?> Function()? watchApplication;
 
   @override
   State<BecomeRiderScreen> createState() => _BecomeRiderScreenState();
@@ -17,9 +19,35 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
   final _phoneController = TextEditingController();
   final _reasonController = TextEditingController();
   String _vehicleType = 'Motorcycle';
-  bool _submitting = false;
+  bool _submitting = false, _switching = false, _applicationKnown = false;
+  late Stream<Map<String, dynamic>?> _applicationStream = _watchApplication();
+  Stream<Map<String, dynamic>?> _watchApplication() =>
+      widget.watchApplication?.call() ??
+      RiderApplicationService().applicationStatusStream();
+  Future<void> _switchToRider() async {
+    if (_switching) return;
+    setState(() => _switching = true);
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw StateError('Please sign in again.');
+      final navigator = Navigator.of(context);
+      await FirestoreService().switchActiveRole(uid, 'rider');
+      if (mounted) navigator.popUntil((route) => route.isFirst);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to switch dashboards. Please retry.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _switching = false);
+    }
+  }
 
   Future<void> _submit() async {
+    if (_submitting || !_applicationKnown) return;
     if (_nameController.text.trim().isEmpty ||
         _phoneController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,10 +88,37 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Become a Rider')),
+      appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('Become a Rider'),
+      ),
       body: StreamBuilder<Map<String, dynamic>?>(
-        stream: RiderApplicationService().applicationStatusStream(),
+        stream: _applicationStream,
         builder: (context, snapshot) {
+          _applicationKnown =
+              !snapshot.hasError &&
+              snapshot.connectionState != ConnectionState.waiting &&
+              snapshot.connectionState != ConnectionState.none;
+          if (snapshot.hasError) {
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Could not check your application status.'),
+                  TextButton(
+                    onPressed: () => setState(
+                      () => _applicationStream = _watchApplication(),
+                    ),
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
+          }
+          if (!_applicationKnown) {
+            return const Center(child: CircularProgressIndicator());
+          }
           final application = snapshot.data;
           final status = application?['status'] as String?;
 
@@ -94,16 +149,10 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                         ),
                       ),
                       icon: const Icon(Icons.pedal_bike),
-                      label: const Text('Switch to Rider Dashboard'),
-                      onPressed: () async {
-                        final uid = FirebaseAuth.instance.currentUser?.uid;
-                        if (uid != null) {
-                          await FirestoreService().switchActiveRole(
-                            uid,
-                            'rider',
-                          );
-                        }
-                      },
+                      label: Text(
+                        _switching ? 'Switching…' : 'Switch to Rider Dashboard',
+                      ),
+                      onPressed: _switching ? null : _switchToRider,
                     ),
                   ],
                 ),
@@ -220,7 +269,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  height: 48,
+
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primary,

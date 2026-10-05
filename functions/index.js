@@ -1,7 +1,7 @@
 'use strict';
 const {onCall,HttpsError}=require('firebase-functions/v2/https');
 const {initializeApp}=require('firebase-admin/app');
-const {getFirestore,FieldValue,Timestamp}=require('firebase-admin/firestore');
+const {getFirestore,FieldValue,Timestamp,FieldPath,Filter}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
 const d=require('./domain');
 const storePolicy=require('./store-policy');
@@ -99,7 +99,7 @@ exports.placeOrder=callable(async req=>{
    if(!group.length)continue;
    const pricing=quote.groups.find(g=>g.kind===(isReady?'ready_now':'planned'));
    const mode=isReady?'ready_now':group.every(i=>i.fulfillmentType==='custom')?'custom':'pre_order';
-    const order={schemaVersion:2,customerId:uid,checkoutGroupId:checkoutId,riderId:null,
+    const order={schemaVersion:2,deliveryWorkflowVersion:2,customerId:uid,checkoutGroupId:checkoutId,riderId:null,
      ...submittedAddress,addressId,
     items:group,totalAmount:pricing.totalSen/100,subtotalAmount:pricing.subtotalSen/100,deliveryFee:pricing.deliveryFeeSen/100,
     orderMode:quote.mode,paymentStatus:quote.mode==='demo'?'not_required':'pending',paymentInstructions:quote.paymentInstructions,
@@ -135,14 +135,21 @@ exports.transitionOrder=callable(async req=>{
     if(status==='Out for Delivery'&&o.riderId===uid){tx.delete(jobRef);return {status};}
     if(status!=='Ready for Delivery'||o.riderId)d.fail('Another rider has already accepted this delivery.','failed-precondition');
     if(!deliveryEligible(o))d.fail('This delivery location needs store review.','failed-precondition');
-    Object.assign(updates,{orderStatus:'Out for Delivery',riderId:uid,acceptedAt:FieldValue.serverTimestamp()});
+    Object.assign(updates,{orderStatus:'Out for Delivery',deliveryWorkflowVersion:2,riderId:uid,riderName:d.text(user.data().name??'Rider','rider name',160,true)||'Rider',acceptedAt:FieldValue.serverTimestamp()});
     tx.delete(jobRef);
    }else if(action==='deliver'){
     if(!hasRole(user.data(),'rider')||o.riderId!==uid)d.fail('Only the assigned rider can complete delivery.','permission-denied');
-    if(status==='Delivered')return {status};
+    if(['Delivered','Awaiting Customer Confirmation','Completed'].includes(status))return {status};
     if(status!=='Out for Delivery')d.fail('This order is not out for delivery.','failed-precondition');
-    Object.assign(updates,{orderStatus:'Delivered',deliveredAt:FieldValue.serverTimestamp()});
+    if(o.support?.status==='open')d.fail('Resolve the open delivery issue before confirming delivery.','failed-precondition');
+    Object.assign(updates,{orderStatus:'Awaiting Customer Confirmation',deliveryWorkflowVersion:2,deliveredAt:FieldValue.serverTimestamp()});
     tx.delete(jobRef);
+  }else if(action==='confirmReceived'){
+   if(!hasRole(user.data(),'customer')||o.customerId!==uid)d.fail('Only the owning customer can confirm receipt.','permission-denied');
+   if(status==='Completed'&&o.customerAcceptedAt)return {status};
+   if(status!=='Awaiting Customer Confirmation'||!o.deliveredAt||!o.riderId)d.fail('The rider must confirm delivery first.','failed-precondition');
+   if(o.support?.status==='open')d.fail('The store must resolve your open delivery issue before receipt confirmation.','failed-precondition');
+   Object.assign(updates,{orderStatus:'Completed',customerAcceptedAt:FieldValue.serverTimestamp()});
   }else if(action==='prepare'){
    if(!florist)d.fail('Florist access required.','permission-denied');
    if(status==='Processing')return {status};
@@ -182,6 +189,16 @@ exports.transitionOrder=callable(async req=>{
 });
 
 
+// Only safe display identities are exposed; private profiles remain owner-only.
+exports.listRiders=callable(async req=>{
+ const profile=await db.doc('users/'+req.auth.uid).get();
+ if(!hasRole(profile.data(),'admin')||profile.data()?.deletionPending)d.fail('Administrator access required.','permission-denied');
+ let query=db.collection('users').where(Filter.or(Filter.where('role','==','rider'),Filter.where('roles','array-contains','rider'))).orderBy(FieldPath.documentId()).limit(101);
+ if(req.data?.after!=null)query=query.startAfter(d.id(req.data.after));
+ const result=await query.get(),page=result.docs.slice(0,100);
+ return {riders:page.map(s=>({uid:s.id,name:typeof s.data().name==='string'?s.data().name.slice(0,160):'Rider'})),next:result.size>100?page.at(-1).id:null};
+});
+
 exports.saveRecipe=callable(async req=>{
  const uid=req.auth.uid;
  const input=d.normalizeItems([{...req.data,type:'custom',fulfillmentType:'custom',quantity:1}]);
@@ -217,7 +234,7 @@ exports.submitOrderFeedback=callable(async req=>{
 });
 exports.reportOrderIssue=callable(async req=>{
  const orderId=d.id(req.data?.orderId),reason=d.text(req.data?.reason,'issue reason',40),comment=d.text(req.data?.comment??'','issue details',500,true);
- if(!['late_delivery','wrong_address','recipient_unavailable','damaged_bouquet','cancellation_request','other'].includes(reason))d.fail('Choose an issue reason.');
+ if(!['late_delivery','wrong_address','recipient_unavailable','damaged_bouquet','cancellation_request','not_received','other'].includes(reason))d.fail('Choose an issue reason.');
  const ref=db.doc('orders/'+orderId),user=db.doc('users/'+req.auth.uid);
  return db.runTransaction(async tx=>{
   const profile=await tx.get(user),s=await tx.get(ref),o=s.data();
@@ -225,7 +242,11 @@ exports.reportOrderIssue=callable(async req=>{
   if(o.support?.status==='open')return {saved:true};
   const count=o.supportCount??0;if(count>=10)d.fail('Please contact the store for further help with this order.','resource-exhausted');
   tx.update(user,{updatedAt:FieldValue.serverTimestamp()});
-  tx.update(ref,{supportCount:count+1,support:{status:'open',reason,comment,reportedBy:o.customerId===req.auth.uid?'customer':'rider',createdAt:FieldValue.serverTimestamp()}});
+  if(o.support&&!o.support.id)tx.create(ref.collection('issues').doc(),o.support);
+  const issueRef=ref.collection('issues').doc();
+  const support={id:issueRef.id,status:'open',reason,comment,reportedBy:o.customerId===req.auth.uid?'customer':'rider',createdAt:FieldValue.serverTimestamp()};
+  tx.create(issueRef,support);
+  tx.update(ref,{supportCount:count+1,support});
   return {saved:true};
  });
 });
@@ -236,7 +257,10 @@ exports.resolveOrderIssue=callable(async req=>{
   if(profile.data()?.deletionPending||!(hasRole(profile.data(),'admin')||hasRole(profile.data(),'florist')))d.fail('Store staff access required.','permission-denied');
   if(!o?.support)d.fail('No support request found.','not-found');
   if(o.support.status==='resolved')return {saved:true};
-  tx.update(ref,{support:{...o.support,status:'resolved',response,resolvedAt:FieldValue.serverTimestamp()}});
+  const issueRef=o.support.id?ref.collection('issues').doc(o.support.id):ref.collection('issues').doc();
+  const support={...o.support,id:issueRef.id,status:'resolved',response,resolvedBy:hasRole(profile.data(),'admin')?'admin':'florist',resolvedAt:FieldValue.serverTimestamp()};
+  tx.set(issueRef,support);
+  tx.update(ref,{support});
   return {saved:true};
  });
 });
@@ -379,7 +403,7 @@ exports.deleteAddress=callable(req=>changeAddress(req,'delete'));
 
 const {getAuth}=require('firebase-admin/auth');
 const {onDocumentCreated,onDocumentUpdated}=require('firebase-functions/v2/firestore');
-const activeStatuses=['Pending','Awaiting Preparation','Processing','Ready for Delivery','Out for Delivery'];
+const activeStatuses=['Pending','Awaiting Preparation','Processing','Ready for Delivery','Out for Delivery','Awaiting Customer Confirmation'];
 async function processAccountDeletion(uid){
  const task=db.doc(`account_deletions/${uid}`);
  if((await task.get()).data()?.status==='completed')return;
@@ -393,9 +417,13 @@ async function processAccountDeletion(uid){
     const updates={[field]:`deleted_${field}`,updatedAt:FieldValue.serverTimestamp()};
     if(field==='customerId')Object.assign(updates,{recipientName:'Deleted customer',recipientPhone:'',deliveryAddress:'',deliveryNote:'',latitude:null,longitude:null,addressId:null,
      items:(order.data().items??[]).map(item=>({...item,cardNote:''})),feedback:FieldValue.delete(),support:FieldValue.delete()});
+    if(field==='riderId')updates.riderName=FieldValue.delete();
     if(field==='riderId'&&order.data().support?.reportedBy==='rider')updates.support=FieldValue.delete();
     batch.update(order.ref,updates);
    }
+   // Remove private issue text before anonymizing the lookup field, so a retry
+   // can still find the order if recursive deletion fails partway through.
+   if(field==='customerId')for(const order of orders.docs.slice(i,i+400))await db.recursiveDelete(order.ref.collection('issues'));
    await batch.commit();
   }
  }
@@ -414,7 +442,7 @@ exports.deleteAccount=callable(async req=>{
   if(previous.exists)return;
   if(!profile.exists)d.fail('Profile no longer exists.','not-found');
   const customerOrders=await tx.get(db.collection('orders').where('customerId','==',uid).where('orderStatus','in',activeStatuses).limit(1));
-  const riderOrders=await tx.get(db.collection('orders').where('riderId','==',uid).where('orderStatus','==','Out for Delivery').limit(1));
+  const riderOrders=await tx.get(db.collection('orders').where('riderId','==',uid).where('orderStatus','in',['Out for Delivery','Awaiting Customer Confirmation']).limit(1));
   if(!customerOrders.empty||!riderOrders.empty)d.fail('Complete your active orders or deliveries before deleting your account.','failed-precondition');
   tx.update(userRef,{deletionPending:true,updatedAt:FieldValue.serverTimestamp()});
   tx.create(task,{status:'pending',requestedAt:FieldValue.serverTimestamp()});

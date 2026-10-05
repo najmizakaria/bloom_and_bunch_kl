@@ -97,3 +97,12 @@ test('rules: order feedback and event history cannot be forged or read across ac
  await assertFails(setDoc(doc(owner,'orders','assigned','events','fake'),{status:'Delivered',createdAt:Timestamp.now()}));
  await assertFails(updateDoc(doc(owner,'orders','assigned'),{feedback:{rating:5},paymentStatus:'paid',support:{status:'resolved'}}));
 });
+
+test('rules: issue history follows ownership and assignment and remains server-only',{skip:!enabled},async()=>{
+ await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'orders','assigned','issues','report'),{status:'open',reason:'not_received',createdAt:Timestamp.now()}));
+ for(const uid of ['customer','rider','florist','admin'])await assertSucceeds(getDocs(collection(env.authenticatedContext(uid).firestore(),'orders','assigned','issues')));
+ await assertFails(getDoc(doc(env.authenticatedContext('other').firestore(),'orders','assigned','issues','report')));
+ await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),'orders','assigned','issues','report')));
+ await assertFails(setDoc(doc(env.authenticatedContext('customer').firestore(),'orders','assigned','issues','fake'),{status:'resolved'}));
+ await assertFails(updateDoc(doc(env.authenticatedContext('admin').firestore(),'orders','assigned','issues','report'),{status:'resolved'}));
+});

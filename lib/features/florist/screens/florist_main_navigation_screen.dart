@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:flutter/material.dart';
 import 'florist_dashboard_screen.dart';
 import 'florist_orders_screen.dart';
@@ -15,7 +16,10 @@ class FloristMainNavigationScreen extends StatefulWidget {
 class _FloristMainNavigationScreenState
     extends State<FloristMainNavigationScreen> {
   int _selectedIndex = 0;
+  final Set<int> _visited = {0};
+  final _productsKey = GlobalKey<FloristProductsScreenState>();
 
+  final _ordersKey = GlobalKey<FloristOrdersScreenState>();
   late final List<Widget> _screens;
 
   @override
@@ -24,56 +28,75 @@ class _FloristMainNavigationScreenState
 
     _screens = [
       FloristDashboardScreen(
-        onOpenOrders: () {
+        onOpenOrders: (status) {
           setState(() {
             _selectedIndex = 1;
+            _visited.add(1);
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _ordersKey.currentState?.selectStatus(status);
           });
         },
-        onOpenProducts: () {
+        onOpenProducts: (tab) {
           setState(() {
             _selectedIndex = 2;
+            _visited.add(2);
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _productsKey.currentState?.selectTab(tab);
           });
         },
       ),
-      const FloristOrdersScreen(),
-      const FloristProductsScreen(),
+      FloristOrdersScreen(key: _ordersKey),
+      FloristProductsScreen(key: _productsKey),
       const FloristProfileScreen(),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _selectedIndex, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_rounded),
-            label: 'Dashboard',
+    return PageNavigationScope(
+      canGoHome: _selectedIndex != 0,
+      onHome: () => setState(() => _selectedIndex = 0),
+      child: Scaffold(
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: List.generate(
+            _screens.length,
+            (i) => _visited.contains(i) ? _screens[i] : const SizedBox.shrink(),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long_rounded),
-            label: 'Orders',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.inventory_2_outlined),
-            selectedIcon: Icon(Icons.inventory_2_rounded),
-            label: 'Catalogue',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-        ],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _selectedIndex = index;
+              _visited.add(index);
+            });
+          },
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home_rounded),
+              label: 'Dashboard',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              selectedIcon: Icon(Icons.receipt_long_rounded),
+              label: 'Orders',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.inventory_2_outlined),
+              selectedIcon: Icon(Icons.inventory_2_rounded),
+              label: 'Catalogue',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz),
+              selectedIcon: Icon(Icons.more_horiz),
+              label: 'More',
+            ),
+          ],
+        ),
       ),
     );
   }

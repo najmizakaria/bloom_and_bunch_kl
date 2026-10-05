@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +14,11 @@ class CartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Your cart')),
+      appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('Your cart'),
+      ),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
           if (cart.isEmpty) {
@@ -210,7 +215,9 @@ class CartScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      const Text('Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.'),
+                      const Text(
+                        'Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.',
+                      ),
                       const SizedBox(height: 12),
                       SizedBox(
                         width: double.infinity,

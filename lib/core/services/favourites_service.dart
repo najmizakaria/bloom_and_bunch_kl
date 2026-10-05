@@ -3,6 +3,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class FavouritesService {
+  static final Map<String, Future<void>> _pending = {};
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
@@ -35,17 +36,26 @@ class FavouritesService {
   }) async {
     if (_uid == null) throw StateError('Please sign in.');
     final doc = _bouquetFavourites.doc(bouquetId);
-    final snapshot = await doc.get();
-
-    if (snapshot.exists) {
-      await doc.delete();
-    } else {
-      await doc.set({
-        'name': name,
-        'imageUrl': imageUrl,
-        'price': price,
-        'savedAt': FieldValue.serverTimestamp(),
-      });
+    final key = doc.path;
+    if (_pending.containsKey(key)) return _pending[key]!;
+    final operation = _db.runTransaction<void>((transaction) async {
+      final snapshot = await transaction.get(doc);
+      if (snapshot.exists) {
+        transaction.delete(doc);
+      } else {
+        transaction.set(doc, {
+          'name': name,
+          'imageUrl': imageUrl,
+          'price': price,
+          'savedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+    _pending[key] = operation;
+    try {
+      await operation;
+    } finally {
+      _pending.remove(key);
     }
   }
 

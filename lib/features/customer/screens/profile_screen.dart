@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,6 +18,7 @@ import 'become_rider_screen.dart';
 import 'favourites_screen.dart';
 import 'order_history_screen.dart';
 import 'order_tracking_screen.dart';
+import '../../../core/widgets/logout_tile.dart';
 
 // Store contact information.
 const String _storeWhatsAppNumber =
@@ -35,6 +37,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _switchingRole = false;
   bool _notificationBusy = false, _deleting = false;
   Future<void> _setNotifications(bool enabled) async {
     if (_notificationBusy) return;
@@ -60,15 +63,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _switchToRider(BuildContext context) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null || _switchingRole) return;
+    setState(() => _switchingRole = true);
+    final navigator = Navigator.of(context);
     try {
       await FirestoreService().switchActiveRole(uid, 'rider');
+      if (mounted) navigator.popUntil((route) => route.isFirst);
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Unable to switch dashboards.')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _switchingRole = false);
     }
   }
 
@@ -219,8 +227,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        centerTitle: true,
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('More'),
+
         automaticallyImplyLeading: false,
       ),
       body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
@@ -328,6 +338,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Processing',
                         'Ready for Delivery',
                         'Out for Delivery',
+                        'Awaiting Customer Confirmation',
                       ],
                     )
                     .orderBy('createdAt', descending: true)
@@ -414,10 +425,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _sectionLabel('Work With Us'),
               _menuTile(
                 icon: Icons.pedal_bike_outlined,
-                title: hasRiderRole
+                title: _switchingRole
+                    ? 'Switching…'
+                    : hasRiderRole
                     ? 'Switch to Rider Dashboard'
                     : 'Become a Rider',
-                onTap: hasRiderRole
+                onTap: _switchingRole
+                    ? null
+                    : hasRiderRole
                     ? () => _switchToRider(context)
                     : () => Navigator.push(
                         context,
@@ -502,12 +517,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onTap: () => _showStaticDoc(context, 'Privacy Policy'),
               ),
               const SizedBox(height: 8),
-              _menuTile(
-                icon: Icons.logout,
-                title: 'Log Out',
-                titleColor: AppColors.primaryDark,
-                onTap: () => AuthService().signOut(),
-              ),
+              const LogoutTile(),
               _menuTile(
                 icon: Icons.delete_outline,
                 title: 'Delete Account',
@@ -569,7 +579,7 @@ String _friendlyStatus(String raw) {
     case 'Ready for Delivery':
       return 'Ready for rider collection';
     case 'Completed':
-      return 'Delivered';
+      return 'Completed';
     default:
       return raw;
   }

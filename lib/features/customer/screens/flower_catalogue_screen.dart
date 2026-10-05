@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +26,11 @@ class _FlowerCatalogueScreenState extends State<FlowerCatalogueScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Flower Catalogue')),
+      appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('Flower Catalogue'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

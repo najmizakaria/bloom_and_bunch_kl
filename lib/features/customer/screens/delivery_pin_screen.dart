@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -12,7 +13,11 @@ class _DeliveryPinScreenState extends State<DeliveryPinScreen> {
   late LatLng _pin = widget.initialPosition;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Confirm delivery pin')),
+    appBar: AppBar(
+      leading: const PageBackButton(),
+      centerTitle: false,
+      title: const Text('Confirm delivery pin'),
+    ),
     body: Column(
       children: [
         const Padding(

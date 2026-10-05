@@ -16,11 +16,18 @@ async function seed() {
   const uid='demo_'+role,email=role+'@demo.bloom.test';
   try { await auth.createUser({uid,email,password:'DemoPass123!',displayName:'Demo '+role}); }
   catch(e) { if(e.code!=='auth/uid-already-exists'&&e.code!=='auth/email-already-exists')throw e; }
-  await db.doc('users/'+uid).set({uid,name:'Demo '+role,email,phone:'0123456789',role,roles:[role],activeRole:role,createdAt:new Date(),...(role==='customer'?{defaultAddressId:'home'}:{})});
+  await db.doc('users/'+uid).set({uid,name:'Demo '+role,email,phone:'0123456789',role,roles:role==='customer'?['customer','rider']:[role],activeRole:role,createdAt:new Date(),...(role==='customer'?{defaultAddressId:'home'}:{})});
  }
  await db.doc('users/demo_customer/addresses/home').set({label:'Demo home',recipientName:'Test recipient',recipientPhone:'0123456789',address:'Demo address, Kuala Lumpur',note:'Demo data only',isDefault:true,latitude:3.139,longitude:101.687});
  await db.doc('flowers/demo_rose').set({name:'Rose',category:'Rose',pricePerStem:3,stockQuantity:100,reservedQuantity:0,imageUrl:'',availableForCustomOrder:true});
  await db.doc('bouquets/demo_bouquet').set({name:'Demo Birthday Bouquet',description:'A demo bouquet for end-to-end testing.',category:'Birthday',price:50,imageUrl:'',isPublished:true,archived:false,availableForReadyNow:true,readyStock:20,availableForPreOrder:true,leadTimeBusinessDays:2,recipeStems:{demo_rose:12},createdAt:new Date()});
+ const batch=db.batch();
+ for(let i=0;i<45;i++)batch.set(db.doc('bouquets/a_ready_'+String(i).padStart(3,'0')), {name:'Ready only '+i, description:'Demo pagination fixture', category:'Birthday', price:50, imageUrl:'', isPublished:true, archived:false, availableForReadyNow:true, readyStock:10, availableForPreOrder:false, leadTimeBusinessDays:2, recipeStems:{demo_rose:12}});
+ batch.set(db.doc('bouquets/z_late_planned'),{name:'Late planned bouquet', description:'Beyond original preview batch', category:'Birthday', price:60, imageUrl:'', isPublished:true, archived:false, availableForReadyNow:false, readyStock:0, availableForPreOrder:true, leadTimeBusinessDays:2, recipeStems:{demo_rose:12}});
+ for(let i=0;i<45;i++)batch.set(db.doc('flowers/fixture_'+String(i).padStart(3,'0')), {name:'Inventory fixture '+i, category:'Rose', pricePerStem:3, stockQuantity: i===0?2:100, reservedQuantity:0, imageUrl:'', availableForCustomOrder:true});
+ batch.set(db.doc('rider_applications/demo_customer'),{uid:'demo_customer',name:'Demo customer',phone:'0123456789',status:'approved',vehicleType:'Motorcycle'});
+ for(const suffix of ['ready','planned']) batch.set(db.doc('orders/fixture_mixed_'+suffix),{customerId:'demo_customer',checkoutGroupId:'fixture_mixed',orderStatus:'Completed',fulfillmentType:suffix==='ready'?'ready_now':'pre_order',recipientName:'Mixed recipient',recipientPhone:'0123456789',deliveryAddress:'Demo mixed address',deliveryNote:'',totalAmount:50,items:[],createdAt:new Date('2020-01-01T00:00:00Z')});
+ await batch.commit();
  console.log('Demo accounts ready: customer/florist/rider/admin@demo.bloom.test; password DemoPass123!');
  await db.terminate();
 }

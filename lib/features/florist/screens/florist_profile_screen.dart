@@ -1,8 +1,9 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../../core/widgets/logout_tile.dart';
 
-import '../../../core/services/auth_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../support/store_operations_screen.dart';
@@ -15,8 +16,6 @@ class FloristProfileScreen extends StatefulWidget {
 }
 
 class _FloristProfileScreenState extends State<FloristProfileScreen> {
-  bool _signingOut = false;
-
   Future<void> _editProfile(String uid, Map<String, dynamic> profile) async {
     final saved = await showDialog<bool>(
       context: context,
@@ -33,29 +32,15 @@ class _FloristProfileScreenState extends State<FloristProfileScreen> {
     }
   }
 
-  Future<void> _signOut() async {
-    if (_signingOut) return;
-    setState(() => _signingOut = true);
-    try {
-      await AuthService().signOut();
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not log out. Please try again.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _signingOut = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Profile'),
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('More'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),
@@ -133,11 +118,7 @@ class _FloristProfileScreenState extends State<FloristProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: _signingOut ? null : _signOut,
-                      icon: const Icon(Icons.logout),
-                      label: Text(_signingOut ? 'Logging out…' : 'Log out'),
-                    ),
+                    const LogoutTile(),
                   ],
                 );
               },

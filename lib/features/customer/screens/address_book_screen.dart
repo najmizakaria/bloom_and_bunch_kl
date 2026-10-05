@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +30,8 @@ class AddressBookScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
+      leading: const PageBackButton(),
+      centerTitle: false,
       title: Text(selectionMode ? 'Select delivery address' : 'Address Book'),
       actions: [
         IconButton(
@@ -334,7 +337,11 @@ class _AddressFormState extends State<_AddressForm> {
   );
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Delivery address')),
+    appBar: AppBar(
+      leading: const PageBackButton(),
+      centerTitle: false,
+      title: const Text('Delivery address'),
+    ),
     body: Form(
       key: _form,
       child: ListView(

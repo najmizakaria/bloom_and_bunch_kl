@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,8 @@ class FloristHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Florist Dashboard 📋'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,

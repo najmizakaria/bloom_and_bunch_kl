@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/utils/malaysia_time.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,22 +8,33 @@ import 'package:flutter/material.dart';
 import '../../../../models/order_model.dart';
 import 'florist_order_detail_screen.dart';
 
-class FloristDashboardScreen extends StatelessWidget {
+class FloristDashboardScreen extends StatefulWidget {
   const FloristDashboardScreen({
     super.key,
     required this.onOpenOrders,
     required this.onOpenProducts,
   });
 
-  final VoidCallback onOpenOrders;
-  final VoidCallback onOpenProducts;
+  final ValueChanged<String> onOpenOrders;
+  final ValueChanged<int> onOpenProducts;
 
+  @override
+  State<FloristDashboardScreen> createState() => _FloristDashboardScreenState();
+}
+
+class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
+  late final Stream<QuerySnapshot> _orders = FirebaseFirestore.instance
+      .collection('orders')
+      .orderBy('createdAt', descending: true)
+      .limit(100)
+      .snapshots();
+  late Stream<QuerySnapshot> _flowers = FirebaseFirestore.instance
+      .collection('flowers')
+      .orderBy(FieldPath.documentId)
+      .limit(100)
+      .snapshots();
   bool _isToday(DateTime date) {
-    final now = DateTime.now();
-
-    return date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+    return isMalaysiaDay(date, DateTime.now());
   }
 
   String _shortOrderId(String orderId) {
@@ -37,15 +50,14 @@ class FloristDashboardScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Florist Dashboard'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('orders')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
+        stream: _orders,
         builder: (context, orderSnapshot) {
           if (orderSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -89,7 +101,7 @@ class FloristDashboardScreen extends StatelessWidget {
           }).toList();
 
           final completedToday = todayOrders.where((order) {
-            return order.orderStatus == 'Delivered';
+            return ['Delivered', 'Completed'].contains(order.orderStatus);
           }).toList();
 
           final activeOrders =
@@ -105,9 +117,7 @@ class FloristDashboardScreen extends StatelessWidget {
               : activeOrders.first;
 
           return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('flowers')
-                .snapshots(),
+            stream: _flowers,
             builder: (context, flowerSnapshot) {
               final lowStockFlowers =
                   flowerSnapshot.data?.docs.where((document) {
@@ -145,7 +155,7 @@ class FloristDashboardScreen extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   Text(
-                    'Order Overview',
+                    'Latest 100 orders',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -153,40 +163,50 @@ class FloristDashboardScreen extends StatelessWidget {
                   const SizedBox(height: 12),
 
                   GridView.count(
-                    crossAxisCount: 2,
+                    crossAxisCount:
+                        MediaQuery.sizeOf(context).width < 360 ||
+                            MediaQuery.textScalerOf(context).scale(14) > 21
+                        ? 1
+                        : 2,
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: 1.25,
+                    mainAxisExtent:
+                        170 +
+                        (MediaQuery.textScalerOf(context).scale(140) - 140),
                     children: [
                       _DashboardStatCard(
                         title: 'New',
                         count: newOrders.length,
                         icon: Icons.notifications_none,
                         color: AppColors.statusNew,
-                        onTap: onOpenOrders,
+                        onTap: () =>
+                            widget.onOpenOrders('Awaiting Preparation'),
                       ),
                       _DashboardStatCard(
                         title: 'Preparing',
                         count: preparingOrders.length,
                         icon: Icons.local_florist_outlined,
                         color: AppColors.statusPreparing,
-                        onTap: onOpenOrders,
+                        onTap: () => widget.onOpenOrders('Processing'),
                       ),
                       _DashboardStatCard(
                         title: 'Ready',
                         count: readyOrders.length,
                         icon: Icons.inventory_2_outlined,
                         color: AppColors.statusReady,
-                        onTap: onOpenOrders,
+                        onTap: () => widget.onOpenOrders('Ready for Delivery'),
                       ),
                       _DashboardStatCard(
-                        title: 'Low Stock',
-                        count: lowStockFlowers.length,
+                        title: 'Low Stock (preview)',
+                        count:
+                            flowerSnapshot.hasData && !flowerSnapshot.hasError
+                            ? lowStockFlowers.length
+                            : null,
                         icon: Icons.warning_amber_rounded,
                         color: AppColors.statusLowStock,
-                        onTap: onOpenProducts,
+                        onTap: () => widget.onOpenProducts(1),
                       ),
                     ],
                   ),
@@ -201,11 +221,29 @@ class FloristDashboardScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  _AttentionCard(
-                    lowStockCount: lowStockFlowers.length,
-                    preparingCount: preparingOrders.length,
-                    onOpenProducts: onOpenProducts,
+                  if (flowerSnapshot.hasError)
+                    TextButton(
+                      onPressed: () => setState(
+                        () => _flowers = FirebaseFirestore.instance
+                            .collection('flowers')
+                            .orderBy(FieldPath.documentId)
+                            .limit(100)
+                            .snapshots(),
+                      ),
+                      child: const Text('Inventory unavailable · Retry'),
+                    )
+                  else if (flowerSnapshot.connectionState ==
+                      ConnectionState.waiting)
+                    const LinearProgressIndicator(),
+                  const Text(
+                    'Inventory summary covers the first 100 flower records. Open Flowers for all pages.',
                   ),
+                  if (flowerSnapshot.hasData && !flowerSnapshot.hasError)
+                    _AttentionCard(
+                      lowStockCount: lowStockFlowers.length,
+                      preparingCount: preparingOrders.length,
+                      onOpenProducts: () => widget.onOpenProducts(1),
+                    ),
 
                   const SizedBox(height: 24),
 
@@ -280,7 +318,7 @@ class _TodaySummaryCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "Today's Orders",
+                  "Created today (MYT), among latest 100",
                   style: AppTypography.supporting(color: Colors.white70),
                 ),
                 const SizedBox(height: 4),
@@ -289,7 +327,7 @@ class _TodaySummaryCard extends StatelessWidget {
                   style: const AppTypography.display(color: Colors.white),
                 ),
                 Text(
-                  '$completedOrders completed today',
+                  '$completedOrders of these orders are completed',
                   style: const TextStyle(color: Colors.white70),
                 ),
               ],
@@ -311,7 +349,7 @@ class _DashboardStatCard extends StatelessWidget {
   });
 
   final String title;
-  final int count;
+  final int? count;
   final IconData icon;
   final Color color;
   final VoidCallback onTap;
@@ -343,7 +381,10 @@ class _DashboardStatCard extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Text('$count', style: AppTypography.display(color: color)),
+              Text(
+                '${count ?? '—'}',
+                style: AppTypography.display(color: color),
+              ),
               Text(
                 title,
                 style: const AppTypography.label(color: AppColors.textDark),

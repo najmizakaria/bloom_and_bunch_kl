@@ -1,3 +1,5 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/services/bouquet_query.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +23,8 @@ import 'cart_screen.dart';
 enum DeliveryMode { readyNow, preOrder }
 
 class CustomerHomeScreen extends StatefulWidget {
-  const CustomerHomeScreen({super.key});
+  final void Function(String category, BouquetMode mode)? onBrowse;
+  const CustomerHomeScreen({super.key, this.onBrowse});
 
   @override
   State<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
@@ -36,8 +39,28 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     'Romance',
   ];
 
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream =
-      FirebaseFirestore.instance.collection('bouquets').limit(20).snapshots();
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream =
+      _watchBouquets();
+  BouquetMode get _browseMode => _deliveryMode == DeliveryMode.readyNow
+      ? BouquetMode.readyNow
+      : BouquetMode.preOrder;
+  Stream<QuerySnapshot<Map<String, dynamic>>> _watchBouquets() =>
+      bouquetQuery(_selectedCategory, _browseMode).limit(20).snapshots();
+  void _openBrowse() {
+    if (widget.onBrowse != null) {
+      widget.onBrowse!(_selectedCategory, _browseMode);
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => BouquetCatalogueScreen(
+            initialCategory: _selectedCategory,
+            initialMode: _browseMode,
+          ),
+        ),
+      );
+    }
+  }
 
   String _selectedCategory = 'All';
   DeliveryMode _deliveryMode = DeliveryMode.readyNow;
@@ -142,6 +165,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         automaticallyImplyLeading: false,
         backgroundColor: AppColors.background,
         titleSpacing: 16,
@@ -203,12 +228,21 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
             const SizedBox(height: 12),
             TextField(
               readOnly: true,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute<void>(
-                  builder: (_) => const BouquetCatalogueScreen(),
-                ),
-              ),
+              onTap: () {
+                if (widget.onBrowse != null) {
+                  widget.onBrowse!(_selectedCategory, _browseMode);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => BouquetCatalogueScreen(
+                        initialCategory: _selectedCategory,
+                        initialMode: _browseMode,
+                      ),
+                    ),
+                  );
+                }
+              },
               decoration: const InputDecoration(
                 hintText: 'Search bouquets or occasions',
                 prefixIcon: Icon(Icons.search_rounded),
@@ -279,8 +313,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     (category) => ProductCategoryChip(
                       label: category,
                       selected: _selectedCategory == category,
-                      onSelected: (_) =>
-                          setState(() => _selectedCategory = category),
+                      onSelected: (_) => setState(() {
+                        _selectedCategory = category;
+                        _bouquetsStream = _watchBouquets();
+                      }),
                     ),
                   )
                   .toList(),
@@ -291,6 +327,12 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
               style: const AppTypography.sectionTitle(),
             ),
             const SizedBox(height: 12),
+            TextButton(
+              onPressed: _openBrowse,
+              child: const Text(
+                'Browse all bouquets · preview shows up to 20 products',
+              ),
+            ),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _bouquetsStream,
               builder: (context, snapshot) {
@@ -299,9 +341,18 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                 }
                 if (snapshot.hasError) {
                   return Center(
-                    child: Text(
-                      'Unable to load bouquets.\n${snapshot.error}',
-                      textAlign: TextAlign.center,
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Unable to load bouquets. Check your connection.',
+                        ),
+                        TextButton(
+                          onPressed: () => setState(
+                            () => _bouquetsStream = _watchBouquets(),
+                          ),
+                          child: const Text('Retry'),
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -331,8 +382,8 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     child: Center(
                       child: Text(
                         readyNow
-                            ? 'No assembled bouquets are available in this category.'
-                            : 'No bouquets are open for pre-order in this category.',
+                            ? 'No available bouquets in this preview. Browse all to check more products.'
+                            : 'No pre-order bouquets in this preview. Browse all to check more products.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -384,7 +435,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     final selected = _deliveryMode == mode;
 
     return GestureDetector(
-      onTap: () => setState(() => _deliveryMode = mode),
+      onTap: () => setState(() {
+        _deliveryMode = mode;
+        _bouquetsStream = _watchBouquets();
+      }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 10),

@@ -1,9 +1,11 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/money.dart';
+import '../../../core/widgets/retry_stream_builder.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/cart_provider.dart';
@@ -13,7 +15,9 @@ import '../widgets/product_components.dart';
 import '../../../models/flower_model.dart';
 
 class BouquetBuilderScreen extends StatefulWidget {
-  const BouquetBuilderScreen({super.key});
+  const BouquetBuilderScreen({super.key, this.watchFlowers});
+
+  final Stream<QuerySnapshot<Map<String, dynamic>>> Function()? watchFlowers;
 
   @override
   State<BouquetBuilderScreen> createState() => _BouquetBuilderScreenState();
@@ -24,7 +28,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   static const int _maximumTotalStems = 150;
 
   final Map<String, int> _stemCounts = {};
-  final FavouritesService _favouritesService = FavouritesService();
+  late final FavouritesService _favouritesService = FavouritesService();
   final TextEditingController _cardNoteController = TextEditingController();
 
   String _selectedWrapper = 'Kraft Paper (Classic)';
@@ -254,22 +258,16 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Custom Bouquet Builder')),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('flowers').snapshots(),
+      appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: const Text('Custom Bouquet Builder'),
+      ),
+      body: RetryStreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        watch: () =>
+            widget.watchFlowers?.call() ??
+            FirebaseFirestore.instance.collection('flowers').snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'We could not load the flower choices. Please try again.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }

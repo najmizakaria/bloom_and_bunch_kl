@@ -1,3 +1,4 @@
+import '../../../core/widgets/firestore_page.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import '../../../core/services/product_image.dart';
@@ -725,23 +726,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               icon: const Icon(Icons.add),
               label: const Text('Add Bouquet'),
             ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance.collection('bouquets').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Unable to load bouquets.\n${snapshot.error}',
-                textAlign: TextAlign.center,
-              ),
-            );
-          }
-
+      body: FirestorePage(
+        query: FirebaseFirestore.instance
+            .collection('bouquets')
+            .orderBy(FieldPath.documentId),
+        emptyMessage: 'No bouquets yet. Use Add Bouquet to create one.',
+        builder: (context, docs) {
           final bouquets =
-              (snapshot.data?.docs ?? const [])
+              docs
                   .where((document) {
                     final archived = document.data()['archived'] == true;
                     return _showArchived ? archived : !archived;
@@ -767,7 +759,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       child: Text(
                         _showArchived
                             ? 'Archived Bouquets'
-                            : '${bouquets.length} Bouquets',
+                            : '${bouquets.length} Bouquets on this page',
                         style: const AppTypography.label(),
                       ),
                     ),
@@ -786,8 +778,8 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                     ? Center(
                         child: Text(
                           _showArchived
-                              ? 'No archived bouquets'
-                              : 'No bouquets yet',
+                              ? 'No archived bouquets on this page. Check Next.'
+                              : 'No active bouquets on this page. Check Next.',
                         ),
                       )
                     : ListView.builder(
@@ -975,7 +967,9 @@ class _BouquetCard extends StatelessWidget {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 5, 8, 5),
-              child: Row(
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 4,
                 children: [
                   const Text('Ready stock', style: AppTypography.label()),
                   IconButton(
@@ -990,7 +984,7 @@ class _BouquetCard extends StatelessWidget {
                     onPressed: onIncreaseStock,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
-                  const Spacer(),
+
                   const Text('Ready Now', style: AppTypography.caption()),
                   Switch.adaptive(
                     value:

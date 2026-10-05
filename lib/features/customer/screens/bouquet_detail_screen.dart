@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -78,6 +79,8 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Bouquet details'),
         actions: [
           StreamBuilder(

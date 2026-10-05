@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
@@ -12,7 +13,11 @@ class FlowerDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(flower.name)),
+      appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
+        title: Text(flower.name),
+      ),
       body: Column(
         children: [
           Expanded(

@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -5,38 +6,37 @@ import 'package:flutter/material.dart';
 
 import '../../../../models/order_model.dart';
 import 'florist_order_detail_screen.dart';
+import '../../../core/widgets/firestore_page.dart';
 
 class FloristOrdersScreen extends StatefulWidget {
   const FloristOrdersScreen({super.key});
 
   @override
-  State<FloristOrdersScreen> createState() => _FloristOrdersScreenState();
+  State<FloristOrdersScreen> createState() => FloristOrdersScreenState();
 }
 
-class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
+class FloristOrdersScreenState extends State<FloristOrdersScreen> {
   String _selectedStatus = 'Awaiting Preparation';
-  int _limit = 30;
-  late Stream<QuerySnapshot<Map<String, dynamic>>> _orders = _watch();
-  Stream<QuerySnapshot<Map<String, dynamic>>> _watch() => FirebaseFirestore
-      .instance
+  void selectStatus(String status) => setState(() => _selectedStatus = status);
+  Query<Map<String, dynamic>> _query() => FirebaseFirestore.instance
       .collection('orders')
       .where(
         'orderStatus',
         whereIn: _selectedStatus == 'Awaiting Preparation'
             ? ['Awaiting Preparation', 'Pending']
             : _selectedStatus == 'Delivered'
-            ? ['Delivered', 'Completed']
+            ? ['Delivered']
             : [_selectedStatus],
       )
-      .orderBy('createdAt', descending: true)
-      .limit(_limit)
-      .snapshots();
+      .orderBy('createdAt', descending: true);
 
   final Map<String, String> _filters = const {
     'New': 'Awaiting Preparation',
     'Preparing': 'Processing',
     'Ready': 'Ready for Delivery',
-    'Delivered': 'Delivered',
+    'Awaiting receipt': 'Awaiting Customer Confirmation',
+    'Completed': 'Completed',
+    'Delivered (older)': 'Delivered',
     'Cancelled': 'Cancelled',
   };
 
@@ -95,100 +95,59 @@ class _FloristOrdersScreenState extends State<FloristOrdersScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Orders'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _orders,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Unable to load orders.\n${snapshot.error}',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-
-          final orders =
-              snapshot.data?.docs.map((document) {
-                return OrderModel.fromMap(
-                  document.data() as Map<String, dynamic>,
-                  document.id,
-                );
-              }).toList() ??
-              [];
-
-          final visibleOrders = _filteredOrders(orders);
-
-          return Column(
-            children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _filters.entries.map((entry) {
-                      final selected = _selectedStatus == entry.value;
-                      final count = selected ? orders.length : null;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          selected: selected,
-                          label: Text(
-                            count == null ? entry.key : '${entry.key} ($count)',
-                          ),
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedStatus = entry.value;
-                              _limit = 30;
-                              _orders = _watch();
-                            });
-                          },
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: visibleOrders.isEmpty
-                    ? _EmptyOrdersState(message: _emptyMessage())
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: visibleOrders.length,
-                        itemBuilder: (context, index) {
-                          final order = visibleOrders[index];
-
-                          return _OrderCard(
-                            order: order,
-                            orderId: _shortOrderId(order.orderId),
-                            orderDate: _formatDate(order.createdAt),
-                          );
-                        },
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final filter in _filters.entries)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(filter.key),
+                        selected: _selectedStatus == filter.value,
+                        onSelected: (_) => selectStatus(filter.value),
                       ),
+                    ),
+                ],
               ),
-              if (orders.length >= _limit)
-                TextButton(
-                  onPressed: () => setState(() {
-                    _limit += 30;
-                    _orders = _watch();
-                  }),
-                  child: const Text('Load more orders'),
-                ),
-            ],
-          );
-        },
+            ),
+          ),
+          Expanded(
+            child: FirestorePage(
+              key: ValueKey(_selectedStatus),
+              query: _query(),
+              emptyMessage: _emptyMessage(),
+              builder: (context, docs) {
+                final orders = _filteredOrders(
+                  docs
+                      .map((doc) => OrderModel.fromMap(doc.data(), doc.id))
+                      .toList(),
+                );
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    for (final order in orders)
+                      _OrderCard(
+                        order: order,
+                        orderId: _shortOrderId(order.orderId),
+                        orderDate: _formatDate(order.createdAt),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -228,8 +187,10 @@ class _OrderCard extends StatelessWidget {
         return 'PREPARING';
       case 'Ready for Delivery':
         return 'READY';
-      case 'Delivered':
+      case 'Completed':
         return 'COMPLETED';
+      case 'Delivered':
+        return 'DELIVERED (OLDER)';
       default:
         return order.orderStatus.toUpperCase();
     }
@@ -390,39 +351,6 @@ class _OrderCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyOrdersState extends StatelessWidget {
-  const _EmptyOrdersState({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(message, style: const AppTypography.sectionTitle()),
-            const SizedBox(height: 6),
-            const Text(
-              'Orders will appear here automatically.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
         ),
       ),
     );

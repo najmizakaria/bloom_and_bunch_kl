@@ -1,10 +1,11 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/admin_service.dart';
 import '../support/store_operations_screen.dart';
-import '../../core/services/auth_service.dart';
+import '../../core/widgets/firestore_page.dart';
 import '../../core/theme/app_colors.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -111,9 +112,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Admin workspace'),
         actions: [
-          IconButton(tooltip: 'Store support', icon: const Icon(Icons.support_agent), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreOperationsScreen()))),
+          IconButton(
+            tooltip: 'Store support',
+            icon: const Icon(Icons.support_agent),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const StoreOperationsScreen()),
+            ),
+          ),
 
           IconButton(
             tooltip: 'Sync available delivery jobs',
@@ -129,47 +139,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : const Icon(Icons.sync),
             onPressed: _syncingJobs ? null : _syncDeliveryJobs,
           ),
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => AuthService().signOut(),
-          ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: FirebaseFirestore.instance
+      body: FirestorePage(
+        query: FirebaseFirestore.instance
             .collection('rider_applications')
             .where('status', isEqualTo: 'pending')
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return _MessageState(
-              icon: Icons.cloud_off_outlined,
-              title: 'Unable to load applications',
-              message: snapshot.error.toString(),
-            );
-          }
-
-          final applications = snapshot.data?.docs ?? [];
-          applications.sort((a, b) {
-            final aTime = a.data()['submittedAt'] as Timestamp?;
-            final bTime = b.data()['submittedAt'] as Timestamp?;
-            return (aTime?.millisecondsSinceEpoch ?? 0).compareTo(
-              bTime?.millisecondsSinceEpoch ?? 0,
-            );
-          });
-
-          if (applications.isEmpty) {
-            return const _MessageState(
-              icon: Icons.task_alt,
-              title: 'No pending applications',
-              message: 'New rider applications will appear here.',
-            );
-          }
-
+            .orderBy('submittedAt'),
+        emptyMessage: 'No pending rider applications.',
+        builder: (context, applications) {
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: applications.length,
@@ -266,37 +244,6 @@ class _Detail extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text((text ?? 'Not provided').toString())),
         ],
-      ),
-    );
-  }
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: AppColors.textMuted),
-            const SizedBox(height: 12),
-            Text(title, style: const AppTypography.sectionTitle()),
-            const SizedBox(height: 6),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
       ),
     );
   }
