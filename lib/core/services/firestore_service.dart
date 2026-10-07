@@ -49,6 +49,7 @@ class FirestoreService {
       'orderStatus': newStatus,
     });
   }
+
   // =========================
   // PRODUCTS / STOCK
   // =========================
@@ -82,5 +83,93 @@ class FirestoreService {
   // Delete product
   Future<void> deleteProduct(String productId) async {
     await _db.collection('products').doc(productId).delete();
+  }
+
+  // =========================
+  // RIDER LOCATION
+  // =========================
+
+  // Update rider's current location
+  // AND save the location into history
+  Future<void> updateRiderLocation({
+    required String riderId,
+    required double latitude,
+    required double longitude,
+    String? address,
+  }) async {
+    final riderRef = _db.collection('users').doc(riderId);
+
+    final locationData = {
+      'latitude': latitude,
+      'longitude': longitude,
+      'address': address ?? '',
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    // Update current location
+    await riderRef.update({'currentLocation': locationData});
+
+    // Save location history
+    await riderRef.collection('locationHistory').add({
+      'latitude': latitude,
+      'longitude': longitude,
+      'address': address ?? '',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // =========================
+  // GET RIDER CURRENT LOCATION
+  // =========================
+
+  Stream<DocumentSnapshot<Map<String, dynamic>>> getRiderLocation(
+    String riderId,
+  ) {
+    return _db.collection('users').doc(riderId).snapshots();
+  }
+
+  // =========================
+  // GET ALL RIDERS
+  // =========================
+
+  // Get rider profiles as UserModel
+  Stream<List<UserModel>> getAllRiders() {
+    return _db
+        .collection('users')
+        .where('role', isEqualTo: 'rider')
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return UserModel.fromMap(doc.data());
+          }).toList();
+        });
+  }
+
+  // =========================
+  // GET ALL RIDER DOCUMENTS
+  // =========================
+
+  // Used by Admin Rider Map
+  // because this contains currentLocation
+  Stream<QuerySnapshot<Map<String, dynamic>>> getAllRiderDocuments() {
+    return _db
+        .collection('users')
+        .where('role', isEqualTo: 'rider')
+        .snapshots();
+  }
+
+  // =========================
+  // GET RIDER LOCATION HISTORY
+  // =========================
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> getRiderLocationHistory(
+    String riderId,
+  ) {
+    return _db
+        .collection('users')
+        .doc(riderId)
+        .collection('locationHistory')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
   }
 }
