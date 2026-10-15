@@ -1,7 +1,7 @@
 const {test,before,after}=require('node:test');
 const {readFileSync}=require('node:fs');
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
-const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,Timestamp,deleteDoc}=require('firebase/firestore');
+const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,Timestamp,deleteDoc,deleteField}=require('firebase/firestore');
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let env;
 before(async()=>{if(!enabled)return;
@@ -105,4 +105,17 @@ test('rules: issue history follows ownership and assignment and remains server-o
  await assertFails(getDoc(doc(env.unauthenticatedContext().firestore(),'orders','assigned','issues','report')));
  await assertFails(setDoc(doc(env.authenticatedContext('customer').firestore(),'orders','assigned','issues','fake'),{status:'resolved'}));
  await assertFails(updateDoc(doc(env.authenticatedContext('admin').firestore(),'orders','assigned','issues','report'),{status:'resolved'}));
+});
+
+test('rules: active delivery locks allow profile edits but stay server-only',{skip:!enabled},async()=>{
+ const uid='rule_active_rider';
+ await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'users',uid),{uid,name:'Rider',email:'active@test.com',phone:'123',role:'customer',roles:['customer','rider'],activeRole:'rider',createdAt:Timestamp.now(),activeDeliveryId:'assigned'}));
+ const rider=env.authenticatedContext(uid).firestore(),ref=doc(rider,'users',uid);
+ await assertSucceeds(updateDoc(ref,{name:'Updated rider',activeRole:'customer',updatedAt:Timestamp.now()}));
+ await assertFails(updateDoc(ref,{activeDeliveryId:'other'}));
+ await assertFails(updateDoc(ref,{activeDeliveryId:deleteField()}));
+ await assertFails(updateDoc(doc(env.authenticatedContext('admin').firestore(),'users',uid),{activeDeliveryId:deleteField()}));
+ await assertFails(updateDoc(doc(env.authenticatedContext('customer').firestore(),'users','customer'),{activeDeliveryId:'forged'}));
+ const fresh=env.authenticatedContext('rule_new_lock').firestore();
+ await assertFails(setDoc(doc(fresh,'users','rule_new_lock'),{uid:'rule_new_lock',name:'Fake',email:'fake@test.com',phone:'123',role:'customer',createdAt:Timestamp.now(),activeDeliveryId:'forged'}));
 });

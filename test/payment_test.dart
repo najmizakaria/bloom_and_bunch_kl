@@ -1,0 +1,152 @@
+import 'dart:async';
+import 'package:bloom_and_bunch_kl/core/services/payment_service.dart';
+import 'package:bloom_and_bunch_kl/features/customer/screens/payment_screen.dart';
+import 'package:bloom_and_bunch_kl/features/florist/screens/florist_order_detail_screen.dart';
+import 'package:bloom_and_bunch_kl/models/order_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+PaymentSession session(String status, {String? url}) => PaymentSession(
+  id: 'payment',
+  status: status,
+  totalSen: 5500,
+  orderIds: const ['one', 'two'],
+  paymentUrl: url,
+  expiresAt: DateTime.now().add(const Duration(minutes: 30)),
+);
+
+class Payments implements PaymentService {
+  PaymentSession current = session('awaiting_bill');
+  int starts = 0;
+  bool failCheck = false;
+  @override
+  Future<PaymentSession> check(String orderId) async {
+    if (failCheck) throw StateError('Check failed. Retry shortly.');
+    return current;
+  }
+
+  @override
+  Future<PaymentSession> start(String orderId) async {
+    starts++;
+    return current = session(
+      'pending',
+      url: 'https://dev.toyyibpay.com/testbill',
+    );
+  }
+}
+
+void main() {
+  testWidgets('florist preparation unlocks only after verified payment', (
+    tester,
+  ) async {
+    final changes = StreamController<OrderModel?>();
+    addTearDown(changes.close);
+    OrderModel order(String payment) => OrderModel.fromMap({
+      'orderMode': 'toyyibpay_sandbox',
+      'paymentStatus': payment,
+      'orderStatus': 'Awaiting Preparation',
+      'customerId': 'buyer',
+    }, 'test');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FloristOrderDetailScreen(
+          order: order('pending'),
+          watch: (_) => changes.stream,
+        ),
+      ),
+    );
+    changes.add(order('pending'));
+    await tester.pumpAndSettle();
+    expect(find.text('Awaiting Payment'), findsWidgets);
+    expect(find.text('Start Preparing'), findsNothing);
+    changes.add(order('paid'));
+    await tester.pumpAndSettle();
+    expect(find.text('Start Preparing'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  test('payment URLs accept only sandbox HTTPS bill links', () {
+    expect(
+      session('pending', url: 'https://dev.toyyibpay.com/bill').checkoutUri,
+      isNotNull,
+    );
+    for (final url in [
+      'http://dev.toyyibpay.com/bill',
+      'https://toyyibpay.com/bill',
+      'https://dev.toyyibpay.com.evil.test/bill',
+      'https://evil@dev.toyyibpay.com/bill',
+      'https://dev.toyyibpay.com/bill?next=evil',
+      'https://dev.toyyibpay.com:444/bill',
+    ]) {
+      expect(session('pending', url: url).checkoutUri, isNull);
+    }
+  });
+
+  testWidgets(
+    'bank return stays pending until backend verification; payment covers all deliveries',
+    (tester) async {
+      final service = Payments();
+      Uri? opened;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PaymentScreen(
+            orderId: 'one',
+            service: service,
+            open: (uri) async {
+              opened = uri;
+              return true;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Total RM 55.00'), findsOneWidget);
+      expect(find.textContaining('covers all deliveries'), findsOneWidget);
+      await tester.tap(find.text('Continue to payment'));
+      await tester.pumpAndSettle();
+      expect(opened, isNull);
+      await tester.tap(find.text('Open ToyyibPay sandbox'));
+      await tester.pumpAndSettle();
+      expect(opened.toString(), 'https://dev.toyyibpay.com/testbill');
+      expect(find.textContaining('Payment is pending'), findsOneWidget);
+      service.current = session('paid');
+      await tester.tap(find.text('Check payment status'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Payment verified.'), findsOneWidget);
+      expect(find.text('Open ToyyibPay sandbox'), findsNothing);
+      expect(service.starts, 1);
+    },
+  );
+
+  testWidgets('uncertain bill creation cannot start another payment', (
+    tester,
+  ) async {
+    final service = Payments()..current = session('creation_unknown');
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PaymentScreen(orderId: 'one', service: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Please do not create another order'),
+      findsOneWidget,
+    );
+    expect(find.text('Continue to payment'), findsNothing);
+    expect(find.text('Open ToyyibPay sandbox'), findsNothing);
+  });
+
+  testWidgets('failed status check exposes retry and recovers', (tester) async {
+    final service = Payments()..failCheck = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PaymentScreen(orderId: 'one', service: service),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Check failed. Retry shortly.'), findsOneWidget);
+    service.failCheck = false;
+    await tester.tap(find.text('Check payment status'));
+    await tester.pumpAndSettle();
+    expect(find.text('Continue to payment'), findsOneWidget);
+  });
+}

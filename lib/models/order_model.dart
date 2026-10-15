@@ -27,6 +27,9 @@ class OrderModel {
   final int deliveryWorkflowVersion;
   final DateTime? customerAcceptedAt;
   final bool hasOpenIssue;
+  final String orderMode, paymentStatus;
+  bool get paymentOnHold =>
+      orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
   bool get receiptConfirmed => customerAcceptedAt != null;
 
   const OrderModel({
@@ -53,6 +56,8 @@ class OrderModel {
     this.deliveryWorkflowVersion = 1,
     this.customerAcceptedAt,
     this.hasOpenIssue = false,
+    this.orderMode = '',
+    this.paymentStatus = '',
   });
 
   factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -66,6 +71,8 @@ class OrderModel {
 
     return OrderModel(
       orderId: documentId,
+      orderMode: (map['orderMode'] ?? '').toString(),
+      paymentStatus: (map['paymentStatus'] ?? '').toString(),
       hasOpenIssue: map['support'] is Map && map['support']['status'] == 'open',
       deliveryWorkflowVersion:
           (map['deliveryWorkflowVersion'] as num?)?.toInt() ?? 1,

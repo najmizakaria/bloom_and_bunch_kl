@@ -8,6 +8,7 @@ import '../../../core/services/order_service.dart';
 import '../../../core/widgets/delivery_progress.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../support/order_support.dart';
+import 'payment_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -83,19 +84,30 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               'Order #${id.substring(0, id.length < 8 ? id.length : 8).toUpperCase()}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            if (d['orderMode'] == 'demo')
-              const Text('Demo order — no real payment or delivery.'),
             if (s.data!.metadata.isFromCache)
               const Text(
                 'Showing saved information. Reconnecting for updates…',
               ),
             if (updated != null) Text('Last updated ${malaysiaTime(updated)}'),
             const SizedBox(height: 16),
-            DeliveryProgress(
-              status: status,
-              receiptConfirmed: d['customerAcceptedAt'] is Timestamp,
-              fulfillmentType: (d['fulfillmentType'] ?? 'custom').toString(),
-            ),
+            if (d['orderMode'] == 'toyyibpay_sandbox' &&
+                d['paymentStatus'] != 'paid' &&
+                status != OrderStatuses.cancelled)
+              const Card(
+                child: ListTile(
+                  leading: Icon(Icons.payment_outlined),
+                  title: Text('Awaiting payment verification'),
+                  subtitle: Text(
+                    'Preparation and delivery will begin after payment is verified.',
+                  ),
+                ),
+              )
+            else
+              DeliveryProgress(
+                status: status,
+                receiptConfirmed: d['customerAcceptedAt'] is Timestamp,
+                fulfillmentType: (d['fulfillmentType'] ?? 'custom').toString(),
+              ),
             if (status == OrderStatuses.awaitingConfirmation &&
                 d['customerId'] == FirebaseAuth.instance.currentUser?.uid)
               ReceiptConfirmation(
@@ -134,18 +146,36 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               'Total RM ${((d['totalAmount'] as num?) ?? 0).toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            if (d['deliveryFee'] != null)
-              Text(
-                'Includes delivery RM ${(d['deliveryFee'] as num).toStringAsFixed(2)}',
-              ),
             Text(switch (d['paymentStatus']) {
-              'paid' => 'Payment confirmed by the store',
-              'pending' => 'Payment awaiting store confirmation',
-              'not_required' => 'No payment collected for this demo',
+              'paid' =>
+                d['orderMode'] == 'toyyibpay_sandbox'
+                    ? 'Sandbox payment verified'
+                    : 'Payment confirmed by the store',
+              'pending' =>
+                d['orderMode'] == 'toyyibpay_sandbox'
+                    ? 'Payment pending verification. Preparation and delivery are on hold.'
+                    : 'Payment awaiting store confirmation',
+              'expired' => 'Payment expired',
+              'not_required' => 'Payment is not required for this order',
               _ => 'Payment: contact the store',
             }),
+            if (d['orderMode'] == 'toyyibpay_sandbox' &&
+                d['customerId'] == FirebaseAuth.instance.currentUser?.uid)
+              OutlinedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => PaymentScreen(orderId: widget.orderId),
+                  ),
+                ),
+                child: const Text('View payment / pay'),
+              ),
             if (d['paymentInstructions'] != null)
-              Text(d['paymentInstructions'].toString()),
+              Text(
+                d['orderMode'] == 'demo'
+                    ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
+                    : d['paymentInstructions'].toString(),
+              ),
             if (d['checkoutGroupId'] != null)
               RetryStreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 key: ValueKey(

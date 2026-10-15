@@ -27,6 +27,12 @@ async function seed() {
  for(let i=0;i<45;i++)batch.set(db.doc('flowers/fixture_'+String(i).padStart(3,'0')), {name:'Inventory fixture '+i, category:'Rose', pricePerStem:3, stockQuantity: i===0?2:100, reservedQuantity:0, imageUrl:'', availableForCustomOrder:true});
  batch.set(db.doc('rider_applications/demo_customer'),{uid:'demo_customer',name:'Demo customer',phone:'0123456789',status:'approved',vehicleType:'Motorcycle'});
  for(const suffix of ['ready','planned']) batch.set(db.doc('orders/fixture_mixed_'+suffix),{customerId:'demo_customer',checkoutGroupId:'fixture_mixed',orderStatus:'Completed',fulfillmentType:suffix==='ready'?'ready_now':'pre_order',recipientName:'Mixed recipient',recipientPhone:'0123456789',deliveryAddress:'Demo mixed address',deliveryNote:'',totalAmount:50,items:[],createdAt:new Date('2020-01-01T00:00:00Z')});
+ for(const [id,customerId,area,status] of [
+  ['fixture_queue_own','demo_rider','Own purchase area','Ready for Delivery'],
+  ['fixture_queue_ready','demo_customer','Queue fixture area','Ready for Delivery'],
+  ['fixture_queue_spare','demo_customer','Another ready area','Ready for Delivery'],
+  ['fixture_queue_waiting','demo_customer','Preparation preview area','Awaiting Preparation']])
+  batch.set(db.doc('orders/'+id),{customerId,riderId:null,orderStatus:status,deliveryWorkflowVersion:2,deliveryAddress:'Private street, '+area,recipientName:'Queue recipient',recipientPhone:'0123456789',latitude:3.139,longitude:101.687,items:[],totalAmount:50,createdAt:new Date('2020-01-02'),estimatedDispatchDate:'2020-01-02'});
  await batch.commit();
  console.log('Demo accounts ready: customer/florist/rider/admin@demo.bloom.test; password DemoPass123!');
  await db.terminate();

@@ -5,9 +5,9 @@ const p=require('../store-policy');
 const base={...p.configured,mode:'manual',paymentInstructions:'Pay at the store',deliveryFeeSen:800,serviceArea:{latitude:3.139,longitude:101.687,radiusKm:20,label:'Test area'},dailyDeliveryCapacity:10};
 const plan={ready:[{unitPrice:50,quantity:2}],planned:[{unitPrice:30,quantity:1}],lead:2};
 const address={latitude:3.14,longitude:101.69};
-test('quote charges per delivery, uses integer sen and distinguishes manual payment',()=>{
+test('quote charges only items even when a legacy policy contains a delivery fee',()=>{
  const q=p.quote(plan,address,new Date('2026-09-21T02:00:00Z'),base);
- assert.equal(q.totalSen,14600);assert.equal(q.deliveryFeeSen,1600);assert.equal(q.groups.length,2);assert.equal(q.mode,'manual');
+ assert.equal(q.totalSen,13000);assert.equal(q.deliveryFeeSen,0);assert.ok(q.groups.every(g=>g.deliveryFeeSen===0&&g.totalSen===g.subtotalSen));assert.equal(q.groups.length,2);assert.equal(q.mode,'manual');
  assert.equal(q.groups[0].date,'2026-09-21');assert.equal(q.groups[1].date,'2026-09-23');
  assert.notEqual(q.quoteId,p.quote(plan,address,new Date('2026-09-21T02:00:00Z'),{...base,deliveryFeeSen:900}).quoteId);
 });

@@ -48,7 +48,7 @@ class _FloristOrderDetailContentState
   }
 
   String? get _nextStatus {
-    if (widget.order.hasOpenIssue) return null;
+    if (widget.order.hasOpenIssue || widget.order.paymentOnHold) return null;
     switch (_currentStatus) {
       case 'Awaiting Preparation':
         return 'Processing';
@@ -99,6 +99,9 @@ class _FloristOrderDetailContentState
   }
 
   String get _statusTitle {
+    if (widget.order.paymentOnHold && _currentStatus != 'Cancelled') {
+      return 'Awaiting Payment';
+    }
     switch (_currentStatus) {
       case 'Awaiting Preparation':
         return 'Order Received';
@@ -122,6 +125,9 @@ class _FloristOrderDetailContentState
   }
 
   String get _statusDescription {
+    if (widget.order.paymentOnHold && _currentStatus != 'Cancelled') {
+      return 'Preparation and rider collection are on hold until payment is verified.';
+    }
     switch (_currentStatus) {
       case 'Awaiting Preparation':
         return 'Review the order before starting preparation.';
@@ -282,7 +288,10 @@ class _FloristOrderDetailContentState
           if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
             IconButton(
               tooltip: 'Cancel planned order',
-              onPressed: _isUpdating || widget.order.hasOpenIssue
+              onPressed:
+                  _isUpdating ||
+                      widget.order.hasOpenIssue ||
+                      widget.order.paymentOnHold
                   ? null
                   : _cancelOrder,
               icon: const Icon(Icons.cancel_outlined),

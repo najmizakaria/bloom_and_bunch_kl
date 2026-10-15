@@ -63,7 +63,8 @@ test('awaiting receipt blocks deletion by customer and assigned rider',{skip:!en
 });
 test('rider acceptance records the safe display snapshot and rejects stale competing claims',{skip:!enabled},async()=>{
  const ref=await order('claim','Ready for Delivery',{riderId:null,deliveryAddress:'12 Main Street, KL',latitude:3.139,longitude:101.687});
- await action('confirmation_rider',ref.id,'accept');
+ await db.doc('users/confirmation_claim_rider').set({role:'rider',name:'Safe display name'});
+ await action('confirmation_claim_rider',ref.id,'accept');
  assert.equal((await ref.get()).data().riderName,'Safe display name');
  await assert.rejects(()=>action('confirmation_other',ref.id,'accept'),e=>e.code==='permission-denied');
 });

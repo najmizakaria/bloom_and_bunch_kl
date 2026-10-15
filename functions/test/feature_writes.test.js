@@ -110,11 +110,11 @@ test('status notification respects opt out, deduplicates and removes expired dev
 });
 
 test('delivery-job sync never recreates a job accepted concurrently',{skip:!enabled},async()=>{
- await profile('repair_sync_admin','admin');await profile('repair_sync_rider','rider');
+ await profile('repair_sync_admin','admin');
  for(let i=0;i<3;i++){
-  const orderId='repair_sync_'+i;
+  const orderId='repair_sync_'+i,rider='repair_sync_rider_'+i;await profile(rider,'rider');
   await db.doc('orders/'+orderId).set({customerId:'repair_buyer',orderStatus:'Ready for Delivery',riderId:null,deliveryAddress:address.address,latitude:address.latitude,longitude:address.longitude});
-  await Promise.all([api.syncDeliveryJobs.run(request('repair_sync_admin')),api.transitionOrder.run(request('repair_sync_rider',{orderId,action:'accept'}))]);
+  await Promise.all([api.syncDeliveryJobs.run(request('repair_sync_admin')),api.transitionOrder.run(request(rider,{orderId,action:'accept'}))]);
   assert.equal((await db.doc('orders/'+orderId).get()).data().orderStatus,'Out for Delivery');
   assert.equal((await db.doc('delivery_jobs/'+orderId).get()).exists,false);
  }

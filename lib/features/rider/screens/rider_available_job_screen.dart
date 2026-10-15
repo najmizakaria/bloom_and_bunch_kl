@@ -8,8 +8,13 @@ import '../../../models/delivery_job_model.dart';
 
 class RiderAvailableJobScreen extends StatefulWidget {
   final DeliveryJobModel job;
+  final bool hasActiveDelivery;
 
-  const RiderAvailableJobScreen({super.key, required this.job});
+  const RiderAvailableJobScreen({
+    super.key,
+    required this.job,
+    this.hasActiveDelivery = false,
+  });
 
   @override
   State<RiderAvailableJobScreen> createState() =>
@@ -20,7 +25,9 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
   bool _accepting = false;
 
   Future<void> _accept() async {
-    if (_accepting) return;
+    if (_accepting || !widget.job.readyForPickup || widget.hasActiveDelivery) {
+      return;
+    }
     if (!await confirmAction(
           context,
           title: 'Accept delivery?',
@@ -75,6 +82,19 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: Text(
+                    widget.job.readyForPickup
+                        ? 'Ready for pickup'
+                        : 'Waiting for preparation',
+                  ),
+                  subtitle: widget.hasActiveDelivery
+                      ? const Text(
+                          'Complete your current delivery and wait for customer confirmation before accepting another.',
+                        )
+                      : null,
+                ),
+                ListTile(
                   leading: const Icon(Icons.location_city_outlined),
                   title: const Text('Delivery area'),
                   subtitle: Text(widget.job.deliveryArea),
@@ -115,7 +135,12 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(16),
         child: FilledButton.icon(
-          onPressed: _accepting ? null : _accept,
+          onPressed:
+              _accepting ||
+                  !widget.job.readyForPickup ||
+                  widget.hasActiveDelivery
+              ? null
+              : _accept,
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -130,7 +155,15 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
                   ),
                 )
               : const Icon(Icons.check_circle_outline),
-          label: Text(_accepting ? 'Accepting…' : 'Accept Delivery'),
+          label: Text(
+            _accepting
+                ? 'Accepting…'
+                : widget.hasActiveDelivery
+                ? 'Complete current delivery first'
+                : !widget.job.readyForPickup
+                ? 'Waiting for preparation'
+                : 'Accept Delivery',
+          ),
         ),
       ),
     );

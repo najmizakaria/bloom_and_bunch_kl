@@ -12,6 +12,7 @@ import '../../../core/widgets/action_confirmation.dart';
 import '../../../models/saved_address_model.dart';
 import 'address_book_screen.dart';
 import 'order_tracking_screen.dart';
+import 'payment_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({
@@ -148,9 +149,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!cart.hasPendingCheckout) {
         final confirmed = await confirmAction(
           context,
-          title: _quote?.isDemo == true ? 'Place demo order?' : 'Place order?',
+          title: 'Place Order',
           message:
-              'Confirm the delivery address and total RM ${((_quote?.totalSen ?? 0) / 100).toStringAsFixed(2)}. ${_quote?.isDemo == true ? 'This demo collects no payment or real delivery booking.' : 'Submitting this order does not charge or confirm payment.'}',
+              'Confirm the delivery address and total RM ${((_quote?.totalSen ?? 0) / 100).toStringAsFixed(2)}. ${_quote?.usesToyyibpay == true ? 'Next, complete a test payment with ToyyibPay sandbox. Preparation starts only after payment is verified.' : 'Submitting an order does not confirm payment.'}',
           action: 'Confirm order',
         );
         if (!confirmed || !mounted || uid != _uid) return;
@@ -169,14 +170,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         request,
       );
       if (_uid != uid) return;
+      final onlinePayment =
+          _quote?.usesToyyibpay == true ||
+          (request['quote'] is Map &&
+              request['quote']['mode'] == 'toyyibpay_sandbox');
       cart.checkoutSucceeded();
       AppMonitoring.event('checkout_confirmed');
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              OrderTrackingScreen(orderId: ids.first, relatedOrderIds: ids),
+          builder: (_) => onlinePayment
+              ? PaymentScreen(orderId: ids.first)
+              : OrderTrackingScreen(orderId: ids.first, relatedOrderIds: ids),
         ),
       );
     } catch (e) {
@@ -211,16 +217,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          if (_quote?.isDemo == true)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text(
-                  'Demo order — no payment or real delivery',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
           const SizedBox(height: 16),
           Text(
             'Recipient and delivery address',
@@ -330,9 +326,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ? 'Checking your order…'
                   : cart.hasPendingCheckout
                   ? 'Check existing order'
-                  : _quote?.isDemo == true
-                  ? 'Place demo order'
-                  : 'Place order · ${CheckoutQuote.money(_quote?.totalSen ?? 0)}',
+                  : _loading
+                  ? 'Loading order summary…'
+                  : _quote == null || stale
+                  ? 'Order summary unavailable'
+                  : _quote?.usesToyyibpay == true
+                  ? 'Continue to sandbox payment'
+                  : 'Place Order',
             ),
           ),
           const SizedBox(height: 12),
@@ -361,23 +361,20 @@ class CheckoutSummary extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            '${g['kind'] == 'ready_now' ? 'Ready bouquets' : 'Made-to-order bouquets'}: estimated dispatch ${g['date']} · delivery ${CheckoutQuote.money(g['deliveryFeeSen'] as num)}',
+            '${g['kind'] == 'ready_now' ? 'Ready bouquets' : 'Made-to-order bouquets'}: estimated dispatch ${g['date']}',
           ),
         ),
       ],
       Text(quote.timingNotice),
       if (quote.groups.length > 1)
         const Text(
-          'These items travel separately. The total below includes each delivery fee.',
+          'These items travel separately. The total below includes all bouquets.',
         ),
       const SizedBox(height: 20),
       Text('Payment', style: Theme.of(context).textTheme.titleLarge),
       Text(quote.paymentInstructions),
       const SizedBox(height: 16),
       Text('Items: ${CheckoutQuote.money(quote.data['subtotalSen'] as num)}'),
-      Text(
-        'Delivery: ${CheckoutQuote.money(quote.data['deliveryFeeSen'] as num)}',
-      ),
       Text(
         'Total: ${CheckoutQuote.money(quote.totalSen)}',
         style: Theme.of(context).textTheme.titleLarge,

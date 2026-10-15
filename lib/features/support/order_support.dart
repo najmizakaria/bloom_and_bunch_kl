@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/order_service.dart';
 import '../../core/services/app_monitoring.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../core/utils/malaysia_time.dart';
 
 const issueReasons = {
   'late_delivery': 'Delivery is late',
@@ -154,56 +152,6 @@ class _OrderSupportPanelState extends State<OrderSupportPanel> {
               ),
             ),
           ),
-        ExpansionTile(
-          title: const Text('Previous issue reports'),
-          children: [
-            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .doc('orders/${widget.orderId}')
-                  .collection('issues')
-                  .orderBy('createdAt', descending: true)
-                  .limit(20)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return const ListTile(
-                    title: Text(
-                      'Issue history could not be loaded. Reopen this order to retry.',
-                    ),
-                  );
-                }
-                if (!snapshot.hasData) return const LinearProgressIndicator();
-                if (snapshot.data!.docs.isEmpty) {
-                  return const ListTile(
-                    title: Text('No previous issue reports recorded.'),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final doc in snapshot.data!.docs)
-                      ListTile(
-                        title: Text(
-                          '${issueReasons[doc.data()['reason']] ?? 'Order issue'} · ${doc.data()['status']}',
-                        ),
-                        subtitle: Text(
-                          [
-                            if (doc.data()['createdAt'] is Timestamp)
-                              malaysiaTime(
-                                (doc.data()['createdAt'] as Timestamp).toDate(),
-                              ),
-                            if (doc.data()['comment'] != null)
-                              doc.data()['comment'].toString(),
-                            if (doc.data()['response'] != null)
-                              'Store response: ${doc.data()['response']}',
-                          ].join('\n'),
-                        ),
-                      ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
         if (delivered) ...[
           const SizedBox(height: 24),
           Text(

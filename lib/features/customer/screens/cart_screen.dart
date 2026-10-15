@@ -235,7 +235,7 @@ class CartScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Delivery fees and payment details appear at checkout. Ready and made-to-order bouquets travel separately.',
+                            'Review your total and payment details at checkout. Ready and made-to-order bouquets travel separately.',
                           ),
                           const SizedBox(height: 12),
                           SizedBox(

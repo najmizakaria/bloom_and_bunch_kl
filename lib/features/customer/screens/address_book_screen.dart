@@ -376,7 +376,7 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
             onPressed: _busy ? null : _confirmPin,
             icon: const Icon(Icons.location_pin),
             label: Text(
-              _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin *',
+              _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin',
             ),
           ),
           const Text(

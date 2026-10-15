@@ -1,10 +1,22 @@
 'use strict';
-const {onCall,HttpsError}=require('firebase-functions/v2/https');
+const {onCall,onRequest,HttpsError}=require('firebase-functions/v2/https');
+const {defineBoolean,defineString,defineSecret}=require('firebase-functions/params');
+const {onSchedule}=require('firebase-functions/v2/scheduler');
 const {initializeApp}=require('firebase-admin/app');
 const {getFirestore,FieldValue,Timestamp,FieldPath,Filter}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
 const d=require('./domain');
 const storePolicy=require('./store-policy');
+const payments=require('./payments');
+const toyyibpay=require('./toyyibpay');
+const paymentEnabled=defineBoolean('TOYYIBPAY_ENABLED',{default:false});
+const paymentCategory=defineString('TOYYIBPAY_SANDBOX_CATEGORY_CODE',{default:''});
+const paymentReturnUrl=defineString('TOYYIBPAY_RETURN_URL',{default:''});
+const paymentSecret=defineSecret('TOYYIBPAY_SANDBOX_SECRET_KEY');
+function assertPaymentsEnabled(){
+ if(!paymentEnabled.value()||!paymentCategory.value()||!/^https:\/\//.test(paymentReturnUrl.value()))
+  d.fail('Online payment is not available yet. Please contact the store.','failed-precondition');
+}
 initializeApp();
 const db=getFirestore();
 // Callable endpoints must be reachable by Firebase clients so the callable
@@ -22,13 +34,13 @@ function deliveryArea(address){
 }
 function writeAvailableJob(tx,orderId,order){
  const ref=db.collection('delivery_jobs').doc(orderId);
- if(!deliveryEligible(order)){tx.delete(ref);return;}
+ if(!deliveryEligible(order)||payments.requiresPayment(order)){tx.delete(ref);return;}
  tx.set(ref,{orderId,orderStatus:'Ready for Delivery',riderId:null,
   deliveryArea:deliveryArea(order.deliveryAddress),deliveryTimeSlot:order.deliveryTimeSlot??'',
   requestedDeliveryDate:order.requestedDeliveryDate??null,hasValidAddress:true,hasValidCoordinates:true,
   createdAt:order.createdAt??FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
 }
-function callable(handler){return onCall(options,async req=>{
+function callable(handler,extra={}){return onCall({...options,...extra},async req=>{
  try {if(!req.auth)throw new HttpsError('unauthenticated','Please sign in.');return await handler(req);}
  catch(e){if(e instanceof HttpsError)throw e;if(e instanceof d.OrderError)throw new HttpsError(e.code,e.message);console.error(e);throw new HttpsError('internal','Unable to finish this action. Please retry.');}
 });}
@@ -41,6 +53,7 @@ async function readPlan(tx, items) {
  return {plan:d.buildPlan(items,bouquets,flowers),bouquets,flowers};
 }
 exports.quoteCheckout=callable(async req=>{
+ if(storePolicy.configured.mode===payments.MODE)assertPaymentsEnabled();
  const items=d.normalizeItems(req.data?.items),address=d.address(req.data?.address);
  return db.runTransaction(async tx=>{
   const profile=await tx.get(db.doc('users/'+req.auth.uid));
@@ -67,6 +80,7 @@ exports.placeOrder=callable(async req=>{
    if(previous.data().fingerprint!==fingerprint)d.fail('Checkout changed. Review your cart before retrying.','failed-precondition');
    return {orderIds:previous.data().orderIds};
   }
+  if(storePolicy.configured.mode===payments.MODE)assertPaymentsEnabled();
   const addressSnapshot=await tx.get(db.collection('users').doc(uid).collection('addresses').doc(addressId));
   if(!addressSnapshot.exists)d.fail('Select a saved delivery address.','failed-precondition');
   const submittedAddress=d.address(addressSnapshot.data());
@@ -74,6 +88,7 @@ exports.placeOrder=callable(async req=>{
   if(!deliveryEligible({...submittedAddress,riderId:null}))d.fail('Confirm a delivery pin in your Address Book before ordering.','failed-precondition');
   const {plan,bouquets,flowers}=await readPlan(tx,items);
   const quote=storePolicy.quote(plan,submittedAddress);
+  if(quote.mode===payments.MODE&&quote.totalSen<100)d.fail('Online payment requires a total of at least RM 1.00.','failed-precondition');
   if((payload.quoteId||quote.mode!=='demo')&&payload.quoteId!==quote.quoteId)d.fail('Delivery details changed. Refresh your order summary before confirming.','failed-precondition');
   const total=quote.totalSen;
   if(total!==expectedCents)d.fail('Prices have changed. Refresh the items in your cart before ordering.','failed-precondition');
@@ -103,6 +118,7 @@ exports.placeOrder=callable(async req=>{
      ...submittedAddress,addressId,
     items:group,totalAmount:pricing.totalSen/100,subtotalAmount:pricing.subtotalSen/100,deliveryFee:pricing.deliveryFeeSen/100,
     orderMode:quote.mode,paymentStatus:quote.mode==='demo'?'not_required':'pending',paymentInstructions:quote.paymentInstructions,
+    ...(quote.mode===payments.MODE?{paymentId:payments.paymentId(uid,checkoutId)}:{}),
     estimatedDispatchDate:pricing.date,quoteId:quote.quoteId,
     fulfillmentType:mode,requiresPrepTime:!isReady,leadTimeBusinessDays:isReady?0:plan.lead,
     orderStatus:isReady?'Ready for Delivery':'Awaiting Preparation',
@@ -117,8 +133,81 @@ exports.placeOrder=callable(async req=>{
    orderIds.push(ref.id);
   }
   tx.create(requestRef,{fingerprint,orderIds,createdAt:FieldValue.serverTimestamp()});
+  if(quote.mode===payments.MODE){
+   const id=payments.paymentId(uid,checkoutId),expiresAt=Timestamp.fromMillis(Date.now()+payments.HOLD_MS);
+   tx.create(db.doc('payments/'+id),{id,customerId:uid,checkoutId,orderIds,totalSen:total,
+    status:'awaiting_bill',provider:'toyyibpay',environment:'sandbox',expiresAt,
+    nextCheckAt:Timestamp.fromMillis(expiresAt.toMillis()+5*60000),
+    capacityReserved:storePolicy.configured.dailyDeliveryCapacity>0,
+    createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
+  }
   return {orderIds};
  });
+});
+const riderActiveStatuses=['Out for Delivery','Awaiting Customer Confirmation'];
+const paymentHandlers=payments.createPaymentHandlers({db,writeAvailableJob,
+ getSecret:()=>paymentSecret.value(),
+ getGateway:()=>{
+  assertPaymentsEnabled();
+  const secret=paymentSecret.value();
+  if(!secret)d.fail('Online payment is not configured yet.','failed-precondition');
+  const project=process.env.GCLOUD_PROJECT||process.env.GOOGLE_CLOUD_PROJECT||JSON.parse(process.env.FIREBASE_CONFIG||'{}').projectId;
+  return toyyibpay.createGateway({secret,categoryCode:paymentCategory.value(),returnUrl:paymentReturnUrl.value(),
+   callbackUrl:`https://asia-southeast1-${project}.cloudfunctions.net/toyyibpayCallback`});
+ },
+});
+const paymentOptions={secrets:[paymentSecret]};
+exports.createToyyibpayPayment=callable(req=>paymentHandlers.create(req),paymentOptions);
+exports.checkToyyibpayPayment=callable(req=>paymentHandlers.status(req),paymentOptions);
+exports.toyyibpayCallback=onRequest({...options,...paymentOptions},async(req,res)=>{
+ res.set('Cache-Control','no-store');
+ if(req.method!=='POST'){res.status(405).send('POST required');return;}
+ try{await paymentHandlers.callback(req.body);res.status(200).send('OK');}
+ catch(error){
+  const status=error.code==='permission-denied'?403:error.code==='invalid-argument'?400:503;
+  res.status(status).send('Payment verification pending or rejected');
+ }
+});
+exports.expireToyyibpayPayments=onSchedule({region:options.region,maxInstances:1,secrets:[paymentSecret],schedule:'every 5 minutes'},
+ async()=>{if(paymentEnabled.value())await paymentHandlers.sweep();});
+async function riderActiveDelivery(reader,uid){
+ const active=await reader.get(db.collection('orders').where('riderId','==',uid).where('orderStatus','in',riderActiveStatuses).limit(1));
+ return active.docs[0]?.id??null;
+}
+exports.listAvailableDeliveries=callable(async req=>{
+ const uid=req.auth.uid,profile=await db.doc(`users/${uid}`).get();
+ if(!hasRole(profile.data(),'rider')||profile.data()?.deletionPending)d.fail('An approved rider account is required.','permission-denied');
+ const activeDeliveryId=await riderActiveDelivery({get:query=>query.get()},uid);
+ const cursor=req.data?.cursor;
+ if(cursor!=null&&(typeof cursor!=='object'||![0,1].includes(cursor.phase)))d.fail('Invalid delivery cursor.');
+ // Older clients can send a preparation-phase cursor. That queue is now closed.
+ if(cursor?.phase===1)return {deliveries:[],activeDeliveryId,nextCursor:null};
+ let phase=0,last=cursor?.orderId?d.id(cursor.orderId):null;
+ let after=null;
+ if(last){after=await db.doc(`orders/${last}`).get();if(!after.exists||!after.data().createdAt)d.fail('Delivery list changed. Refresh the list.','failed-precondition');}
+ const deliveries=[];
+ let scanned=0;
+ // Page over trusted order data, returning only safe previews after ownership
+ // filtering. Only ready orders appear, oldest first.
+ while(phase<1&&deliveries.length<20&&scanned<200){
+  let query=db.collection('orders').where('orderStatus','==','Ready for Delivery').orderBy('createdAt').orderBy(FieldPath.documentId());
+  if(after)query=query.startAfter(after);
+  const batchLimit=Math.min(40,200-scanned);
+  const batch=await query.limit(batchLimit).get();
+  if(batch.empty){phase++;last=null;after=null;continue;}
+  let consumed=0;
+  for(const doc of batch.docs){
+   consumed++;scanned++;after=doc;last=doc.id;
+   const order=doc.data();
+   if(order.customerId===uid||!deliveryEligible(order)||payments.requiresPayment(order))continue;
+   deliveries.push({orderId:doc.id,deliveryArea:deliveryArea(order.deliveryAddress),orderStatus:order.orderStatus,
+    requestedDeliveryDate:order.requestedDeliveryDate?.toMillis?.()??null,createdAt:order.createdAt.toMillis(),
+    deliveryTimeSlot:'Estimated dispatch: '+(order.estimatedDispatchDate??'Contact the store for timing')});
+   if(deliveries.length===20)break;
+  }
+  if(consumed===batch.size&&batch.size<batchLimit){phase++;last=null;after=null;}
+ }
+ return {deliveries,activeDeliveryId,nextCursor:phase<1?{phase,orderId:last}:null};
 });
 exports.transitionOrder=callable(async req=>{
  const uid=req.auth.uid,orderId=d.id(req.data?.orderId),action=d.text(req.data?.action,'action',30);
@@ -130,11 +219,20 @@ exports.transitionOrder=callable(async req=>{
    const o=snapshot.data(),status=o.orderStatus,updates={updatedAt:FieldValue.serverTimestamp()};
    const florist=hasRole(user.data(),'florist')||hasRole(user.data(),'admin');
    const jobRef=db.collection('delivery_jobs').doc(orderId);
+   if(payments.requiresPayment(o)&&['accept','prepare','ready','deliver'].includes(action))
+    d.fail('Payment must be verified before this order can be prepared or delivered.','failed-precondition');
+   if(o.orderMode===payments.MODE&&o.paymentStatus!=='paid'&&action==='cancel')
+    d.fail('Unpaid online orders expire through payment verification. Please wait or contact support.','failed-precondition');
    if(action==='accept'){
     if(!hasRole(user.data(),'rider'))d.fail('An approved rider account is required.','permission-denied');
+    if(o.customerId===uid)d.fail('You cannot deliver your own order.','permission-denied');
     if(status==='Out for Delivery'&&o.riderId===uid){tx.delete(jobRef);return {status};}
-    if(status!=='Ready for Delivery'||o.riderId)d.fail('Another rider has already accepted this delivery.','failed-precondition');
+    if(o.riderId)d.fail('Another rider has accepted this delivery.','failed-precondition');
+    if(status!=='Ready for Delivery')d.fail('This order is still being prepared. Wait until it is ready for pickup.','failed-precondition');
+    if(await riderActiveDelivery(tx,uid))d.fail('Complete your current delivery and wait for customer receipt confirmation before accepting another.','failed-precondition');
     if(!deliveryEligible(o))d.fail('This delivery location needs store review.','failed-precondition');
+    // The shared rider-profile write serializes acceptance of different orders.
+    tx.update(user.ref,{activeDeliveryId:orderId,updatedAt:FieldValue.serverTimestamp()});
     Object.assign(updates,{orderStatus:'Out for Delivery',deliveryWorkflowVersion:2,riderId:uid,riderName:d.text(user.data().name??'Rider','rider name',160,true)||'Rider',acceptedAt:FieldValue.serverTimestamp()});
     tx.delete(jobRef);
    }else if(action==='deliver'){
@@ -149,6 +247,8 @@ exports.transitionOrder=callable(async req=>{
    if(status==='Completed'&&o.customerAcceptedAt)return {status};
    if(status!=='Awaiting Customer Confirmation'||!o.deliveredAt||!o.riderId)d.fail('The rider must confirm delivery first.','failed-precondition');
    if(o.support?.status==='open')d.fail('The store must resolve your open delivery issue before receipt confirmation.','failed-precondition');
+   const riderProfile=await tx.get(db.doc(`users/${o.riderId}`));
+   if(riderProfile.exists&&riderProfile.data().activeDeliveryId===orderId)tx.update(riderProfile.ref,{activeDeliveryId:FieldValue.delete(),updatedAt:FieldValue.serverTimestamp()});
    Object.assign(updates,{orderStatus:'Completed',customerAcceptedAt:FieldValue.serverTimestamp()});
   }else if(action==='prepare'){
    if(!florist)d.fail('Florist access required.','permission-denied');
@@ -426,6 +526,12 @@ async function processAccountDeletion(uid){
    if(field==='customerId')for(const order of orders.docs.slice(i,i+400))await db.recursiveDelete(order.ref.collection('issues'));
    await batch.commit();
   }
+ }
+ const paymentRecords=await db.collection('payments').where('customerId','==',uid).get();
+ for(let i=0;i<paymentRecords.docs.length;i+=400){
+  const batch=db.batch();
+  for(const record of paymentRecords.docs.slice(i,i+400))batch.update(record.ref,{customerId:'deleted_customer',checkoutId:FieldValue.delete()});
+  await batch.commit();
  }
  const devices=await db.collection('notification_devices').where('uid','==',uid).get();
  for(const device of devices.docs)await device.ref.delete();

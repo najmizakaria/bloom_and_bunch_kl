@@ -69,7 +69,9 @@ The connected browser suite uses demo accounts and actual UI controls for ready 
 
 ## Store rules
 
-Edit `functions/store-policy.json`. Modes: `demo` or `manual`. `deliveryFeeSen` is charged per delivery group; mixed ready/planned carts have two groups. `serviceArea` is either null in demo or `{ "label": "approved area", "latitude": ..., "longitude": ..., "radiusKm": ... }`. Live manual mode requires an area and positive daily capacity. A radial zone is the currently supported coverage model; confirm it matches the store's business area.
+Edit `functions/store-policy.json`. Modes: `demo`, `manual`, or `toyyibpay_sandbox`. Current quotes charge only for items; the legacy `deliveryFeeSen` setting does not add a fee. Mixed ready/planned carts have two delivery groups. `serviceArea` is either null in demo or `{ "label": "approved area", "latitude": ..., "longitude": ..., "radiusKm": ... }`. Non-demo modes require an area and positive daily capacity. A radial zone is the currently supported coverage model; confirm it matches the store's business area.
+
+ToyyibPay sandbox is implemented but disabled until server credentials and public callback/return URLs are configured. It uses one bill per checkout, server-verified settlement, unpaid-order fulfillment holds, and scheduled reservation expiry. See [sandbox setup and recovery limits](docs/toyyibpay-sandbox-setup.md). Live payments and automatic refunds are not implemented.
 
 Calendar fields use Kuala Lumpur time: weekday numbers 0–6 (Sunday–Saturday), `openingHour`, `cutoffHour`, and ISO holiday dates. After-cutoff orders shift to the next operating date; preparation lead days are added after that date. Displayed dates are estimates of dispatch, not arrival guarantees. Capacity counts accepted delivery groups per date transactionally, conservatively retaining cancelled bookings until staff review. There is no automatic rider allocation or arrival SLA.
 

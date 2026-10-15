@@ -5,10 +5,9 @@ import 'package:flutter/material.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/widgets/firestore_page.dart';
 import '../../../core/widgets/logout_tile.dart';
-import '../../../models/delivery_job_model.dart';
 import '../../../models/order_model.dart';
 import '../../../models/user_model.dart';
-import 'rider_available_job_screen.dart';
+import '../widgets/available_deliveries_list.dart';
 import 'rider_order_detail_screen.dart';
 
 class RiderHomeScreen extends StatefulWidget {
@@ -44,16 +43,6 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         ..clear()
         ..add(0);
     }
-    final available = _queries.putIfAbsent(
-      'available',
-      () => db
-          .collection('delivery_jobs')
-          .where('orderStatus', isEqualTo: 'Ready for Delivery')
-          .where('riderId', isNull: true)
-          .where('hasValidAddress', isEqualTo: true)
-          .where('hasValidCoordinates', isEqualTo: true)
-          .orderBy('createdAt', descending: true),
-    );
     final assigned = _queries.putIfAbsent(
       'assigned',
       () => db
@@ -85,6 +74,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                   builder: (context) {
                     final order = OrderModel.fromMap(doc.data(), doc.id);
                     return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
                       child: ListTile(
                         title: Text(
                           order.deliveryAddress,
@@ -116,61 +106,27 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
         appBar: AppBar(
           leading: const PageBackButton(),
           centerTitle: false,
-          title: const Text('Delivery workspace'),
+          title: Text(
+            [
+              'Available Deliveries',
+              'My Delivery',
+              'Delivery History',
+              'More',
+            ][_index],
+          ),
         ),
         body: IndexedStack(
           index: _index,
           children:
               [
-                    FirestorePage(
-                      query: available,
-                      emptyMessage:
-                          'No eligible deliveries are waiting for pickup.',
-                      builder: (context, docs) => ListView(
-                        padding: const EdgeInsets.all(12),
-                        children: [
-                          for (final doc in docs)
-                            Builder(
-                              builder: (context) {
-                                final job = DeliveryJobModel.fromMap(
-                                  doc.data(),
-                                  doc.id,
-                                );
-                                return Card(
-                                  child: ListTile(
-                                    leading: const Icon(Icons.location_city),
-                                    title: Text(job.deliveryArea),
-                                    subtitle: Text(
-                                      job.deliveryTimeSlot.isEmpty
-                                          ? 'Contact the store for timing'
-                                          : job.deliveryTimeSlot,
-                                    ),
-                                    trailing: const Icon(Icons.chevron_right),
-                                    onTap: () async {
-                                      final accepted =
-                                          await Navigator.push<String>(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) =>
-                                                  RiderAvailableJobScreen(
-                                                    job: job,
-                                                  ),
-                                            ),
-                                          );
-                                      if (mounted && accepted != null) {
-                                        _select(1);
-                                      }
-                                    },
-                                  ),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
+                    AvailableDeliveriesList(
+                      key: ValueKey(uid),
+                      active: _index == 0,
+                      onMyDelivery: () => _select(1),
                     ),
                     orders(
                       assigned,
-                      'You have no active delivery. Choose one from Available jobs.',
+                      'You have no active delivery. Choose one from Available Deliveries.',
                     ),
                     orders(history, 'No completed deliveries yet.'),
                     ListView(
@@ -251,12 +207,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
             NavigationDestination(
               icon: Icon(Icons.work_outline),
               selectedIcon: Icon(Icons.work),
-              label: 'Available jobs',
+              label: 'Available',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_shipping_outlined),
               selectedIcon: Icon(Icons.local_shipping),
-              label: 'Deliveries',
+              label: 'My Delivery',
             ),
             NavigationDestination(
               icon: Icon(Icons.history_outlined),

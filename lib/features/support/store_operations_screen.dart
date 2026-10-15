@@ -121,11 +121,7 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
             emptyMessage: 'No orders in this queue.',
             builder: (context, docs) {
               final rated = docs
-                  .where(
-                    (d) =>
-                        d.data()['feedback'] is Map &&
-                        d.data()['orderMode'] != 'demo',
-                  )
+                  .where((d) => d.data()['feedback'] is Map)
                   .toList();
               final satisfied = rated
                   .where((d) => (d.data()['feedback']['rating'] as num) >= 4)
@@ -135,7 +131,7 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
                 children: [
                   if (_view == 'Feedback')
                     Text(
-                      'Loaded non-demo responses: ${rated.length}. Satisfied: $satisfied/${rated.length}. This is a response sample, not all customers.',
+                      'Loaded responses: ${rated.length}. Satisfied: $satisfied/${rated.length}. This is a response sample, not all customers.',
                     ),
                   for (final doc in docs)
                     Card(
@@ -152,8 +148,6 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
                             Text(
                               '${doc.data()['orderStatus']} · RM ${((doc.data()['totalAmount'] as num?) ?? 0).toStringAsFixed(2)}',
                             ),
-                            if (doc.data()['orderMode'] == 'demo')
-                              const Text('Demo order'),
                             if (_view == 'Issues') ...[
                               Text(
                                 issueReasons[doc.data()['support']['reason']] ??

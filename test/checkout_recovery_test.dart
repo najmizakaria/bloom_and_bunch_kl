@@ -50,6 +50,19 @@ class Quotes implements CheckoutService {
   }
 }
 
+class UnavailableQuotes implements CheckoutService {
+  @override
+  Future<CheckoutQuote> quote(
+    List<CartItemModel> items,
+    SavedAddressModel address,
+  ) async => throw FirebaseFunctionsException(
+    code: 'not-found',
+    message: 'Missing service',
+  );
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class UncertainOrders implements OrderService {
   final List<Map<String, dynamic>> requests = [];
   @override
@@ -68,6 +81,47 @@ class UncertainOrders implements OrderService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'missing quote disables ordering without displaying a zero total',
+    (tester) async {
+      final cart = CartProvider();
+      await cart.switchUser('buyer');
+      cart.addReadyMadeItem(
+        bouquetId: 'rose',
+        name: 'Rose',
+        imageUrl: '',
+        price: 50,
+      );
+      await tester.pumpWidget(
+        ChangeNotifierProvider.value(
+          value: cart,
+          child: MaterialApp(
+            home: CheckoutScreen(
+              addressService: Addresses(),
+              checkoutService: UnavailableQuotes(),
+              orderService: UncertainOrders(),
+              currentUserId: () => 'buyer',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('confirm-order')),
+        200,
+      );
+      expect(find.text('Order summary unavailable'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('confirm-order')))
+            .onPressed,
+        isNull,
+      );
+      expect(find.textContaining('RM 0.00'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      cart.dispose();
+    },
+  );
   testWidgets(
     'uncertain checkout survives screen reload and reuses exact quote and request',
     (tester) async {

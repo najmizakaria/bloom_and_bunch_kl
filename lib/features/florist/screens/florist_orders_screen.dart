@@ -180,6 +180,9 @@ class _OrderCard extends StatelessWidget {
   }
 
   String _statusLabel() {
+    if (order.paymentOnHold && order.orderStatus != 'Cancelled') {
+      return 'AWAITING PAYMENT';
+    }
     switch (order.orderStatus) {
       case 'Awaiting Preparation':
         return 'NEW';

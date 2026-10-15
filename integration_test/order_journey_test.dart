@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/core/services/order_service.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/address_book_screen.dart';
 import 'package:bloom_and_bunch_kl/core/services/address_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -106,7 +107,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm delivery pin *'));
     await tester.pumpAndSettle();
-    expect(find.text('Review delivery pin *'), findsOneWidget);
+    expect(find.text('Review delivery pin'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('Save address'),
       150,
@@ -164,10 +165,7 @@ void main() {
       reason:
           'Visible texts: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(" | ")}',
     );
-    await waitFor(
-      tester,
-      find.text('Demo order — no payment or real delivery'),
-    );
+    await waitFor(tester, find.text('Place Order'));
     await tester.scrollUntilVisible(
       find.byKey(const Key('confirm-order')),
       200,
@@ -176,12 +174,12 @@ void main() {
     // Stream/network progress does not always settle; wait for a concrete ready state.
     for (
       var i = 0;
-      i < 150 && !find.text('Place demo order').evaluate().isNotEmpty;
+      i < 150 && !find.text('Place Order').evaluate().isNotEmpty;
       i++
     ) {
       await tester.pump(const Duration(milliseconds: 200));
     }
-    expect(find.text('Place demo order'), findsOneWidget);
+    expect(find.text('Place Order'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('confirm-order')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-order')));
@@ -223,7 +221,7 @@ void main() {
     await tester.tap(find.text('Accept Delivery'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Accept delivery').last);
-    await waitFor(tester, find.text('Delivery workspace'));
+    await waitFor(tester, find.byType(NavigationBar));
     await tester.pumpAndSettle();
     for (var i = 0; i < 150; i++) {
       if (tester
@@ -670,7 +668,7 @@ void main() {
       );
       await waitFor(tester, find.text('Switch to Rider Dashboard'));
       await tester.tap(find.text('Switch to Rider Dashboard'));
-      await waitFor(tester, find.text('Delivery workspace'));
+      await waitFor(tester, find.byType(NavigationBar));
       await closed;
       await tester.pumpAndSettle();
       expect(navigator.currentState!.canPop(), isFalse);
@@ -766,7 +764,7 @@ void main() {
       expect(find.textContaining('travel separately'), findsOneWidget);
       await tester.ensureVisible(find.text('Proceed to Checkout'));
       await tester.tap(find.text('Proceed to Checkout'));
-      await waitFor(tester, find.text('Place demo order'));
+      await waitFor(tester, find.text('Place Order'));
       await tester.scrollUntilVisible(
         find.byKey(const Key('confirm-order')),
         200,
@@ -803,5 +801,86 @@ void main() {
       cart.dispose();
     },
     skip: focus.isNotEmpty && focus != 'mixed',
+  );
+  testWidgets(
+    'rider queue hides own purchases and blocks another delivery until receipt',
+    (tester) async {
+      final auth = FirebaseAuth.instance;
+      await auth.signInWithEmailAndPassword(
+        email: 'rider@demo.bloom.test',
+        password: 'DemoPass123!',
+      );
+      await tester.pumpWidget(
+        const MaterialApp(
+          key: Key('queue-rider-journey'),
+          home: RiderHomeScreen(),
+        ),
+      );
+      await waitFor(tester, find.text('Queue fixture area'));
+      expect(find.text('Own purchase area'), findsNothing);
+      expect(find.text('Preparation preview area'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ListTile, 'Queue fixture area'),
+        -150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Queue fixture area'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept Delivery'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Accept delivery').last);
+      await waitFor(
+        tester,
+        find.byWidgetPredicate(
+          (widget) => widget is NavigationBar && widget.selectedIndex == 1,
+        ),
+      );
+      // A tab switch alone does not prove the accepted order is reachable.
+      final acceptedTile = find.widgetWithText(
+        ListTile,
+        'Private street, Queue fixture area',
+      );
+      await waitFor(tester, acceptedTile);
+      expect(find.textContaining('Out for Delivery'), findsWidgets);
+      await tester.tap(acceptedTile);
+      await waitFor(tester, find.text('Drop-off Details'));
+      expect(find.text('Queue recipient'), findsWidgets);
+      expect(find.text('Private street, Queue fixture area'), findsWidgets);
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Available'));
+      await waitFor(tester, find.text('Open My Delivery'));
+      await tester.scrollUntilVisible(
+        find.widgetWithText(ListTile, 'Another ready area'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Another ready area'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(
+                FilledButton,
+                'Complete current delivery first',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      await OrderService().transition('fixture_queue_ready', 'deliver');
+      await auth.signOut();
+      await auth.signInWithEmailAndPassword(
+        email: 'customer@demo.bloom.test',
+        password: 'DemoPass123!',
+      );
+      await OrderService().transition('fixture_queue_ready', 'confirmReceived');
+      await auth.signOut();
+    },
+    skip: focus.isNotEmpty && focus != 'queue',
   );
 }

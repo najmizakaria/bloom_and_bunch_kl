@@ -50,7 +50,7 @@ service cloud.firestore {
       return data.keys().hasAll(['uid', 'name', 'email', 'phone', 'role', 'createdAt'])
         && data.keys().hasOnly([
           'uid', 'name', 'email', 'phone', 'role', 'createdAt',
-          'roles', 'activeRole', 'defaultAddressId', 'updatedAt', 'notificationsEnabled', 'deletionPending'
+          'roles', 'activeRole', 'defaultAddressId', 'updatedAt', 'notificationsEnabled', 'deletionPending', 'activeDeliveryId'
         ])
         && validString(data.uid, 128)
         && validString(data.name, 120)
@@ -72,6 +72,7 @@ service cloud.firestore {
         && (!('deletionPending' in data) || data.deletionPending is bool)
         && data.createdAt is timestamp
         && (!('defaultAddressId' in data) || validString(data.defaultAddressId, 128))
+        && (!('activeDeliveryId' in data) || validString(data.activeDeliveryId, 128))
         && (!('updatedAt' in data) || data.updatedAt is timestamp);
     }
     function validAddress(data) {
@@ -104,6 +105,7 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/account_deletions/$(uid))
         && validUser(request.resource.data)
         && uidNotModified(uid)
+        && !('activeDeliveryId' in request.resource.data)
         && request.resource.data.get('deletionPending', false) == false
         && request.resource.data.role == 'customer'
         && request.resource.data.get('roles', ['customer']).hasOnly(['customer'])
@@ -112,6 +114,7 @@ service cloud.firestore {
         && request.resource.data.get('deletionPending', false) == false
         && validUser(request.resource.data)
         && uidUnchanged()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['activeDeliveryId'])
         && request.resource.data.createdAt == resource.data.createdAt
         && (
           isAdmin()

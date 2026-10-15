@@ -89,7 +89,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Confirm delivery pin *'));
       await tester.pumpAndSettle();
-      expect(find.text('Review delivery pin *'), findsOneWidget);
+      expect(find.text('Review delivery pin'), findsOneWidget);
       final addressField = tester.widget<TextField>(
         find.byWidgetPredicate(
           (w) => w is TextField && w.decoration?.labelText == 'Full address *',
