@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/reorder_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../widgets/order_thumbnail.dart';
 import 'order_tracking_screen.dart';
 import 'cart_screen.dart';
 import '../../../core/widgets/firestore_page.dart';
@@ -294,18 +295,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                             const Divider(height: 28),
                             Row(
                               children: [
-                                Container(
-                                  width: 54,
-                                  height: 54,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.secondarySurface,
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.local_florist_outlined,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
+                                OrderThumbnail(items: items),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(

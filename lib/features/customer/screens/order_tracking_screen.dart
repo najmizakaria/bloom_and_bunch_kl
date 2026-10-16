@@ -1,5 +1,6 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/widgets/retry_stream_builder.dart';
+import '../../../core/widgets/app_note.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -85,10 +86,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             if (s.data!.metadata.isFromCache)
-              const Text(
+              const AppNote(
                 'Showing saved information. Reconnecting for updates…',
+                liveRegion: true,
               ),
-            if (updated != null) Text('Last updated ${malaysiaTime(updated)}'),
+            if (updated != null)
+              AppNote('Last updated ${malaysiaTime(updated)}'),
             const SizedBox(height: 16),
             if (d['orderMode'] == 'toyyibpay_sandbox' &&
                 d['paymentStatus'] != 'paid' &&
@@ -121,7 +124,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 'Estimated dispatch: ${d['estimatedDispatchDate']}',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-            Text(
+            AppNote(
               (d['deliveryTimeSlot'] ??
                       'Contact the store for delivery timing.')
                   .toString(),
@@ -160,6 +163,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               _ => 'Payment: contact the store',
             }),
             if (d['orderMode'] == 'toyyibpay_sandbox' &&
+                d['paymentStatus'] != 'paid' &&
                 d['customerId'] == FirebaseAuth.instance.currentUser?.uid)
               OutlinedButton(
                 onPressed: () => Navigator.push(
@@ -171,7 +175,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 child: const Text('View payment / pay'),
               ),
             if (d['paymentInstructions'] != null)
-              Text(
+              AppNote(
                 d['orderMode'] == 'demo'
                     ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
                     : d['paymentInstructions'].toString(),

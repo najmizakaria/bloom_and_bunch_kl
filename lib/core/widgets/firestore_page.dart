@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'app_note.dart';
 
 /// Live, bounded cursor pages. Filters belong to the supplied query.
 class FirestorePage extends StatefulWidget {
@@ -93,7 +94,13 @@ class _FirestorePageState extends State<FirestorePage> {
                         : widget.builder(context, docs),
                   ),
                   if (snapshot.data?.metadata.isFromCache == true)
-                    const Text('Showing saved information. Reconnecting…'),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: AppNote(
+                        'Showing saved information. Reconnecting…',
+                        liveRegion: true,
+                      ),
+                    ),
                   ConstrainedBox(
                     constraints: BoxConstraints(
                       maxHeight: constraints.maxHeight * 0.4,

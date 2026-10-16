@@ -82,6 +82,10 @@
 	<key>GIDClientID</key>
 	<string>$(GOOGLE_CLIENT_ID_IOS)</string>
 	<key>CFBundleURLTypes</key>
-	<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>$(GOOGLE_REVERSED_CLIENT_ID_IOS)</string></array></dict></array>
+	<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>$(GOOGLE_REVERSED_CLIENT_ID_IOS)</string></array></dict>
+		<dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>bloombunch</string></array></dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>

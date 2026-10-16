@@ -1,7 +1,10 @@
 'use strict';
 const {createHash} = require('node:crypto');
 const d = require('./domain');
-const configured = require('./store-policy.json');
+const configured = {...require('./store-policy.json')};
+// Deployment-specific activation belongs in the backend environment. Keep the
+// checked-in policy usable by isolated demo tests and fresh installations.
+if (process.env.STORE_ORDER_MODE) configured.mode = process.env.STORE_ORDER_MODE;
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 
 function validate(policy) {
@@ -14,7 +17,7 @@ function validate(policy) {
   if (!Number.isSafeInteger(policy.dailyDeliveryCapacity) || policy.dailyDeliveryCapacity < 0 || policy.dailyDeliveryCapacity > 10000) throw Error('Invalid delivery capacity.');
   const a = policy.serviceArea;
   if (a != null && (!Number.isFinite(a.latitude) || Math.abs(a.latitude) > 90 || !Number.isFinite(a.longitude) || Math.abs(a.longitude) > 180 || !Number.isFinite(a.radiusKm) || a.radiusKm <= 0 || a.radiusKm > 200 || typeof a.label !== 'string' || !a.label.trim() || a.label.length > 120)) throw Error('Invalid delivery service area.');
-  if (policy.mode !== 'demo' && (!a || policy.dailyDeliveryCapacity < 1)) throw Error('Live manual orders require a service area and daily capacity.');
+  if (policy.mode === 'manual' && (!a || policy.dailyDeliveryCapacity < 1)) throw Error('Live manual orders require a service area and daily capacity.');
   return policy;
 }
 function distanceKm(a, b) {

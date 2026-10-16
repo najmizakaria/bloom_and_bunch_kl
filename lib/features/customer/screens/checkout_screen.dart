@@ -9,6 +9,7 @@ import '../../../core/services/checkout_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/services/app_monitoring.dart';
 import '../../../core/widgets/action_confirmation.dart';
+import '../../../core/widgets/app_note.dart';
 import '../../../models/saved_address_model.dart';
 import 'address_book_screen.dart';
 import 'order_tracking_screen.dart';
@@ -336,7 +337,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Text(
+          const AppNote(
             'Submitting an order is not confirmation of payment. Keep your order reference for any questions.',
           ),
         ],
@@ -365,14 +366,14 @@ class CheckoutSummary extends StatelessWidget {
           ),
         ),
       ],
-      Text(quote.timingNotice),
+      AppNote(quote.timingNotice),
       if (quote.groups.length > 1)
-        const Text(
+        const AppNote(
           'These items travel separately. The total below includes all bouquets.',
         ),
       const SizedBox(height: 20),
       Text('Payment', style: Theme.of(context).textTheme.titleLarge),
-      Text(quote.paymentInstructions),
+      AppNote(quote.paymentInstructions),
       const SizedBox(height: 16),
       Text('Items: ${CheckoutQuote.money(quote.data['subtotalSen'] as num)}'),
       Text(

@@ -17,11 +17,14 @@
 <body>
   <main>
     <p>Bloom &amp; Bunch KL · Sandbox payment</p>
-    <h1>Return to your order to check payment</h1>
+    <h1>Return to Bloom &amp; Bunch KL</h1>
     <p>Your bank session has ended. Payment confirmation may take a moment.</p>
-    <p>In the app, open your order, choose “View payment / pay”, then “Check payment status”.
-      If the app is still open in another tab, you can return to that tab.</p>
-    <a href="/">Open Bloom &amp; Bunch KL</a>
+    <p id="return-message" role="status">Opening the app to verify your payment. If it does not open automatically, tap below.</p>
+    <a id="open-app" href="bloombunch://payment-return">Open app</a>
+    <p>If you used the website, return to your original tab and check payment status,
+      or <a href="/">continue on the website</a>.</p>
+    <noscript>Open the app and check payment from your order details.</noscript>
   </main>
+  <script src="/payment-return.js"></script>
 </body>
 </html>

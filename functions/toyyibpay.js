@@ -3,6 +3,26 @@ const {createHash, timingSafeEqual} = require('node:crypto');
 const d = require('./domain');
 const BASE_URL = 'https://dev.toyyibpay.com';
 
+// The sandbox stores billExternalReferenceNo in a 50-character field. Keep
+// the full internal SHA256 ID; send and verify an explicit 200-bit reference.
+const externalReference = payment => payment.id.slice(0, 50);
+const matchesReference = (reference, payment) =>
+  typeof reference === 'string' && reference.length > 0 &&
+  (reference === externalReference(payment) || reference === payment.id);
+
+function payerPhone(value) {
+  if (typeof value !== 'string' || value.length > 30 || !/^[+\d\s()-]+$/.test(value)) {
+    d.fail('Enter your phone number on the payment screen, or add it under Profile > Phone Number.', 'failed-precondition');
+  }
+  let phone = value.replace(/[\s()+-]/g, '');
+  if (phone.startsWith('0060')) phone = '0' + phone.slice(4);
+  else if (phone.startsWith('60')) phone = '0' + phone.slice(2);
+  if (!/^0[1-9]\d{7,9}$/.test(phone)) {
+    d.fail('Enter a valid Malaysian payer phone number, for example 0123456789 or +60123456789.', 'failed-precondition');
+  }
+  return phone;
+}
+
 function amountSen(value) {
   const text = String(value ?? '');
   if (!/^\d+(?:\.\d{1,2})?$/.test(text)) d.fail('Invalid payment amount.', 'failed-precondition');
@@ -23,7 +43,7 @@ function verifyCallback(body, secret) {
 function verifiedTransaction(rows, payment) {
   if (!Array.isArray(rows)) d.fail('Payment verification is unavailable. Retry shortly.', 'unavailable');
   return rows.find(row => String(row.billpaymentStatus) === '1' &&
-    row.billExternalReferenceNo === payment.id &&
+    matchesReference(row.billExternalReferenceNo, payment) &&
     amountSen(row.billpaymentAmount) === payment.totalSen &&
     typeof row.billpaymentInvoiceNo === 'string' && row.billpaymentInvoiceNo.length > 0);
 }
@@ -51,11 +71,13 @@ function createGateway({secret, categoryCode, callbackUrl, returnUrl, fetchImpl 
   }
   return {
     async create(payment, payer) {
+      const returnPage = new URL(returnUrl);
+      returnPage.searchParams.set('payment_id', payment.id);
       const result = await post('createBill', {
         userSecretKey: secret, categoryCode, billName: 'Bloom and Bunch Order',
         billDescription: 'Sandbox bouquet order payment', billPriceSetting: '1', billPayorInfo: '1',
-        billAmount: String(payment.totalSen), billReturnUrl: returnUrl, billCallbackUrl: callbackUrl,
-        billExternalReferenceNo: payment.id, billTo: payer.name, billEmail: payer.email,
+        billAmount: String(payment.totalSen), billReturnUrl: returnPage.href, billCallbackUrl: callbackUrl,
+        billExternalReferenceNo: externalReference(payment), billTo: payer.name, billEmail: payer.email,
         billPhone: payer.phone, billPaymentChannel: '0', billSplitPayment: '0',
         billExpiryDate: expiryText(payment.expiresAt.toDate()),
       });
@@ -74,4 +96,4 @@ function createGateway({secret, categoryCode, callbackUrl, returnUrl, fetchImpl 
   };
 }
 
-module.exports = {BASE_URL, amountSen, verifyCallback, verifiedTransaction, expiryText, createGateway};
+module.exports = {BASE_URL, externalReference, matchesReference, payerPhone, amountSen, verifyCallback, verifiedTransaction, expiryText, createGateway};

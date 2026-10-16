@@ -8,12 +8,14 @@ class PaymentSession {
     required this.orderIds,
     this.paymentUrl,
     this.expiresAt,
+    this.payerPhoneRequired = false,
   });
   final String id, status;
   final int totalSen;
   final List<String> orderIds;
   final String? paymentUrl;
   final DateTime? expiresAt;
+  final bool payerPhoneRequired;
 
   bool get paid => status == 'paid';
   bool get needsReview =>
@@ -42,6 +44,7 @@ class PaymentSession {
     totalSen: (data['totalSen'] as num).toInt(),
     orderIds: List<String>.from(data['orderIds'] as List),
     paymentUrl: data['paymentUrl'] as String?,
+    payerPhoneRequired: data['payerPhoneRequired'] == true,
     expiresAt: data['expiresAt'] == null
         ? null
         : DateTime.fromMillisecondsSinceEpoch(
@@ -51,10 +54,15 @@ class PaymentSession {
 }
 
 class PaymentService {
-  Future<PaymentSession> _call(String name, String orderId) async {
-    final result = await FirebaseFunctions.instanceFor(
-      region: 'asia-southeast1',
-    ).httpsCallable(name).call({'orderId': orderId});
+  Future<PaymentSession> _call(
+    String name,
+    String? orderId, [
+    Map<String, dynamic> fields = const {},
+  ]) async {
+    final result =
+        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
+            .httpsCallable(name)
+            .call({'orderId': ?orderId, ...fields});
     return PaymentSession.fromMap(
       Map<String, dynamic>.from(result.data as Map),
     );
@@ -62,6 +70,13 @@ class PaymentService {
 
   Future<PaymentSession> check(String orderId) =>
       _call('checkToyyibpayPayment', orderId);
-  Future<PaymentSession> start(String orderId) =>
-      _call('createToyyibpayPayment', orderId);
+  Future<PaymentSession> checkPayment(String paymentId) =>
+      _call('checkToyyibpayPayment', null, {'paymentId': paymentId});
+  Future<PaymentSession> start(String orderId, {String? payerPhone}) => _call(
+    'createToyyibpayPayment',
+    orderId,
+    payerPhone == null || payerPhone.trim().isEmpty
+        ? const {}
+        : {'payerPhone': payerPhone.trim()},
+  );
 }

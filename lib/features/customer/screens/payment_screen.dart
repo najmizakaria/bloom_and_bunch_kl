@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/payment_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/widgets/page_navigation.dart';
+import '../../../core/widgets/app_note.dart';
 import '../../../core/utils/malaysia_time.dart';
 import 'order_tracking_screen.dart';
 
@@ -12,10 +14,19 @@ class PaymentScreen extends StatefulWidget {
     required this.orderId,
     this.service,
     this.open,
-  });
-  final String orderId;
+    this.orderBuilder,
+  }) : paymentId = null;
+  const PaymentScreen.fromReturn({
+    super.key,
+    required this.paymentId,
+    this.service,
+    this.open,
+    this.orderBuilder,
+  }) : orderId = null;
+  final String? orderId, paymentId;
   final PaymentService? service;
   final Future<bool> Function(Uri)? open;
+  final Widget Function(String, List<String>)? orderBuilder;
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
 }
@@ -25,6 +36,15 @@ class _PaymentScreenState extends State<PaymentScreen>
   PaymentSession? _payment;
   bool _busy = false;
   String? _error;
+  Timer? _retry;
+  int _returnChecks = 0;
+  bool _navigated = false;
+  String? get _orderId => widget.orderId ?? _payment?.orderIds.firstOrNull;
+  final _phoneForm = GlobalKey<FormState>();
+  final _payerPhone = TextEditingController();
+  bool get _needsPhone =>
+      _payment?.payerPhoneRequired == true &&
+      _payment?.status == 'awaiting_bill';
 
   @override
   void initState() {
@@ -36,6 +56,8 @@ class _PaymentScreenState extends State<PaymentScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _retry?.cancel();
+    _payerPhone.dispose();
     super.dispose();
   }
 
@@ -46,15 +68,25 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   Future<void> _check() async {
     if (_busy) return;
+    _retry?.cancel();
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final payment = await (widget.service ?? PaymentService()).check(
-        widget.orderId,
-      );
-      if (mounted) setState(() => _payment = payment);
+      final service = widget.service ?? PaymentService();
+      final payment = widget.paymentId != null
+          ? await service.checkPayment(widget.paymentId!)
+          : await service.check(widget.orderId!);
+      if (!mounted) return;
+      setState(() => _payment = payment);
+      if (widget.paymentId != null) {
+        if (payment.paid) {
+          _viewOrder();
+        } else if (payment.status == 'pending' && ++_returnChecks < 10) {
+          _retry = Timer(const Duration(seconds: 3), _check);
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => _error = OrderService.message(error));
     } finally {
@@ -62,8 +94,25 @@ class _PaymentScreenState extends State<PaymentScreen>
     }
   }
 
+  void _viewOrder() {
+    final id = _orderId;
+    if (id == null || _navigated) return;
+    _navigated = true;
+    final related = _payment?.orderIds ?? const <String>[];
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute<void>(
+        settings: const RouteSettings(name: '/order'),
+        builder: (_) =>
+            widget.orderBuilder?.call(id, related) ??
+            OrderTrackingScreen(orderId: id, relatedOrderIds: related),
+      ),
+    );
+  }
+
   Future<void> _pay() async {
     if (_busy || _payment?.canPay != true) return;
+    if (_needsPhone && _phoneForm.currentState?.validate() != true) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -72,7 +121,8 @@ class _PaymentScreenState extends State<PaymentScreen>
       var payment = _payment!;
       if (payment.checkoutUri == null) {
         payment = await (widget.service ?? PaymentService()).start(
-          widget.orderId,
+          _orderId!,
+          payerPhone: _needsPhone ? _payerPhone.text.trim() : null,
         );
         if (!mounted) return;
         setState(() => _payment = payment);
@@ -131,7 +181,7 @@ class _PaymentScreenState extends State<PaymentScreen>
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Text('ToyyibPay sandbox · Test payments only'),
+          const AppNote('ToyyibPay sandbox · Test payments only'),
           const SizedBox(height: 16),
           if (payment != null)
             Text(
@@ -152,7 +202,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           if (payment != null && payment.orderIds.length > 1)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text(
+              child: AppNote(
                 'This single payment covers all deliveries in this checkout.',
               ),
             ),
@@ -170,6 +220,30 @@ class _PaymentScreenState extends State<PaymentScreen>
               ),
             ),
           const SizedBox(height: 20),
+          if (_needsPhone && payment?.canPay == true) ...[
+            Form(
+              key: _phoneForm,
+              child: TextFormField(
+                controller: _payerPhone,
+                enabled: !_busy,
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                maxLength: 30,
+                decoration: const InputDecoration(
+                  labelText: 'Your phone number for payment',
+                  hintText: '0123456789',
+                  helperText:
+                      'Use your own contact number for the payment receipt.',
+                  helperMaxLines: 3,
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value == null || value.trim().isEmpty
+                    ? 'Enter your phone number to continue.'
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (payment?.canPay == true)
             FilledButton(
               onPressed: _busy ? null : _pay,
@@ -179,22 +253,19 @@ class _PaymentScreenState extends State<PaymentScreen>
                     : 'Open ToyyibPay sandbox',
               ),
             ),
-          OutlinedButton(
-            onPressed: _busy ? null : _check,
-            child: const Text('Check payment status'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => OrderTrackingScreen(orderId: widget.orderId),
-              ),
+          if (payment?.paid != true)
+            OutlinedButton(
+              onPressed: _busy ? null : _check,
+              child: const Text('Check payment status'),
             ),
+          TextButton(
+            onPressed: _orderId == null ? null : _viewOrder,
             child: const Text('View order'),
           ),
-          const Text(
-            'You can reopen payment from your order details. Returning from the bank page alone does not confirm payment.',
-          ),
+          if (payment?.paid != true)
+            const AppNote(
+              'You can reopen payment from your order details. Returning from the bank page alone does not confirm payment.',
+            ),
         ],
       ),
     );

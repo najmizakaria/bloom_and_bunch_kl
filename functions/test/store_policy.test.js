@@ -16,6 +16,16 @@ test('store calendar excludes closures and moves after-cutoff orders forward',()
  assert.equal(p.dateFor(new Date('2026-09-18T10:00:00Z'),0,policy),'2026-09-22');
  assert.equal(p.dateFor(new Date('2026-09-18T10:00:00Z'),2,policy),'2026-09-24');
 });
+
+test('sandbox flower checkout supports free delivery without coverage or capacity setup',()=>{
+ const policy={...base,mode:'toyyibpay_sandbox',deliveryFeeSen:0,serviceArea:null,dailyDeliveryCapacity:0};
+ const q=p.quote(plan,address,new Date('2026-09-21T02:00:00Z'),policy);
+ assert.equal(q.mode,'toyyibpay_sandbox');
+ assert.equal(q.totalSen,13000);
+ assert.equal(q.totalSen,q.subtotalSen);
+ assert.equal(q.deliveryFeeSen,0);
+ assert.ok(q.groups.every(g=>g.deliveryFeeSen===0&&g.totalSen===g.subtotalSen));
+});
 test('outside service area rejected; live policy cannot lack coverage or capacity',()=>{
  assert.throws(()=>p.quote(plan,{latitude:1.35,longitude:103.82},new Date(),base),/outside/);
  assert.throws(()=>p.validate({...base,serviceArea:null}),/require/);

@@ -41,22 +41,22 @@ async function fixture(id, extra = {}) {
   await db.doc('payments/' + id).set({id, customerId: 'pay_buyer', checkoutId: id, orderIds,
     totalSen: 8000, status: 'awaiting_bill', expiresAt: Timestamp.fromMillis(clock + 1800000),
     nextCheckAt: Timestamp.fromMillis(clock + 2100000), ...extra});
-  let calls = 0, rows = [], mayDeactivate = true;
+  let calls = 0, rows = [], mayDeactivate = true, payerValue;
   const gateway = {
-    async create() { calls++; return {billCode: 'bill_' + id, paymentUrl: 'https://dev.toyyibpay.com/bill_' + id}; },
+    async create(_payment, payer) { calls++; payerValue = payer; return {billCode: 'bill_' + id, paymentUrl: 'https://dev.toyyibpay.com/bill_' + id}; },
     async transactions() { return rows; }, async deactivate() { return mayDeactivate; },
   };
   const handlers = createPaymentHandlers({db, getGateway: () => gateway, getSecret: () => 'test-secret', now: () => clock,
     writeAvailableJob(tx, orderId) { tx.set(db.doc('delivery_jobs/' + orderId), {orderId, orderStatus: 'Ready for Delivery'}); },
   });
-  return {handlers, gateway, orderIds, get calls() { return calls; },
+  return {handlers, gateway, orderIds, get calls() { return calls; }, get payer() { return payerValue; },
     set rows(value) { rows = value; }, set mayDeactivate(value) { mayDeactivate = value; }};
 }
 
 test('mixed checkout creates one backend-owned payment and does not publish unpaid delivery jobs', {skip: !enabled}, async () => {
   const policy = require('../store-policy').configured, previous = {...policy};
   try {
-    Object.assign(policy, {mode: MODE, serviceArea: {latitude: 3.139, longitude: 101.687, radiusKm: 20, label: 'KL'}, dailyDeliveryCapacity: 100});
+    Object.assign(policy, {mode: MODE, serviceArea: null, dailyDeliveryCapacity: 0});
     await db.doc('bouquets/pay_checkout').set({name: 'Bouquet', price: 50, isPublished: true,
       readyStock: 5, availableForReadyNow: true, availableForPreOrder: true, recipeStems: {pay_checkout: 2}, leadTimeBusinessDays: 2});
     await db.doc('flowers/pay_checkout').set({name: 'Rose', stockQuantity: 10, reservedQuantity: 0, pricePerStem: 3});
@@ -69,6 +69,7 @@ test('mixed checkout creates one backend-owned payment and does not publish unpa
     assert.deepEqual(await api.placeOrder.run(request), result);
     const id = paymentId('pay_buyer', 'pay_checkout'), payment = (await db.doc('payments/' + id).get()).data();
     assert.equal(payment.totalSen, 10000); assert.equal(payment.orderIds.length, 2);
+    assert.equal(payment.capacityReserved, false);
     for (const orderId of result.orderIds) {
       assert.equal((await db.doc('orders/' + orderId).get()).data().paymentId, id);
       assert.equal((await db.doc('delivery_jobs/' + orderId).get()).exists, false);
@@ -84,6 +85,25 @@ test('one bill per checkout survives racing clicks and repeated payment opening'
   assert.equal(f.calls, 1); assert.ok(results.some(r => r.paymentUrl));
   assert.equal((await f.handlers.create(req('pay_buyer', 'pay_race'))).paymentUrl, 'https://dev.toyyibpay.com/bill_pay_race');
   assert.equal(f.calls, 1);
+});
+
+test('blank signup phone requests payer contact before claiming a bill; explicit phone retries the same checkout', {skip: !enabled}, async () => {
+  const profile = db.doc('users/pay_buyer'), original = (await profile.get()).data().phone;
+  const id = 'pay_missing_phone', f = await fixture(id);
+  await profile.update({phone: ''});
+  try {
+    assert.equal((await f.handlers.status(req('pay_buyer', id))).payerPhoneRequired, true);
+    await assert.rejects(() => f.handlers.create(req('pay_buyer', id)), e => e.code === 'failed-precondition' && /Profile > Phone Number/.test(e.message));
+    assert.equal(f.calls, 0);
+    assert.equal((await db.doc('payments/' + id).get()).data().status, 'awaiting_bill');
+    const request = req('pay_buyer', id);
+    request.data.payerPhone = '+60 12-3456789';
+    assert.equal((await f.handlers.create(request)).status, 'pending');
+    assert.equal(f.calls, 1);
+    assert.equal(f.payer.phone, '0123456789');
+    assert.equal((await profile.get()).data().phone, '');
+    assert.equal((await f.handlers.status(req('pay_buyer', id))).payerPhoneRequired, false);
+  } finally { await profile.update({phone: original}); }
 });
 
 test('lost bill response is never blindly retried as another remote bill', {skip: !enabled}, async () => {
@@ -118,6 +138,42 @@ test('forged callbacks, wrong bill, wrong amount and wrong reference never fulfi
   body.hash = createHash('md5').update('test-secret1' + id + 'REFok').digest('hex');
   await assert.rejects(() => f.handlers.callback(body));
   for (const order of f.orderIds) assert.equal((await db.doc('orders/' + order).get()).data().paymentStatus, 'pending');
+});
+
+test('64-character payment IDs settle through manual checks and signed shortened-reference callbacks', {skip: !enabled}, async () => {
+  for (const method of ['status', 'callback']) {
+    const id = paymentId('pay_buyer', 'real_length_' + method);
+    const f = await fixture(id);
+    await f.handlers.create(req('pay_buyer', id));
+    const reference = id.slice(0, 50);
+    f.rows = [paidRow(reference)];
+    if (method === 'status') {
+      assert.equal((await f.handlers.status(req('pay_buyer', id))).status, 'paid');
+    } else {
+      const callback = (order_id, billcode = 'bill_' + id) => ({status: '1', order_id, billcode, refno: 'REF',
+        hash: createHash('md5').update('test-secret1' + order_id + 'REFok').digest('hex')});
+      await assert.rejects(() => f.handlers.callback(callback('b'.repeat(50))));
+      await assert.rejects(() => f.handlers.callback(callback(reference, 'wrong_bill')));
+      assert.equal((await f.handlers.callback(callback(reference))).status, 'paid');
+      assert.equal((await f.handlers.callback(callback(reference))).status, 'paid');
+    }
+    for (const orderId of f.orderIds) {
+      assert.equal((await db.doc('orders/' + orderId).get()).data().paymentStatus, 'paid');
+    }
+    assert.equal((await db.doc('delivery_jobs/' + f.orderIds[0]).get()).exists, true);
+  }
+});
+
+test('a signed callback cannot choose between duplicate stored bill mappings', {skip: !enabled}, async () => {
+  const id = paymentId('pay_buyer', 'duplicate_bill_mapping');
+  const f = await fixture(id);
+  await f.handlers.create(req('pay_buyer', id));
+  await db.doc('payments/duplicate_bill_record').set({billCode: 'bill_' + id});
+  f.rows = [paidRow(id.slice(0, 50))];
+  const body = {status: '1', order_id: id.slice(0, 50), billcode: 'bill_' + id, refno: 'REF'};
+  body.hash = createHash('md5').update('test-secret1' + body.order_id + 'REFok').digest('hex');
+  await assert.rejects(() => f.handlers.callback(body));
+  assert.equal((await db.doc('payments/' + id).get()).data().status, 'pending');
 });
 
 test('customers cannot access other payments; unauthenticated callables are rejected', {skip: !enabled}, async () => {

@@ -27,7 +27,7 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
     if (!snapshot.exists || snapshot.data().customerId !== req.auth.uid || !profile.exists || profile.data().deletionPending) {
       d.fail('You cannot access this payment.', 'permission-denied');
     }
-    return snapshot;
+    return {snapshot, profile};
   }
 
   async function settle(id, transaction) {
@@ -62,7 +62,7 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
   }
 
   async function create(req) {
-    const snapshot = await owned(req), ref = snapshot.ref;
+    const {snapshot} = await owned(req), ref = snapshot.ref;
     const gateway = getGateway(); // Validate server configuration before any write.
     const claim = await db.runTransaction(async tx => {
       const latest = await tx.get(ref), p = latest.data();
@@ -71,7 +71,8 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
       if (p.status !== 'awaiting_bill') return {existing: view(p)};
       if (p.expiresAt.toMillis() <= now()) d.fail('This payment has expired. Check payment status.', 'failed-precondition');
       const payer = {name: d.text(user.data()?.name, 'payer name', 120),
-        email: d.text(user.data()?.email, 'payer email', 254), phone: d.text(user.data()?.phone, 'payer phone', 30)};
+        email: d.text(user.data()?.email, 'payer email', 254),
+        phone: gatewayApi.payerPhone(req.data?.payerPhone ?? user.data()?.phone)};
       // Never repeat an ambiguous createBill call: the remote API has no idempotency key.
       tx.update(ref, {status: 'creating', updatedAt: FieldValue.serverTimestamp()});
       return {p, payer};
@@ -99,8 +100,12 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
 
   async function callback(body) {
     if (!gatewayApi.verifyCallback(body, getSecret())) d.fail('Invalid payment callback.', 'permission-denied');
-    const snapshot = await refFor(body.order_id).get();
-    if (!snapshot.exists || !snapshot.data().billCode || snapshot.data().billCode !== body.billcode) {
+    // Provider callbacks carry the 50-character reference, not our full
+    // Firestore document ID. Resolve the server-stored bill first, then require
+    // its exact reference and re-query the provider before any settlement.
+    const matches = await db.collection('payments').where('billCode', '==', d.id(body.billcode)).limit(2).get();
+    const snapshot = matches.docs[0];
+    if (matches.size !== 1 || !gatewayApi.matchesReference(body.order_id, snapshot.data())) {
       d.fail('Payment bill is not ready for verification.', 'failed-precondition');
     }
     // Never trust status/amount from a redirect or callback alone.
@@ -171,7 +176,16 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
   }
 
   return {create, callback, expire,
-    status: async req => reconcile(await owned(req)),
+    status: async req => {
+      const {snapshot, profile} = await owned(req);
+      const result = await reconcile(snapshot);
+      let payerPhoneRequired = false;
+      if (result.status === 'awaiting_bill') {
+        try { gatewayApi.payerPhone(profile.data().phone); }
+        catch (_) { payerPhoneRequired = true; }
+      }
+      return {...result, payerPhoneRequired};
+    },
     async sweep() {
       const due = await db.collection('payments').where('nextCheckAt', '<=', Timestamp.fromMillis(now())).limit(50).get();
       for (const snapshot of due.docs) {

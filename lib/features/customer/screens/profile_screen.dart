@@ -9,6 +9,7 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/widgets/reauthentication_dialog.dart';
 import '../../../core/widgets/legal_documents.dart';
+import '../../../core/widgets/phone_number_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/firestore_service.dart';
@@ -86,49 +87,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final controller = TextEditingController(text: currentPhone);
-    await showDialog(
+    await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Phone Number'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.phone,
-          maxLength: 30,
-          decoration: const InputDecoration(hintText: 'e.g. 012-3456789'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-            onPressed: () async {
-              try {
-                if (FirebaseAuth.instance.currentUser?.uid != uid) return;
-                await FirestoreService().updateUserFields(uid, {
-                  'phone': controller.text.trim(),
-                });
-                if (context.mounted) Navigator.pop(context);
-              } catch (_) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Could not save your phone number. Please retry.',
-                      ),
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
+      barrierDismissible: false,
+      builder: (_) => PhoneNumberDialog(
+        currentPhone: currentPhone,
+        onSave: (phone) async {
+          if (FirebaseAuth.instance.currentUser?.uid != uid) {
+            throw StateError('Your account changed. Please sign in again.');
+          }
+          await FirestoreService().updateUserFields(uid, {'phone': phone});
+        },
       ),
     );
-    controller.dispose();
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
