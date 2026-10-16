@@ -70,3 +70,7 @@ ios/Flutter/AppKeys.xcconfig
 android/key.properties
 *.jks
 *.keystore
+
+# Temporary files and dependencies
+/tmp/
+node_modules/
