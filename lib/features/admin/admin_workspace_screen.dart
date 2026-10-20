@@ -7,9 +7,11 @@ import '../../core/services/admin_service.dart';
 import '../support/store_operations_screen.dart';
 import '../../core/widgets/firestore_page.dart';
 import '../../core/theme/app_colors.dart';
+import 'admin_layout.dart';
 
 class AdminWorkspaceScreen extends StatefulWidget {
-  const AdminWorkspaceScreen({super.key});
+  const AdminWorkspaceScreen({super.key, this.embedded = false});
+  final bool embedded;
 
   @override
   State<AdminWorkspaceScreen> createState() => _AdminWorkspaceScreenState();
@@ -110,118 +112,159 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        leading: const PageBackButton(),
-        centerTitle: false,
-        title: const Text('Admin workspace'),
-        actions: [
-          IconButton(
-            tooltip: 'Store support',
-            icon: const Icon(Icons.support_agent),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const StoreOperationsScreen()),
-            ),
-          ),
-
-          IconButton(
-            tooltip: 'Sync available delivery jobs',
-            icon: _syncingJobs
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.primary,
+      backgroundColor: AppColors.softBlushStart,
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              leading: const PageBackButton(),
+              centerTitle: false,
+              title: const Text('Admin workspace'),
+              actions: [
+                IconButton(
+                  tooltip: 'Store support',
+                  icon: const Icon(Icons.support_agent),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StoreOperationsScreen(),
                     ),
-                  )
-                : const Icon(Icons.sync),
-            onPressed: _syncingJobs ? null : _syncDeliveryJobs,
-          ),
-        ],
-      ),
-      body: FirestorePage(
-        query: FirebaseFirestore.instance
-            .collection('rider_applications')
-            .where('status', isEqualTo: 'pending')
-            .orderBy('submittedAt'),
-        emptyMessage: 'No pending rider applications.',
-        builder: (context, applications) {
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: applications.length,
-            itemBuilder: (context, index) {
-              final document = applications[index];
-              final data = document.data();
-              final name = (data['name'] ?? 'Applicant').toString();
-              final busy = _reviewing.contains(document.id);
-
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(name, style: const AppTypography.sectionTitle()),
-                      const SizedBox(height: 8),
-                      _Detail(icon: Icons.phone_outlined, text: data['phone']),
-                      _Detail(
-                        icon: Icons.two_wheeler_outlined,
-                        text: data['vehicleType'],
-                      ),
-                      if ((data['reason'] ?? '').toString().trim().isNotEmpty)
-                        _Detail(
-                          icon: Icons.notes_outlined,
-                          text: data['reason'],
-                        ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: busy
-                                  ? null
-                                  : () => _confirmReview(
-                                      document.id,
-                                      name,
-                                      false,
-                                    ),
-                              child: const Text('Reject'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.primaryDark,
-                              ),
-                              onPressed: busy
-                                  ? null
-                                  : () =>
-                                        _confirmReview(document.id, name, true),
-                              child: busy
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text('Approve'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
                 ),
-              );
-            },
-          );
-        },
+
+                IconButton(
+                  tooltip: 'Sync available delivery jobs',
+                  icon: _syncingJobs
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
+                        )
+                      : const Icon(Icons.sync),
+                  onPressed: _syncingJobs ? null : _syncDeliveryJobs,
+                ),
+              ],
+            ),
+      body: AdminPage(
+        child: FirestorePage(
+          query: FirebaseFirestore.instance
+              .collection('rider_applications')
+              .where('status', isEqualTo: 'pending')
+              .orderBy('submittedAt'),
+          emptyMessage: 'No pending rider applications.',
+          pageBuilder: (context, applications, pagination) {
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 24),
+              itemCount: (applications.isEmpty ? 1 : applications.length) + 2,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: AdminHeading(
+                      title: 'Rider applications',
+                      subtitle:
+                          'Review pending applications and manage available delivery jobs.',
+                      actions: [
+                        OutlinedButton.icon(
+                          onPressed: _syncingJobs ? null : _syncDeliveryJobs,
+                          icon: const Icon(Icons.sync),
+                          label: Text(
+                            _syncingJobs ? 'Syncing…' : 'Sync delivery jobs',
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                if (index ==
+                    (applications.isEmpty ? 1 : applications.length) + 1) {
+                  return pagination;
+                }
+                if (applications.isEmpty) {
+                  return const AdminEmpty(
+                    'No pending rider applications.',
+                    icon: Icons.person_add_alt,
+                  );
+                }
+                final document = applications[index - 1];
+                final data = document.data();
+                final name = (data['name'] ?? 'Applicant').toString();
+                final busy = _reviewing.contains(document.id);
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: const AppTypography.sectionTitle()),
+                        const SizedBox(height: 8),
+                        _Detail(
+                          icon: Icons.phone_outlined,
+                          text: data['phone'],
+                        ),
+                        _Detail(
+                          icon: Icons.two_wheeler_outlined,
+                          text: data['vehicleType'],
+                        ),
+                        if ((data['reason'] ?? '').toString().trim().isNotEmpty)
+                          _Detail(
+                            icon: Icons.notes_outlined,
+                            text: data['reason'],
+                          ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: busy
+                                    ? null
+                                    : () => _confirmReview(
+                                        document.id,
+                                        name,
+                                        false,
+                                      ),
+                                child: const Text('Reject'),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: FilledButton(
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.primaryDark,
+                                ),
+                                onPressed: busy
+                                    ? null
+                                    : () => _confirmReview(
+                                        document.id,
+                                        name,
+                                        true,
+                                      ),
+                                child: busy
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Text('Approve'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }

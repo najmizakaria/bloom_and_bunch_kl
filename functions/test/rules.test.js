@@ -3,6 +3,14 @@ const {readFileSync}=require('node:fs');
 const {initializeTestEnvironment,assertFails,assertSucceeds}=require('@firebase/rules-unit-testing');
 const {doc,setDoc,updateDoc,getDoc,collection,getDocs,query,where,Timestamp,deleteDoc,deleteField}=require('firebase/firestore');
 const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
+test('admin-only collections cannot be forged and profiles remain owner-only',{skip:!enabled},async()=>{
+ const admin=env.authenticatedContext('admin').firestore(),customer=env.authenticatedContext('customer').firestore();
+ for(const name of ['admin_alerts','admin_audit']){await assertSucceeds(getDocs(collection(admin,name)));await assertFails(getDocs(collection(customer,name)));await assertFails(setDoc(doc(admin,name,'forged'),{action:'fake'}));}
+ await assertFails(getDoc(doc(admin,'users','customer')));
+ await assertFails(updateDoc(doc(admin,'users','customer'),{roles:['admin'],role:'admin',activeRole:'admin'}));
+ await assertFails(updateDoc(doc(customer,'users','customer'),{createdByAdmin:true}));
+ await assertFails(setDoc(doc(admin,'rider_locations','admin'),{latitude:3,longitude:101}));
+});
 let env;
 before(async()=>{if(!enabled)return;
  env=await initializeTestEnvironment({projectId:'demo-bloom',firestore:{rules:readFileSync('../firestore.rules','utf8')}});

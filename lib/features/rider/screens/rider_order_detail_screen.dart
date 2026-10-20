@@ -1,3 +1,4 @@
+import '../../../core/widgets/map_access.dart';
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/widgets/live_order_detail.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
@@ -228,26 +229,28 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
                         ),
                       ),
                     )
-                  : GoogleMap(
-                      key: ValueKey(
-                        '${_deliveryLocation!.latitude},${_deliveryLocation!.longitude}',
-                      ),
-                      initialCameraPosition: CameraPosition(
-                        target: _deliveryLocation!,
-                        zoom: 15.0,
-                      ),
-                      markers: {
-                        Marker(
-                          markerId: const MarkerId('delivery_dropoff'),
-                          position: _deliveryLocation!,
-                          infoWindow: InfoWindow(
-                            title: widget.order.recipientName,
-                          ),
-                          icon: BitmapDescriptor.defaultMarkerWithHue(
-                            BitmapDescriptor.hueOrange,
-                          ),
+                  : MapAccess(
+                      child: GoogleMap(
+                        key: ValueKey(
+                          '${_deliveryLocation!.latitude},${_deliveryLocation!.longitude}',
                         ),
-                      },
+                        initialCameraPosition: CameraPosition(
+                          target: _deliveryLocation!,
+                          zoom: 15.0,
+                        ),
+                        markers: {
+                          Marker(
+                            markerId: const MarkerId('delivery_dropoff'),
+                            position: _deliveryLocation!,
+                            infoWindow: InfoWindow(
+                              title: widget.order.recipientName,
+                            ),
+                            icon: BitmapDescriptor.defaultMarkerWithHue(
+                              BitmapDescriptor.hueOrange,
+                            ),
+                          ),
+                        },
+                      ),
                     ),
             ),
 

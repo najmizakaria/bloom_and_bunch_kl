@@ -32,7 +32,30 @@
   <title>bloombunch</title>
   <link rel="manifest" href="manifest.json">
   <!-- API KEY -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=%%MAPS_API_KEY_WEB%%"></script>
+  <script>
+    window.bloomLoadMaps = function (providedKey) {
+      if (window.google && window.google.maps) return Promise.resolve(true);
+      const configuredKey = '%%MAPS_API_KEY_WEB%%';
+      const key = providedKey || (configuredKey.includes('%%') ? '' : configuredKey);
+      if (!key) return Promise.reject(new Error('Maps web configuration missing'));
+      if (window.bloomMapsPromise) return window.bloomMapsPromise;
+      window.bloomMapsPromise = new Promise(function (resolve, reject) {
+        const script = document.createElement('script');
+        const timer = setTimeout(failed, 20000);
+        function failed() {
+          clearTimeout(timer);
+          script.remove();
+          window.bloomMapsPromise = null;
+          reject(new Error('Maps could not load'));
+        }
+        window.bloomMapsLoaded = function () { clearTimeout(timer); resolve(true); };
+        script.onerror = failed;
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=bloomMapsLoaded&loading=async';
+        document.head.appendChild(script);
+      });
+      return window.bloomMapsPromise;
+    };
+  </script>
 </head>
 <body>
   <!--

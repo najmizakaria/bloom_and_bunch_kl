@@ -92,6 +92,24 @@ class _AuthGateState extends State<AuthGate> {
             }
 
             final UserModel user = userSnapshot.data!;
+            if (user.accountSuspended) {
+              return const Scaffold(
+                body: Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Your account is suspended. Contact the store for help.',
+                        ),
+                        LogoutTile(),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
 
             // 4. Role-based Navigation
             switch (user.activeRole) {

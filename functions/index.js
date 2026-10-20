@@ -24,7 +24,7 @@ const db=getFirestore();
 // protocol can validate their ID token. Application authorization still runs
 // in callable() and in each role-specific handler below.
 const options={region:'asia-southeast1',maxInstances:10,invoker:'public',enforceAppCheck:process.env.ENFORCE_APP_CHECK==='true'};
-function hasRole(profile,role){return profile?.role===role||(Array.isArray(profile?.roles)&&profile.roles.includes(role));}
+function hasRole(profile,role){return !profile?.accountSuspended&&(profile?.role===role||(Array.isArray(profile?.roles)&&profile.roles.includes(role)));}
 function deliveryEligible(order){return order?.riderId==null&&typeof order?.deliveryAddress==='string'&&order.deliveryAddress.trim().length>0&&
  Number.isFinite(order.latitude)&&Math.abs(order.latitude)<=90&&Number.isFinite(order.longitude)&&Math.abs(order.longitude)<=180;}
 function deliveryArea(address){
@@ -42,10 +42,16 @@ function writeAvailableJob(tx,orderId,order){
   createdAt:order.createdAt??FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
 }
 function callable(handler,extra={}){return onCall({...options,...extra},async req=>{
- try {if(!req.auth)throw new HttpsError('unauthenticated','Please sign in.');return await handler(req);}
+ try {if(!req.auth)throw new HttpsError('unauthenticated','Please sign in.');
+ const profile=await db.doc('users/'+req.auth.uid).get();
+ if(profile.data()?.accountSuspended)throw new HttpsError('permission-denied','Your account is suspended. Contact the store.');
+ return await handler(req);}
  catch(e){if(e instanceof HttpsError)throw e;if(e instanceof d.OrderError)throw new HttpsError(e.code,e.message);console.error(e);throw new HttpsError('internal','Unable to finish this action. Please retry.');}
 });}
 exports.getAssignedRiderContact=callable(riderContact.createContactHandler({db,hasRole}));
+const adminHandlers=require('./admin-operations').createAdminHandlers({db,auth:require('firebase-admin/auth').getAuth(),defaultPolicy:storePolicy.configured});
+for(const [name,handler]of Object.entries({adminSummary:'summary',adminInventoryAlerts:'inventoryAlerts',adminOrders:'orders',adminPeople:'people',adminCreateStaff:'createStaff',adminUpdateStaff:'updateStaff',adminRiders:'riders',publishRiderLocation:'location',saveAdminPreferences:'preferences',adminStorePolicy:'policy',saveAdminStorePolicy:'savePolicy'}))exports[name]=callable(req=>adminHandlers[handler](req));
+async function readStorePolicy(tx){const s=await tx.get(db.doc('store_settings/operations'));return {...storePolicy.configured,...s.data()};}
 async function readPlan(tx, items) {
  const bouquets={},flowers={};
  for(const key of new Set(items.filter(i=>i.bouquetId).map(i=>i.bouquetId))){const s=await tx.get(db.doc('bouquets/'+key));if(s.exists)bouquets[key]=s.data();}
@@ -61,7 +67,7 @@ exports.quoteCheckout=callable(async req=>{
   const profile=await tx.get(db.doc('users/'+req.auth.uid));
   if(!hasRole(profile.data(),'customer')||profile.data()?.deletionPending)d.fail('Customer access required.','permission-denied');
   const {plan}=await readPlan(tx,items);
-  return storePolicy.quote(plan,address);
+  return storePolicy.quote(plan,address,new Date(),await readStorePolicy(tx));
  });
 });
 exports.placeOrder=callable(async req=>{
@@ -89,16 +95,17 @@ exports.placeOrder=callable(async req=>{
   if(JSON.stringify(submittedAddress)!==JSON.stringify(confirmedAddress))d.fail('Your saved address changed. Select it again and confirm the delivery location.','failed-precondition');
   if(!deliveryEligible({...submittedAddress,riderId:null}))d.fail('Confirm a delivery pin in your Address Book before ordering.','failed-precondition');
   const {plan,bouquets,flowers}=await readPlan(tx,items);
-  const quote=storePolicy.quote(plan,submittedAddress);
+  const policy=await readStorePolicy(tx);
+  const quote=storePolicy.quote(plan,submittedAddress,new Date(),policy);
   if(quote.mode===payments.MODE&&quote.totalSen<100)d.fail('Online payment requires a total of at least RM 1.00.','failed-precondition');
   if((payload.quoteId||quote.mode!=='demo')&&payload.quoteId!==quote.quoteId)d.fail('Delivery details changed. Refresh your order summary before confirming.','failed-precondition');
   const total=quote.totalSen;
   if(total!==expectedCents)d.fail('Prices have changed. Refresh the items in your cart before ordering.','failed-precondition');
   const counts={};for(const g of quote.groups)counts[g.date]=(counts[g.date]??0)+1;
   const capacity=[];
-  if(storePolicy.configured.dailyDeliveryCapacity>0)for(const [date,count]of Object.entries(counts)){
+  if(policy.dailyDeliveryCapacity>0)for(const [date,count]of Object.entries(counts)){
    const ref=db.doc('delivery_capacity/'+date),s=await tx.get(ref),used=s.data()?.acceptedGroups??0;
-   if(used+count>storePolicy.configured.dailyDeliveryCapacity)d.fail('Delivery capacity is full for the estimated date. Contact the store or try later.','failed-precondition');
+   if(used+count>policy.dailyDeliveryCapacity)d.fail('Delivery capacity is full for the estimated date. Contact the store or try later.','failed-precondition');
    capacity.push({ref,acceptedGroups:used+count});
   }
   // A shared profile write serializes checkout against account deletion.
@@ -140,7 +147,7 @@ exports.placeOrder=callable(async req=>{
    tx.create(db.doc('payments/'+id),{id,customerId:uid,checkoutId,orderIds,totalSen:total,
     status:'awaiting_bill',provider:'toyyibpay',environment:'sandbox',expiresAt,
     nextCheckAt:Timestamp.fromMillis(expiresAt.toMillis()+5*60000),
-    capacityReserved:storePolicy.configured.dailyDeliveryCapacity>0,
+    capacityReserved:policy.dailyDeliveryCapacity>0,
     createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
   }
   return {orderIds};
@@ -161,6 +168,7 @@ const paymentHandlers=payments.createPaymentHandlers({db,writeAvailableJob,
 const paymentOptions={secrets:[paymentSecret]};
 exports.createToyyibpayPayment=callable(req=>paymentHandlers.create(req),paymentOptions);
 exports.checkToyyibpayPayment=callable(req=>paymentHandlers.status(req),paymentOptions);
+exports.adminCheckPayment=callable(req=>paymentHandlers.adminStatus(req),paymentOptions);
 exports.toyyibpayCallback=onRequest({...options,...paymentOptions},async(req,res)=>{
  res.set('Cache-Control','no-store');
  if(req.method!=='POST'){res.status(405).send('POST required');return;}
@@ -218,7 +226,7 @@ exports.transitionOrder=callable(async req=>{
   if(user.data()?.deletionPending)d.fail('Account deletion is in progress.','failed-precondition');
    const ref=db.collection('orders').doc(orderId),snapshot=await tx.get(ref);
   if(!snapshot.exists)d.fail('Order no longer exists.','not-found');
-   const o=snapshot.data(),status=o.orderStatus,updates={updatedAt:FieldValue.serverTimestamp()};
+   const o=snapshot.data(),status=o.orderStatus,updates={updatedAt:FieldValue.serverTimestamp(),updatedBy:uid};
    const florist=hasRole(user.data(),'florist')||hasRole(user.data(),'admin');
    const jobRef=db.collection('delivery_jobs').doc(orderId);
    if(payments.requiresPayment(o)&&['accept','prepare','ready','deliver'].includes(action))
@@ -243,6 +251,7 @@ exports.transitionOrder=callable(async req=>{
     if(status!=='Out for Delivery')d.fail('This order is not out for delivery.','failed-precondition');
     if(o.support?.status==='open')d.fail('Resolve the open delivery issue before confirming delivery.','failed-precondition');
     Object.assign(updates,{orderStatus:'Awaiting Customer Confirmation',deliveryWorkflowVersion:2,deliveredAt:FieldValue.serverTimestamp()});
+    tx.delete(db.doc('rider_locations/'+uid));
     tx.delete(jobRef);
   }else if(action==='confirmReceived'){
    if(!hasRole(user.data(),'customer')||o.customerId!==uid)d.fail('Only the owning customer can confirm receipt.','permission-denied');
@@ -362,7 +371,7 @@ exports.resolveOrderIssue=callable(async req=>{
   const issueRef=o.support.id?ref.collection('issues').doc(o.support.id):ref.collection('issues').doc();
   const support={...o.support,id:issueRef.id,status:'resolved',response,resolvedBy:hasRole(profile.data(),'admin')?'admin':'florist',resolvedAt:FieldValue.serverTimestamp()};
   tx.set(issueRef,support);
-  tx.update(ref,{support});
+  tx.update(ref,{support,updatedBy:req.auth.uid});
   return {saved:true};
  });
 });
@@ -374,7 +383,7 @@ exports.confirmManualPayment=callable(async req=>{
   if(o?.orderMode!=='manual')d.fail('This order does not use manual payment.','failed-precondition');
   if(o.paymentStatus==='paid')return {saved:true};
   if(o.orderStatus==='Cancelled')d.fail('Cancelled orders require store review.','failed-precondition');
-  tx.update(ref,{paymentStatus:'paid',paidAt:FieldValue.serverTimestamp()});return {saved:true};
+  tx.update(ref,{paymentStatus:'paid',paidAt:FieldValue.serverTimestamp(),updatedBy:req.auth.uid});return {saved:true};
  });
 });
 
@@ -407,6 +416,7 @@ exports.reviewRiderApplication=callable(async req=>{
    reviewedAt:FieldValue.serverTimestamp(),
    reviewedBy:reviewerId,
    });
+   tx.create(db.collection('admin_audit').doc(),{actorId:reviewerId,action:'rider_application_'+decision,target:applicantId,createdAt:FieldValue.serverTimestamp()});
    if(decision==='approved'){
     const profile=applicant.data();
     const roles=Array.from(new Set([...(Array.isArray(profile.roles)?profile.roles:[profile.role??'customer']),'customer','rider']));
@@ -507,6 +517,25 @@ exports.deleteAddress=callable(req=>changeAddress(req,'delete'));
 
 const {getAuth}=require('firebase-admin/auth');
 const {onDocumentCreated,onDocumentUpdated}=require('firebase-functions/v2/firestore');
+async function adminAlert(event,kind,title,orderId=null){
+ const id=createHash('sha256').update(event.id).digest('hex');
+ await db.doc('admin_alerts/'+id).set({kind,title,orderId,createdAt:FieldValue.serverTimestamp()});
+}
+exports.alertAdminOrderCreated=onDocumentCreated({document:'orders/{orderId}',region:'asia-southeast1',retry:true},e=>adminAlert(e,'orders','New order received',e.params.orderId));
+exports.alertAdminOrderChanged=onDocumentUpdated({document:'orders/{orderId}',region:'asia-southeast1',retry:true},async e=>{
+ const before=e.data.before.data(),after=e.data.after.data();
+ if(before.orderStatus!==after.orderStatus||before.paymentStatus!==after.paymentStatus||before.support?.status!==after.support?.status)
+ await adminAlert(e,'orders',after.support?.status==='open'?'Order needs support':`Order ${after.orderStatus}`,e.params.orderId);
+});
+exports.alertAdminApplication=onDocumentCreated({document:'rider_applications/{uid}',region:'asia-southeast1',retry:true},e=>adminAlert(e,'riders','New rider application'));
+exports.alertAdminStock=onDocumentUpdated({document:'flowers/{id}',region:'asia-southeast1',retry:true},async e=>{
+ const available=p=>(p.stockQuantity??0)-(p.reservedQuantity??0);
+ if(available(e.data.before.data())>5&&available(e.data.after.data())<=5)await adminAlert(e,'orders','Flower stock is running low');
+});
+exports.auditAdminOrder=onDocumentUpdated({document:'orders/{orderId}',region:'asia-southeast1',retry:true},async e=>{
+ const a=e.data.before.data(),b=e.data.after.data();if(a.orderStatus===b.orderStatus&&a.paymentStatus===b.paymentStatus&&a.support?.status===b.support?.status)return;
+ await db.doc('admin_audit/'+createHash('sha256').update(e.id).digest('hex')).set({actorId:b.updatedBy??'system',action:'order_updated',target:e.params.orderId,status:b.orderStatus,paymentStatus:b.paymentStatus??'',createdAt:FieldValue.serverTimestamp()});
+});
 const activeStatuses=['Pending','Awaiting Preparation','Processing','Ready for Delivery','Out for Delivery','Awaiting Customer Confirmation'];
 async function processAccountDeletion(uid){
  const task=db.doc(`account_deletions/${uid}`);
@@ -539,6 +568,8 @@ async function processAccountDeletion(uid){
  }
  const devices=await db.collection('notification_devices').where('uid','==',uid).get();
  for(const device of devices.docs)await device.ref.delete();
+ await db.doc('rider_locations/'+uid).delete();
+ await db.doc('admin_preferences/'+uid).delete();
  await db.recursiveDelete(db.doc(`users/${uid}`));
  await db.doc(`rider_applications/${uid}`).delete();
  await task.set({status:'completed',completedAt:FieldValue.serverTimestamp()},{merge:true});
@@ -562,6 +593,23 @@ exports.deleteAccount=callable(async req=>{
 exports.finishAccountDeletion=onDocumentCreated({document:'account_deletions/{uid}',region:'asia-southeast1',retry:true},event=>processAccountDeletion(event.params.uid));
 
 const {getMessaging}=require('firebase-admin/messaging');
+exports.pushAdminAlert=onDocumentCreated({document:'admin_alerts/{id}',region:'asia-southeast1',retry:true},async event=>{
+ if(process.env.FUNCTIONS_EMULATOR==='true'&&process.env.GCLOUD_PROJECT?.startsWith('demo-'))return;
+ const alert=event.data?.data();if(!alert)return;
+ const marker=db.doc('admin_notification_events/'+event.params.id);
+ const acquired=await db.runTransaction(async tx=>{const old=await tx.get(marker);if(old.data()?.state==='sent')return false;if(old.data()?.leaseUntil?.toMillis()>Date.now())d.fail('Alert delivery is in progress.','unavailable');tx.set(marker,{state:'sending',leaseUntil:Timestamp.fromMillis(Date.now()+60000)});return true;});
+ if(!acquired)return;
+ try{
+  const administrators=await db.collection('users').where(Filter.or(Filter.where('role','==','admin'),Filter.where('roles','array-contains','admin'))).get();
+  for(const admin of administrators.docs){const p=admin.data();if(p.accountSuspended||p.deletionPending||p.notificationsEnabled!==true)continue;
+   const preference=await db.doc('admin_preferences/'+admin.id).get();if(preference.data()?.[alert.kind]===false)continue;
+   const devices=await db.collection('notification_devices').where('uid','==',admin.id).limit(20).get();if(devices.empty)continue;
+   const result=await getMessaging().sendEachForMulticast({tokens:devices.docs.map(d=>d.data().token),notification:{title:'Bloom & Bunch admin',body:alert.title},data:{adminAlertId:event.params.id,adminUid:admin.id},webpush:{notification:{tag:event.params.id}}});
+   for(let i=0;i<result.responses.length;i++){const code=result.responses[i].error?.code;if(['messaging/registration-token-not-registered','messaging/invalid-registration-token'].includes(code))await devices.docs[i].ref.delete();else if(code)throw new Error('Admin alert delivery needs retry.');}
+  }
+  await marker.set({state:'sent',sentAt:FieldValue.serverTimestamp()});
+ }catch(e){await marker.set({state:'pending'});throw e;}
+});
 exports.updateNotificationSettings=callable(async req=>{
  const enabled=req.data?.enabled,token=req.data?.token;
  if(typeof enabled!=='boolean')d.fail('Invalid notification preference.');

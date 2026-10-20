@@ -176,6 +176,16 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
   }
 
   return {create, callback, expire,
+    async adminStatus(req) {
+      const profile=(await db.doc('users/'+req.auth.uid).get()).data();
+      if(!profile||profile.deletionPending||profile.accountSuspended||!(profile.role==='admin'||profile.roles?.includes('admin')))d.fail('Administrator access required.','permission-denied');
+      const order=await db.doc('orders/'+d.id(req.data?.orderId)).get();
+      if(!order.exists||order.data().orderMode!==MODE||!order.data().paymentId)d.fail('Sandbox payment not found.','failed-precondition');
+      const snapshot=await refFor(order.data().paymentId).get();if(!snapshot.exists)d.fail('Payment record missing.','not-found');
+      const result=await reconcile(snapshot);
+      await db.collection('admin_audit').add({actorId:req.auth.uid,action:'payment_verified',target:order.id,status:result.status,createdAt:FieldValue.serverTimestamp()});
+      return result;
+    },
     status: async req => {
       const {snapshot, profile} = await owned(req);
       const result = await reconcile(snapshot);

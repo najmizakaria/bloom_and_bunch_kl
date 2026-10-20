@@ -8,6 +8,7 @@ import '../../../core/widgets/logout_tile.dart';
 import '../../../models/order_model.dart';
 import '../../../models/user_model.dart';
 import '../widgets/available_deliveries_list.dart';
+import '../widgets/rider_location_sharing.dart';
 import 'rider_order_detail_screen.dart';
 
 class RiderHomeScreen extends StatefulWidget {
@@ -115,90 +116,99 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
             ][_index],
           ),
         ),
-        body: IndexedStack(
-          index: _index,
-          children:
-              [
-                    AvailableDeliveriesList(
-                      key: ValueKey(uid),
-                      active: _index == 0,
-                      onMyDelivery: () => _select(1),
-                    ),
-                    orders(
-                      assigned,
-                      'You have no active delivery. Choose one from Available Deliveries.',
-                    ),
-                    orders(history, 'No completed deliveries yet.'),
-                    ListView(
-                      children: [
-                        StreamBuilder<UserModel?>(
-                          stream: _userStream,
-                          builder: (context, snapshot) =>
-                              snapshot.data?.hasRole('customer') != true
-                              ? const SizedBox.shrink()
-                              : ListTile(
-                                  leading: const Icon(
-                                    Icons.storefront_outlined,
-                                  ),
-                                  title: const Text(
-                                    'Switch to customer dashboard',
-                                  ),
-                                  subtitle: _switching
-                                      ? const Text('Switching…')
-                                      : null,
-                                  onTap: _switching
-                                      ? null
-                                      : () async {
-                                          if (_switching) return;
-                                          setState(() => _switching = true);
-                                          final navigator = Navigator.of(
-                                            context,
-                                          );
-                                          try {
-                                            await FirestoreService()
-                                                .switchActiveRole(
-                                                  uid,
-                                                  'customer',
+        body: Column(
+          children: [
+            const RiderLocationSharing(),
+            Expanded(
+              child: IndexedStack(
+                index: _index,
+                children:
+                    [
+                          AvailableDeliveriesList(
+                            key: ValueKey(uid),
+                            active: _index == 0,
+                            onMyDelivery: () => _select(1),
+                          ),
+                          orders(
+                            assigned,
+                            'You have no active delivery. Choose one from Available Deliveries.',
+                          ),
+                          orders(history, 'No completed deliveries yet.'),
+                          ListView(
+                            children: [
+                              StreamBuilder<UserModel?>(
+                                stream: _userStream,
+                                builder: (context, snapshot) =>
+                                    snapshot.data?.hasRole('customer') != true
+                                    ? const SizedBox.shrink()
+                                    : ListTile(
+                                        leading: const Icon(
+                                          Icons.storefront_outlined,
+                                        ),
+                                        title: const Text(
+                                          'Switch to customer dashboard',
+                                        ),
+                                        subtitle: _switching
+                                            ? const Text('Switching…')
+                                            : null,
+                                        onTap: _switching
+                                            ? null
+                                            : () async {
+                                                if (_switching) return;
+                                                setState(
+                                                  () => _switching = true,
                                                 );
-                                            if (mounted) {
-                                              navigator.popUntil(
-                                                (route) => route.isFirst,
-                                              );
-                                            }
-                                          } catch (_) {
-                                            if (context.mounted) {
-                                              ScaffoldMessenger.of(
-                                                context,
-                                              ).showSnackBar(
-                                                const SnackBar(
-                                                  content: Text(
-                                                    'Unable to switch dashboards. Please retry.',
-                                                  ),
-                                                ),
-                                              );
-                                            }
-                                          } finally {
-                                            if (mounted) {
-                                              setState(
-                                                () => _switching = false,
-                                              );
-                                            }
-                                          }
-                                        },
-                                ),
-                        ),
-                        const LogoutTile(),
-                      ],
-                    ),
-                  ]
-                  .asMap()
-                  .entries
-                  .map(
-                    (entry) => _visited.contains(entry.key)
-                        ? entry.value
-                        : const SizedBox.shrink(),
-                  )
-                  .toList(),
+                                                final navigator = Navigator.of(
+                                                  context,
+                                                );
+                                                try {
+                                                  await FirestoreService()
+                                                      .switchActiveRole(
+                                                        uid,
+                                                        'customer',
+                                                      );
+                                                  if (mounted) {
+                                                    navigator.popUntil(
+                                                      (route) => route.isFirst,
+                                                    );
+                                                  }
+                                                } catch (_) {
+                                                  if (context.mounted) {
+                                                    ScaffoldMessenger.of(
+                                                      context,
+                                                    ).showSnackBar(
+                                                      const SnackBar(
+                                                        content: Text(
+                                                          'Unable to switch dashboards. Please retry.',
+                                                        ),
+                                                      ),
+                                                    );
+                                                  }
+                                                } finally {
+                                                  if (mounted) {
+                                                    setState(
+                                                      () => _switching = false,
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                      ),
+                              ),
+                              const LogoutTile(),
+                            ],
+                          ),
+                        ]
+                        .asMap()
+                        .entries
+                        .map(
+                          (entry) => _visited.contains(entry.key)
+                              ? entry.value
+                              : const SizedBox.shrink(),
+                        )
+                        .toList(),
+              ),
+            ),
+          ],
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,

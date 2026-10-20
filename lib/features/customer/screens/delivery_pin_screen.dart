@@ -1,3 +1,4 @@
+import '../../../core/widgets/map_access.dart';
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -25,17 +26,19 @@ class _DeliveryPinScreenState extends State<DeliveryPinScreen> {
           child: Text('Tap the map to place the pin at the delivery entrance.'),
         ),
         Expanded(
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(target: _pin, zoom: 16),
-            onTap: (pin) => setState(() => _pin = pin),
-            markers: {
-              Marker(
-                markerId: const MarkerId('delivery'),
-                position: _pin,
-                draggable: true,
-                onDragEnd: (pin) => setState(() => _pin = pin),
-              ),
-            },
+          child: MapAccess(
+            child: GoogleMap(
+              initialCameraPosition: CameraPosition(target: _pin, zoom: 16),
+              onTap: (pin) => setState(() => _pin = pin),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('delivery'),
+                  position: _pin,
+                  draggable: true,
+                  onDragEnd: (pin) => setState(() => _pin = pin),
+                ),
+              },
+            ),
           ),
         ),
         Padding(

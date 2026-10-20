@@ -1,6 +1,16 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
+import '../config/app_environment.dart';
 
 class AdminService {
+  Future<Map<String, dynamic>> call(
+    String name, [
+    Map<String, dynamic> data = const {},
+  ]) async {
+    final result = await _functions.httpsCallable(name).call(data);
+    return Map<String, dynamic>.from(result.data as Map);
+  }
+
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'asia-southeast1',
   );
@@ -25,21 +35,51 @@ class AdminService {
   }
 
   static String message(Object error) {
+    if (error is StateError) return error.message.toString();
     if (error is FirebaseFunctionsException) {
+      final serverMessage = error.message?.trim();
+      final generic =
+          serverMessage == null ||
+          serverMessage.isEmpty ||
+          RegExp(
+            r'^(internal|unknown|unavailable|not-found|unauthenticated|permission-denied)(\s*\[\d+\])?$',
+            caseSensitive: false,
+          ).hasMatch(serverMessage);
+      if (error.code == 'unauthenticated') {
+        return 'Your session has expired. Please sign in again.';
+      }
       if (error.code == 'not-found') {
-        return 'This application is no longer available.';
+        return generic
+            ? 'This admin service is not available yet. Please contact the store administrator.'
+            : serverMessage;
       }
       if (error.code == 'permission-denied') {
-        return 'Administrator access is required.';
+        return generic
+            ? 'Administrator access is required. Please sign in with an admin account.'
+            : serverMessage;
       }
       if (error.code == 'failed-precondition') {
-        return error.message ?? 'This application has already been reviewed.';
+        return generic
+            ? 'This action is not ready yet. Refresh the page and retry.'
+            : serverMessage;
       }
-      if (error.code == 'internal' || error.code == 'unavailable') {
-        return 'The server could not complete this action. Please retry. If it continues, ask the project owner to check the function logs and database permissions.';
+      if ([
+        'internal',
+        'unavailable',
+        'unknown',
+        'deadline-exceeded',
+      ].contains(error.code)) {
+        return AppEnvironment.isDemo
+            ? 'The local admin service could not be reached. Start the Firebase emulators, then retry.'
+            : 'The admin service could not be reached. Please retry or contact the store administrator.';
       }
-      return error.message ?? 'Unable to review the application.';
+      return generic
+          ? 'Could not complete this admin action. Please retry.'
+          : serverMessage;
     }
-    return 'Unable to review the application. Check the connection and retry.';
+    if (error is FirebaseException && error.code == 'permission-denied') {
+      return 'You do not have access to this admin information. Please sign in with an admin account.';
+    }
+    return 'Could not load admin information. Check your connection and retry.';
   }
 }

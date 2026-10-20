@@ -8,15 +8,24 @@ class FirestorePage extends StatefulWidget {
   final Widget Function(
     BuildContext,
     List<QueryDocumentSnapshot<Map<String, dynamic>>>,
-  )
+  )?
   builder;
+
+  /// Allows a page to scroll its pagination directly after its records.
+  final Widget Function(
+    BuildContext,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>>,
+    Widget,
+  )?
+  pageBuilder;
   final String emptyMessage;
   const FirestorePage({
     super.key,
     required this.query,
-    required this.builder,
+    this.builder,
+    this.pageBuilder,
     this.emptyMessage = 'No records found.',
-  });
+  }) : assert(builder != null || pageBuilder != null);
   @override
   State<FirestorePage> createState() => _FirestorePageState();
 }
@@ -47,109 +56,122 @@ class _FirestorePageState extends State<FirestorePage> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-        stream: _stream,
-        builder: (context, snapshot) {
-          final docs =
-              snapshot.data?.docs.take(_size).toList() ??
-              <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-          final hasNext = (snapshot.data?.docs.length ?? 0) > _size;
-          final loading = snapshot.connectionState == ConnectionState.waiting;
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              return Column(
-                children: [
-                  Expanded(
-                    child: snapshot.hasError
-                        ? Center(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Could not load records. Please try again.',
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: _refresh,
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        : loading || !snapshot.hasData
-                        ? const Center(child: CircularProgressIndicator())
-                        : docs.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Text(
-                                widget.emptyMessage,
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          )
-                        : widget.builder(context, docs),
-                  ),
-                  if (snapshot.data?.metadata.isFromCache == true)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: AppNote(
-                        'Showing saved information. Reconnecting…',
-                        liveRegion: true,
-                      ),
-                    ),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: constraints.maxHeight * 0.4,
-                    ),
-                    child: SingleChildScrollView(
-                      child: SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Wrap(
-                            alignment: WrapAlignment.center,
-                            spacing: 12,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              TextButton(
-                                onPressed: loading || _starts.length == 1
-                                    ? null
-                                    : () => setState(() {
-                                        _starts.removeLast();
-                                        _stream = _watch();
-                                      }),
-                                child: const Text('Previous'),
-                              ),
-                              Text('Page ${_starts.length}'),
-                              TextButton(
-                                onPressed:
-                                    loading || !hasNext || snapshot.hasError
-                                    ? null
-                                    : () => setState(() {
-                                        _starts.add(docs.last);
-                                        _stream = _watch();
-                                      }),
-                                child: const Text('Next'),
-                              ),
-                              IconButton(
-                                tooltip: 'Refresh from first page',
-                                onPressed: _refresh,
-                                icon: const Icon(Icons.refresh),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          );
-        },
+  Widget build(
+    BuildContext context,
+  ) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+    stream: _stream,
+    builder: (context, snapshot) {
+      final docs =
+          snapshot.data?.docs.take(_size).toList() ??
+          <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+      final hasNext = (snapshot.data?.docs.length ?? 0) > _size;
+      final loading = snapshot.connectionState == ConnectionState.waiting;
+      Widget pageButton({
+        required VoidCallback? onPressed,
+        required Widget child,
+      }) => widget.pageBuilder == null
+          ? TextButton(onPressed: onPressed, child: child)
+          : OutlinedButton(onPressed: onPressed, child: child);
+      final pagination = Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '${docs.length} ${docs.length == 1 ? 'record' : 'records'} on this page',
+            ),
+            pageButton(
+              onPressed: loading || _starts.length == 1
+                  ? null
+                  : () => setState(() {
+                      _starts.removeLast();
+                      _stream = _watch();
+                    }),
+              child: const Text('Previous'),
+            ),
+            Text('Page ${_starts.length}'),
+            pageButton(
+              onPressed: loading || !hasNext || snapshot.hasError
+                  ? null
+                  : () => setState(() {
+                      _starts.add(docs.last);
+                      _stream = _watch();
+                    }),
+              child: const Text('Next'),
+            ),
+            IconButton(
+              tooltip: 'Refresh from first page',
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+            ),
+          ],
+        ),
       );
+      Widget content;
+      if (snapshot.hasError) {
+        content = Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Could not load records. Please try again.'),
+                OutlinedButton(onPressed: _refresh, child: const Text('Retry')),
+              ],
+            ),
+          ),
+        );
+      } else if (loading || !snapshot.hasData) {
+        content = const Center(child: CircularProgressIndicator());
+      } else if (widget.pageBuilder != null) {
+        content = widget.pageBuilder!(context, docs, pagination);
+      } else if (docs.isEmpty) {
+        content = Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(widget.emptyMessage, textAlign: TextAlign.center),
+          ),
+        );
+      } else {
+        content = widget.builder!(context, docs);
+      }
+      return LayoutBuilder(
+        builder: (context, constraints) => Column(
+          children: [
+            if (snapshot.data?.metadata.isFromCache == true)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const AppNote(
+                    'Showing saved information. Reconnecting…',
+                    liveRegion: true,
+                  ),
+                ),
+              ),
+            Expanded(child: content),
+            if (widget.pageBuilder == null ||
+                snapshot.hasError ||
+                loading ||
+                !snapshot.hasData)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: constraints.maxHeight * 0.4,
+                ),
+                child: SingleChildScrollView(
+                  child: SafeArea(top: false, child: pagination),
+                ),
+              ),
+          ],
+        ),
+      );
+    },
+  );
 }

@@ -228,6 +228,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Page 1'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.text('Page 1'), findsOneWidget);
     });
   }

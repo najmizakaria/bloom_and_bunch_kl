@@ -4,7 +4,7 @@ service firebase.storage {
   function signedIn(){return request.auth != null;}
   function hasRole(role){
    let profile=firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
-   return profile != null && profile.data != null &&
+   return profile != null && profile.data != null && profile.data.get('accountSuspended', false) == false && profile.data.get('deletionPending', false) == false &&
     (profile.data.role==role || ('roles' in profile.data && profile.data.roles is list && role in profile.data.roles));
   }
   function staff(){return signedIn() && (hasRole('florist') || hasRole('admin'));}

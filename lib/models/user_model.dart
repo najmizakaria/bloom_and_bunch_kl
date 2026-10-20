@@ -13,6 +13,7 @@ class UserModel {
   final List<String> roles;
   final String activeRole;
   final DateTime createdAt;
+  final bool accountSuspended;
 
   UserModel({
     required this.uid,
@@ -23,6 +24,7 @@ class UserModel {
     List<String>? roles,
     String? activeRole,
     required this.createdAt,
+    this.accountSuspended = false,
   }) : roles = List.unmodifiable(roles ?? [role]),
        activeRole = activeRole ?? role;
 
@@ -81,6 +83,7 @@ class UserModel {
           ? legacyRole
           : roles.first,
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      accountSuspended: map['accountSuspended'] == true,
     );
   }
 }

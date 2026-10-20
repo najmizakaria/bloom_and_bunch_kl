@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../../features/customer/screens/order_tracking_screen.dart';
+import '../../features/admin/admin_activity_screen.dart';
 
 class NotificationSession extends StatefulWidget {
   final Widget child;
@@ -24,6 +25,15 @@ class _NotificationSessionState extends State<NotificationSession> {
   StreamSubscription<String>? _tokens;
   StreamSubscription<RemoteMessage>? _messages, _opened;
   void _open(RemoteMessage message) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null &&
+        message.data['adminUid'] == uid &&
+        message.data['adminAlertId'] is String) {
+      widget.navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => const AdminActivityScreen()),
+      );
+      return;
+    }
     if (message.data['customerId'] != FirebaseAuth.instance.currentUser?.uid) {
       return;
     }
@@ -54,7 +64,12 @@ class _NotificationSessionState extends State<NotificationSession> {
           .catchError((Object _) {}),
     );
     _messages = FirebaseMessaging.onMessage.listen((message) {
-      if (FirebaseAuth.instance.currentUser == null || message.data['customerId'] != FirebaseAuth.instance.currentUser?.uid) return;
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null ||
+          (message.data['customerId'] != uid &&
+              message.data['adminUid'] != uid)) {
+        return;
+      }
       widget.messengerKey.currentState?.showSnackBar(
         SnackBar(
           content: Text(

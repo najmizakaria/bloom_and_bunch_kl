@@ -175,12 +175,18 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
                                 'Review rider availability and contact the customer if delayed.',
                               ),
                             ],
-                            if (_view == 'Payments')
+                            if (_view == 'Payments' &&
+                                doc.data()['orderMode'] == 'manual')
                               FilledButton(
                                 onPressed: _busy.contains(doc.id)
                                     ? null
                                     : () => _payment(doc.id),
                                 child: const Text('Confirm payment received'),
+                              ),
+                            if (_view == 'Payments' &&
+                                doc.data()['orderMode'] != 'manual')
+                              Text(
+                                'Payment mode: ${doc.data()['orderMode'] ?? 'Legacy'}. Online payments require gateway verification; demo orders are not receipts.',
                               ),
                             if (_view == 'Feedback')
                               Text(
