@@ -173,16 +173,20 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                     onTap: _loading || _error != null
                         ? null
                         : () async {
-                            final accepted = await Navigator.push<String>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => RiderAvailableJobScreen(
-                                  job: job,
-                                  hasActiveDelivery:
-                                      _page?.activeDeliveryId != null,
-                                ),
+                            final route = MaterialPageRoute<String>(
+                              builder: (_) => RiderAvailableJobScreen(
+                                job: job,
+                                hasActiveDelivery:
+                                    _page?.activeDeliveryId != null,
                               ),
                             );
+                            final accepted = await Navigator.push<String>(
+                              context,
+                              route,
+                            );
+                            // The push result resolves when pop starts. Finish
+                            // removing the preview before changing its source tab.
+                            await route.completed;
                             if (!mounted) return;
                             if (accepted != null) widget.onMyDelivery();
                             await _refresh();

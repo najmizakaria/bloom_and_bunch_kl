@@ -6,6 +6,8 @@ Customers browse ready bouquets or create/pre-order an arrangement. The backend 
 
 ## Supervisor feedback integration
 
+Order tracking provides **Call Florist** and **Call Rider**. Rider contact is available only to the owning customer during an assigned active delivery and comes from the approved rider application's validated phone number. See [rider calling and acceptance checks](docs/rider-calling.md).
+
 The missing worktree improvements have been adapted to main2's existing checkout and data model. Home search/filters keep customer bottom navigation; florist dashboard cards select the corresponding order filter; every role has logout in More. Riders use the same bottom NavigationBar pattern as customers, with Available jobs, Deliveries, History and More. Page headers show a left-side back arrow and left-aligned titles: Back pops a detail route, returns another workspace tab to Home, or stays disabled on Home when there is no previous route. Admin Rider history offers rider, status, MYT creation-date and open-issue filters. Live order lists use cursor pages of 20 records with Previous, Next, Refresh and retry controls.
 
 New delivery transitions are `Out for Delivery → Awaiting Customer Confirmation → Completed`. Only the assigned rider confirms delivery, and only the owning customer confirms receipt. An open delivery issue pauses both actions. Store resolution records a response without completing the order. Issue history is retained under `orders/{id}/issues`; the customer timeline uses actual server activity in Malaysia time. Older Delivered records remain distinct and do not imply customer confirmation.

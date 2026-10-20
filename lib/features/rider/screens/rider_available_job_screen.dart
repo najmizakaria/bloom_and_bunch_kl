@@ -42,11 +42,8 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
     try {
       await OrderService().transition(widget.job.orderId, 'accept');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Delivery accepted. Full details unlocked.'),
-        ),
-      );
+      // My Delivery confirms acceptance. A snackbar here would follow the
+      // closing preview into subsequent routes with an in-flight Hero.
       Navigator.pop(context, widget.job.orderId);
     } catch (error) {
       if (mounted) {

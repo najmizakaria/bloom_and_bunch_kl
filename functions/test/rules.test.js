@@ -71,6 +71,7 @@ test('rider applications cannot be approved by clients',{skip:!enabled},async()=
  await assertFails(updateDoc(application,{status:'approved'}));
  await assertFails(updateDoc(doc(admin,'rider_applications','customer'),{status:'approved'}));
  await assertSucceeds(getDoc(doc(admin,'rider_applications','customer')));
+ await assertFails(getDoc(doc(env.authenticatedContext('other').firestore(),'rider_applications','customer')));
 });
 
 

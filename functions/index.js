@@ -9,6 +9,7 @@ const d=require('./domain');
 const storePolicy=require('./store-policy');
 const payments=require('./payments');
 const toyyibpay=require('./toyyibpay');
+const riderContact=require('./rider-contact');
 const paymentEnabled=defineBoolean('TOYYIBPAY_ENABLED',{default:false});
 const paymentCategory=defineString('TOYYIBPAY_SANDBOX_CATEGORY_CODE',{default:''});
 const paymentReturnUrl=defineString('TOYYIBPAY_RETURN_URL',{default:''});
@@ -44,6 +45,7 @@ function callable(handler,extra={}){return onCall({...options,...extra},async re
  try {if(!req.auth)throw new HttpsError('unauthenticated','Please sign in.');return await handler(req);}
  catch(e){if(e instanceof HttpsError)throw e;if(e instanceof d.OrderError)throw new HttpsError(e.code,e.message);console.error(e);throw new HttpsError('internal','Unable to finish this action. Please retry.');}
 });}
+exports.getAssignedRiderContact=callable(riderContact.createContactHandler({db,hasRole}));
 async function readPlan(tx, items) {
  const bouquets={},flowers={};
  for(const key of new Set(items.filter(i=>i.bouquetId).map(i=>i.bouquetId))){const s=await tx.get(db.doc('bouquets/'+key));if(s.exists)bouquets[key]=s.data();}
@@ -398,7 +400,9 @@ exports.reviewRiderApplication=callable(async req=>{
   if(currentStatus===decision)return {status:decision};
   if(currentStatus!=='pending')d.fail('This application has already been reviewed.','failed-precondition');
 
+  const contactPhone=decision==='approved'?riderContact.normalizePhone(application.data().phone):null;
   tx.update(applicationRef,{
+   ...(contactPhone?{phone:contactPhone}:{}),
    status:decision,
    reviewedAt:FieldValue.serverTimestamp(),
    reviewedBy:reviewerId,

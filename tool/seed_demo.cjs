@@ -26,6 +26,7 @@ async function seed() {
  batch.set(db.doc('bouquets/z_late_planned'),{name:'Late planned bouquet', description:'Beyond original preview batch', category:'Birthday', price:60, imageUrl:'', isPublished:true, archived:false, availableForReadyNow:false, readyStock:0, availableForPreOrder:true, leadTimeBusinessDays:2, recipeStems:{demo_rose:12}});
  for(let i=0;i<45;i++)batch.set(db.doc('flowers/fixture_'+String(i).padStart(3,'0')), {name:'Inventory fixture '+i, category:'Rose', pricePerStem:3, stockQuantity: i===0?2:100, reservedQuantity:0, imageUrl:'', availableForCustomOrder:true});
  batch.set(db.doc('rider_applications/demo_customer'),{uid:'demo_customer',name:'Demo customer',phone:'0123456789',status:'approved',vehicleType:'Motorcycle'});
+ batch.set(db.doc('rider_applications/demo_rider'),{uid:'demo_rider',name:'Demo rider',phone:'+60123456789',status:'approved',vehicleType:'Motorcycle',reason:'Demo delivery contact',submittedAt:new Date()});
  for(const suffix of ['ready','planned']) batch.set(db.doc('orders/fixture_mixed_'+suffix),{customerId:'demo_customer',checkoutGroupId:'fixture_mixed',orderStatus:'Completed',fulfillmentType:suffix==='ready'?'ready_now':'pre_order',recipientName:'Mixed recipient',recipientPhone:'0123456789',deliveryAddress:'Demo mixed address',deliveryNote:'',totalAmount:50,items:[],createdAt:new Date('2020-01-01T00:00:00Z')});
  for(const [id,customerId,area,status] of [
   ['fixture_queue_own','demo_rider','Own purchase area','Ready for Delivery'],

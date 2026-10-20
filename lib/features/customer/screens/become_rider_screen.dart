@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/rider_application_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/malaysian_phone.dart';
 
 class BecomeRiderScreen extends StatefulWidget {
   const BecomeRiderScreen({super.key, this.watchApplication});
@@ -53,6 +54,14 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in your name and phone.')),
       );
+      return;
+    }
+    try {
+      MalaysianPhone.normalize(_phoneController.text.trim());
+    } on FormatException catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
       return;
     }
     setState(() => _submitting = true);
@@ -241,6 +250,9 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
+                    helperText:
+                        'Customers can call this number during your deliveries.',
+                    helperMaxLines: 2,
                     border: OutlineInputBorder(),
                   ),
                 ),

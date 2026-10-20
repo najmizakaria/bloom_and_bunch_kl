@@ -15,6 +15,37 @@ DeliveryJobModel job(String status) => DeliveryJobModel(
   orderStatus: status,
 );
 void main() {
+  testWidgets('acceptance waits for preview exit before switching tabs', (
+    tester,
+  ) async {
+    var switched = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AvailableDeliveriesList(
+            active: true,
+            onMyDelivery: () => switched = true,
+            load: (_) async =>
+                AvailableDeliveryPage(deliveries: [job('Ready for Delivery')]),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Kuala Lumpur'));
+    await tester.pumpAndSettle();
+    final preview = tester.element(find.byType(RiderAvailableJobScreen));
+    // Simulate the successful callable result, without using Firebase.
+    Navigator.of(preview).pop('test');
+    await tester.pump();
+    expect(switched, isFalse, reason: 'The preview is still animating out.');
+    await tester.pumpAndSettle();
+    expect(switched, isTrue);
+    expect(find.byType(RiderAvailableJobScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('preparation records from an older service stay hidden', (
     tester,
   ) async {

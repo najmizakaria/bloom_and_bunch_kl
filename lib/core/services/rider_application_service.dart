@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../utils/malaysian_phone.dart';
 
 class RiderApplicationService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -26,7 +27,7 @@ class RiderApplicationService {
     await _appDoc.set({
       'uid': _uid,
       'name': name,
-      'phone': phone,
+      'phone': MalaysianPhone.normalize(phone),
       'vehicleType': vehicleType,
       'reason': reason,
       'status': 'pending',

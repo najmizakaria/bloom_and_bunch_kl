@@ -87,7 +87,7 @@ test('backend: only an administrator can approve a rider',{skip:!enabled},async(
 test('backend: rider review retries are safe and conflicting reviews fail',{skip:!enabled},async()=>{
  const uid='review_retry_test';
  await db.collection('users').doc(uid).set({role:'customer',roles:['customer'],activeRole:'customer'});
- await db.collection('rider_applications').doc(uid).set({status:'pending'});
+ await db.collection('rider_applications').doc(uid).set({status:'pending',phone:'0123456789'});
  const request={auth:{uid:'admin_test'},data:{applicantId:uid,decision:'approved'}};
  const results=await Promise.all([api.reviewRiderApplication.run(request),api.reviewRiderApplication.run(request)]);
  assert.deepEqual(results,[{status:'approved'},{status:'approved'}]);

@@ -421,7 +421,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               _menuTile(
                 icon: Icons.call_outlined,
-                title: 'Call Store',
+                title: 'Call Florist',
                 onTap: () => _callStore(context),
               ),
               Card(

@@ -1,8 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/order_service.dart';
 import '../../core/services/app_monitoring.dart';
+import 'order_contact_actions.dart';
 
 const issueReasons = {
   'late_delivery': 'Delivery is late',
@@ -13,18 +13,6 @@ const issueReasons = {
   'not_received': 'I have not received my order',
   'other': 'Something else',
 };
-Future<void> contactStore(BuildContext context) async {
-  try {
-    if (await launchUrl(Uri(scheme: 'tel', path: '+60148376919'))) return;
-  } catch (_) {
-    /* Show the number if no phone application is available. */
-  }
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Call the store at +60 14-837 6919.')),
-    );
-  }
-}
 
 Future<void> reportIssue(BuildContext context, String orderId) async {
   final result = await showDialog<Map<String, String>>(
@@ -114,21 +102,15 @@ class _OrderSupportPanelState extends State<OrderSupportPanel> {
           'Help with this order',
           style: Theme.of(context).textTheme.titleLarge,
         ),
-        Wrap(
-          spacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => contactStore(context),
-              icon: const Icon(Icons.phone_outlined),
-              label: const Text('Contact store'),
-            ),
-            OutlinedButton(
-              onPressed: support?['status'] == 'open'
-                  ? null
-                  : () => reportIssue(context, widget.orderId),
-              child: const Text('Report a problem'),
-            ),
-          ],
+        OrderContactActions(
+          orderId: widget.orderId,
+          order: widget.order,
+          trailing: OutlinedButton(
+            onPressed: support?['status'] == 'open'
+                ? null
+                : () => reportIssue(context, widget.orderId),
+            child: const Text('Report a problem'),
+          ),
         ),
         if (support != null)
           Card(
