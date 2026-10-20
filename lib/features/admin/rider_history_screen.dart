@@ -9,7 +9,7 @@ import '../../core/widgets/firestore_page.dart';
 import 'admin_order_detail_screen.dart';
 import 'admin_layout.dart';
 import 'admin_widgets.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_theme.dart';
 
 class RiderHistoryScreen extends StatefulWidget {
   const RiderHistoryScreen({
@@ -199,7 +199,7 @@ class _RiderHistoryScreenState extends State<RiderHistoryScreen> {
   );
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.softBlushStart,
+    backgroundColor: AdminTheme.background,
     appBar: widget.embedded
         ? null
         : AppBar(
@@ -263,8 +263,8 @@ class AdminDeliveryRecords extends StatelessWidget {
             receiptConfirmed: order['customerAcceptedAt'] is Timestamp,
           ),
     color: order['customerAcceptedAt'] is Timestamp
-        ? AppColors.statusReady
-        : AppColors.primary,
+        ? Color(0xFF237E61)
+        : AdminTheme.primary,
   );
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -358,7 +358,7 @@ class AdminDeliveryRecords extends StatelessWidget {
                         const SizedBox(height: 8),
                         const AdminBadge(
                           'Open support issue',
-                          color: AppColors.statusLowStock,
+                          color: Color(0xFFB23B35),
                         ),
                       ],
                       const SizedBox(height: 12),

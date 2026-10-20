@@ -4,6 +4,8 @@ import '../../core/services/admin_service.dart';
 import '../../core/utils/malaysia_time.dart';
 import 'admin_widgets.dart';
 import 'admin_order_detail_screen.dart';
+import 'admin_layout.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminOrdersScreen extends StatefulWidget {
   const AdminOrdersScreen({
@@ -96,9 +98,20 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Orders and payments')),
+    appBar: AdminSectionScope.contains(context)
+        ? null
+        : AppBar(title: const Text('Orders and payments')),
     body: Column(
       children: [
+        if (AdminSectionScope.contains(context))
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
+            child: AdminHeading(
+              title: 'Orders & payments',
+              subtitle:
+                  'Review orders, payment receipts and fulfilment queues.',
+            ),
+          ),
         ConstrainedBox(
           constraints: BoxConstraints(
             maxHeight: MediaQuery.sizeOf(context).height * .46,

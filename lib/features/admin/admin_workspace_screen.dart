@@ -6,8 +6,9 @@ import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
 import '../support/store_operations_screen.dart';
 import '../../core/widgets/firestore_page.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_theme.dart';
 import 'admin_layout.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminWorkspaceScreen extends StatefulWidget {
   const AdminWorkspaceScreen({super.key, this.embedded = false});
@@ -58,8 +59,8 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
             approve ? 'Rider application approved.' : 'Application rejected.',
           ),
           backgroundColor: approve
-              ? AppColors.primaryDark
-              : AppColors.primaryDark,
+              ? AdminTheme.primaryDark
+              : AdminTheme.primaryDark,
         ),
       );
     } catch (error) {
@@ -67,7 +68,7 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AdminService.message(error)),
-          backgroundColor: AppColors.primaryDark,
+          backgroundColor: AdminTheme.primaryDark,
         ),
       );
     } finally {
@@ -97,8 +98,8 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: approve
-                  ? AppColors.primaryDark
-                  : AppColors.primaryDark,
+                  ? AdminTheme.primaryDark
+                  : AdminTheme.primaryDark,
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(approve ? 'Approve' : 'Reject'),
@@ -112,7 +113,9 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.softBlushStart,
+      backgroundColor: AdminSectionScope.contains(context)
+          ? Theme.of(context).scaffoldBackgroundColor
+          : AdminTheme.background,
       appBar: widget.embedded
           ? null
           : AppBar(
@@ -139,7 +142,7 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
                           height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppColors.primary,
+                            color: AdminTheme.primary,
                           ),
                         )
                       : const Icon(Icons.sync),
@@ -234,7 +237,7 @@ class _AdminWorkspaceScreenState extends State<AdminWorkspaceScreen> {
                             Expanded(
                               child: FilledButton(
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.primaryDark,
+                                  backgroundColor: AdminTheme.primaryDark,
                                 ),
                                 onPressed: busy
                                     ? null
@@ -283,7 +286,7 @@ class _Detail extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: AppColors.textMuted),
+          Icon(icon, size: 18, color: AdminTheme.muted),
           const SizedBox(width: 8),
           Expanded(child: Text((text ?? 'Not provided').toString())),
         ],

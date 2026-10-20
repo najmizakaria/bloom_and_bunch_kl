@@ -1,15 +1,36 @@
 # Integrated administration
 
-The admin workspace has four destinations: Dashboard, Riders, Staff and Settings.
+The Flutter admin workspace follows the default SB Admin 2 design: a blue
+gradient sidebar, white top toolbar, pale grey content area and white cards.
 It uses the existing customer, florist, delivery, payment and support workflows.
 
 ## Admin layout
 
-Workspace content is centred within a 1440px content area, with 24px desktop
-padding and 16px mobile padding. The overview retains all eleven metrics in a
-five-column desktop grid (5 + 5 + 1), with identical card dimensions and 16px
-gaps. Smaller widths use three, two or one column; larger text increases the
-shared card height to keep labels and values readable.
+The desktop sidebar is 224px wide, with a 104px collapsed mode and a 70px top
+toolbar. Below 1000px, or with text scaling above 1.5, navigation moves into a
+menu drawer. Sidebar groups expose Dashboard; Orders, Inventory, Stock alerts
+and Support & feedback; Riders and Staff; Alerts, Activity history and Settings.
+The toolbar provides alerts and the admin profile/preferences/settings menu.
+
+Workspace content is centred within a 1488px content area, with 24px desktop
+padding and 16px mobile padding. The overview retains all eleven metrics:
+three payment cards and eight operational cards, in up to three and four
+columns respectively. Smaller widths use three, two or one column; larger
+text increases the shared card height to keep labels and values readable.
+Nunito is bundled in `assets/fonts/nunito/` with its SIL Open Font License;
+the admin typography does not depend on downloading fonts at runtime.
+
+Admin destinations use hash URLs such as `/#/admin/orders` and
+`/#/admin/orders/detail?id=ORDER_ID`. Query parameters support dashboard order
+shortcuts (`status`, `payment`, `mode`, `dateField`, `from`, `to`), rider tabs
+(`tab=0`, `1`, `2`) and flower inventory (`tab=flowers`). Settings profile,
+preferences and store policy, and staff creation, also have direct URLs.
+Browser Back/Forward updates the workspace. Each visited section stays mounted,
+preserving local filters, pagination and scroll when returning from details or
+another section. Local filter edits are not encoded into the URL; refreshing
+restores only the filters supplied by that URL. The initial app route always
+goes through AuthGate, which checks the signed-in user's role and suspension
+before creating the admin router. Unknown admin routes fall back to Dashboard.
 
 Rider and staff directories use compact desktop tables and spaced mobile cards.
 Delivery history shares the Riders workspace header, wraps its filters, and
@@ -17,7 +38,9 @@ shows a compact summary with full IDs available through Copy and the complete
 timeline available through View. Pagination scrolls directly after the records.
 Role, access, delivery and location badges include text labels; an idle rider is
 not labelled offline. A missing phone or recorded timestamp is shown explicitly.
-The main navigation remains Dashboard, Riders, Staff and Settings.
+The sidebar and toolbar remain available while viewing order and account details.
+Shared inventory widgets adapt their colours inside the admin workspace while
+retaining their existing florist palette outside it.
 
 ## What changed
 
@@ -57,7 +80,7 @@ The main navigation remains Dashboard, Riders, Staff and Settings.
 - Staff/access changes, rider decisions, store configuration, payment checks and
   order changes are recorded in backend-only administrative activity records.
 - Maps load on demand with a graceful failure state. Local web runs read the
-  Maps key supplied with `--dart-define-from-file=.env`.
+  Maps key automatically loaded from `.env` during debug runs.
 
 ## Run locally
 
@@ -74,7 +97,7 @@ $env:GCLOUD_PROJECT='demo-bloom'
 $env:FIREBASE_AUTH_EMULATOR_HOST='127.0.0.1:9099'
 $env:FIRESTORE_EMULATOR_HOST='127.0.0.1:18080'
 node tool/seed_demo.cjs
-flutter run -d edge --dart-define=APP_ENV=demo --dart-define-from-file=.env
+flutter run -d edge --dart-define=APP_ENV=demo
 ```
 
 The synthetic admin is `admin@demo.bloom.test`, password `DemoPass123!`.
@@ -104,6 +127,18 @@ delivery completion and customer receipt, support resolution, alerts and history
 Provider settlement, native location permission and real push delivery require
 staging/device checks; emulators do not establish those external behaviours.
 
+`test/admin_shell_test.dart` covers responsive navigation, sidebar collapse,
+direct detail links, URL reporting, simulated browser Back/Forward and retained
+list state. To render local layout previews using clearly synthetic summary
+values, run:
+
+```powershell
+flutter test --no-pub --dart-define=ADMIN_CAPTURE=true test/admin_shell_test.dart
+```
+
+The previews are written to `build/admin-preview-1440.png`,
+`build/admin-preview-768.png` and `build/admin-preview-390.png`.
+
 ## Deployment
 
 Editing the local implementation does not update the live Firebase project. The new
@@ -132,9 +167,8 @@ The sales aggregation index includes `orderMode`, `paymentStatus`, `paidAt` and
 
 Wait for the added indexes to finish building. Then run the normal web build and
 validation process (`powershell -File tool/build_web.ps1`) before any Hosting
-deployment. A plain `flutter run -d edge` is insufficient for production config;
-use `flutter run -d edge --dart-define-from-file=.env` for local production-mode
-debugging.
+deployment. Use `flutter run -d edge` for local debugging against the configured Firebase
+project. Debug runs automatically read the public web settings from `.env`.
 
 Do not widen profile rules to solve rider-directory errors. The corresponding
 admin callable and its deployment are the intended access path.

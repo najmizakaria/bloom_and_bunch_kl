@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'core/config/web_configuration.dart';
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -32,15 +33,15 @@ class DefaultFirebaseOptions {
   }
 
   static FirebaseOptions get web {
-    const apiKey = String.fromEnvironment('FIREBASE_API_KEY_WEB');
+    final apiKey = WebConfiguration.firebaseApiKey;
     if (apiKey.isEmpty) {
       throw StateError(
-        'FIREBASE_API_KEY_WEB is missing. Build the web app with '
-        'bash build_web.sh.',
+        'FIREBASE_API_KEY_WEB is missing. Add it to the project .env file '
+        'and restart flutter run -d edge. Release builds use tool/build_web.ps1.',
       );
     }
 
-    return const FirebaseOptions(
+    return FirebaseOptions(
       apiKey: apiKey,
       appId: '1:467512389115:web:8610f60d14f65d6e272f5e',
       messagingSenderId: '467512389115',

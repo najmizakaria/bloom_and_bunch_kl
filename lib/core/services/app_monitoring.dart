@@ -4,6 +4,7 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import '../config/app_environment.dart';
+import '../config/web_configuration.dart';
 
 class AppMonitoring {
   static bool _enabled = false;
@@ -13,7 +14,7 @@ class AppMonitoring {
     if (kIsWeb || native) await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(_enabled);
     if (native) await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(_enabled);
     if (!AppEnvironment.isDemo && const bool.fromEnvironment('ENABLE_APP_CHECK')) {
-      const webKey = String.fromEnvironment('APP_CHECK_WEB_SITE_KEY');
+      final webKey = WebConfiguration.appCheckSiteKey;
       if (kIsWeb && webKey.isEmpty) throw StateError('App Check web site key is required.');
       await FirebaseAppCheck.instance.activate(providerWeb: kIsWeb ? ReCaptchaV3Provider(webKey) : null);
     }

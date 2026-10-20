@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'core/config/app_environment.dart';
@@ -10,6 +10,7 @@ import 'core/theme/app_theme.dart';
 import 'core/providers/cart_provider.dart';
 import 'core/widgets/auth_cart_sync.dart';
 import 'core/widgets/notification_session.dart';
+import 'core/widgets/app_router.dart';
 import 'features/auth/screens/auth_gate.dart';
 
 final appNavigatorKey = GlobalKey<NavigatorState>();
@@ -32,11 +33,24 @@ class _StartupApp extends StatefulWidget {
 class _StartupAppState extends State<_StartupApp> {
   late Future<void> _startup = _initialize();
   Future<void> _initialize() async {
-    if (!kIsWeb && !AppEnvironment.isDemo) {
-      await dotenv.load(fileName: '.env', isOptional: true);
+    try {
+      if (!AppEnvironment.isDemo && (!kIsWeb || kDebugMode)) {
+        await dotenv.load(fileName: '.env', isOptional: true);
+      }
+      await AppEnvironment.initialize();
+      await AppMonitoring.initialize();
+    } catch (error, stack) {
+      if (kDebugMode) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stack,
+            library: 'app startup',
+          ),
+        );
+      }
+      rethrow;
     }
-    await AppEnvironment.initialize();
-    await AppMonitoring.initialize();
   }
 
   @override
@@ -60,9 +74,19 @@ class _StartupAppState extends State<_StartupApp> {
                         const Icon(Icons.cloud_off_outlined, size: 48),
                         const SizedBox(height: 16),
                         const Text(
-                          'We could not start the app. Check your connection and try again.',
+                          'We could not start the app. Please try again.',
                           textAlign: TextAlign.center,
                         ),
+                        if (kDebugMode) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            snapshot.error is StateError
+                                ? (snapshot.error as StateError).message
+                                      .toString()
+                                : 'Startup initialization failed. Check the Flutter terminal for the error details.',
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: () =>
@@ -80,16 +104,31 @@ class _StartupAppState extends State<_StartupApp> {
   );
 }
 
-class BloomAndBunchApp extends StatelessWidget {
+class BloomAndBunchApp extends StatefulWidget {
   const BloomAndBunchApp({super.key});
+  @override
+  State<BloomAndBunchApp> createState() => _BloomAndBunchAppState();
+}
+
+class _BloomAndBunchAppState extends State<BloomAndBunchApp> {
+  late final _router = AppRouterDelegate(
+    navigatorKey: appNavigatorKey,
+    observers: [paymentLinkNavigatorObserver],
+    home: const AuthGate(),
+  );
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
     create: (_) => CartProvider(),
     child: AuthCartSync(
       navigatorKey: appNavigatorKey,
-      child: MaterialApp(
-        navigatorKey: appNavigatorKey,
-        navigatorObservers: [paymentLinkNavigatorObserver],
+      child: MaterialApp.router(
+        routerDelegate: _router,
         scaffoldMessengerKey: appMessengerKey,
         builder: (context, child) => NotificationSession(
           messengerKey: appMessengerKey,
@@ -106,7 +145,6 @@ class BloomAndBunchApp extends StatelessWidget {
         title: 'Bloom & Bunch KL',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const AuthGate(),
       ),
     ),
   );

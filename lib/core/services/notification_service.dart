@@ -1,4 +1,5 @@
 import '../config/app_environment.dart';
+import '../config/web_configuration.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -19,7 +20,7 @@ class NotificationService {
         TargetPlatform.macOS,
       ].contains(defaultTargetPlatform));
   Future<String> _getToken() async {
-    const vapid = String.fromEnvironment('FCM_VAPID_KEY_WEB');
+    final vapid = WebConfiguration.vapidKey;
     final token = await _messaging.getToken(
       vapidKey: kIsWeb && vapid.isNotEmpty ? vapid : null,
     );

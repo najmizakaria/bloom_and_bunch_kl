@@ -1,8 +1,9 @@
 import 'dart:js_interop';
+import '../config/web_configuration.dart';
 
 @JS('bloomLoadMaps')
 external JSPromise<JSAny?> _loadMaps(JSString key);
 Future<void> ensureMaps() async {
-  const key = String.fromEnvironment('MAPS_API_KEY_WEB');
+  final key = WebConfiguration.mapsApiKey;
   await _loadMaps(key.toJS).toDart;
 }

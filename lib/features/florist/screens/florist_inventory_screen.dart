@@ -1,3 +1,4 @@
+import '../../admin/admin_theme.dart';
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/widgets/firestore_page.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
@@ -62,7 +63,10 @@ class FloristInventoryScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Unable to update availability: $error'),
-          backgroundColor: AppColors.primaryDark,
+          backgroundColor: AdminTheme.sharedColor(
+            context,
+            AppColors.primaryDark,
+          ),
         ),
       );
     }
@@ -185,11 +189,14 @@ class FloristInventoryScreen extends StatelessWidget {
                   stock == null ||
                   stock < 0) {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
                       'Enter a valid name, category, price and stock.',
                     ),
-                    backgroundColor: AppColors.primaryDark,
+                    backgroundColor: AdminTheme.sharedColor(
+                      context,
+                      AppColors.primaryDark,
+                    ),
                   ),
                 );
                 return;
@@ -255,7 +262,10 @@ class FloristInventoryScreen extends StatelessWidget {
                           ? 'Flower updated successfully'
                           : 'Flower added successfully',
                     ),
-                    backgroundColor: AppColors.primaryDark,
+                    backgroundColor: AdminTheme.sharedColor(
+                      context,
+                      AppColors.primaryDark,
+                    ),
                   ),
                 );
               } catch (error) {
@@ -270,7 +280,10 @@ class FloristInventoryScreen extends StatelessWidget {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
                   SnackBar(
                     content: Text('Unable to save flower: $error'),
-                    backgroundColor: AppColors.primaryDark,
+                    backgroundColor: AdminTheme.sharedColor(
+                      context,
+                      AppColors.primaryDark,
+                    ),
                   ),
                 );
               }
@@ -290,9 +303,17 @@ class FloristInventoryScreen extends StatelessWidget {
                           height: 150,
                           width: double.infinity,
                           decoration: BoxDecoration(
-                            color: AppColors.inputFill,
+                            color: AdminTheme.sharedColor(
+                              context,
+                              AppColors.inputFill,
+                            ),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.inputBorder),
+                            border: Border.all(
+                              color: AdminTheme.sharedColor(
+                                context,
+                                AppColors.inputBorder,
+                              ),
+                            ),
                           ),
                           child: _buildFormImage(selectedImage, imageUrl),
                         ),
@@ -357,7 +378,10 @@ class FloristInventoryScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AdminTheme.sharedColor(
+                      context,
+                      AppColors.primary,
+                    ),
                     foregroundColor: AppColors.onPrimary,
                   ),
                   onPressed: isUploading ? null : saveFlower,
@@ -412,13 +436,16 @@ class FloristInventoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AdminTheme.sharedColor(context, AppColors.background),
       appBar: showAppBar
           ? AppBar(
               leading: const PageBackButton(),
               centerTitle: false,
               title: const Text('Manage Flowers'),
-              backgroundColor: AppColors.primary,
+              backgroundColor: AdminTheme.sharedColor(
+                context,
+                AppColors.primary,
+              ),
               foregroundColor: AppColors.onPrimary,
             )
           : null,
@@ -426,7 +453,7 @@ class FloristInventoryScreen extends StatelessWidget {
         onPressed: () {
           _showAddFlowerDialog(context);
         },
-        backgroundColor: AppColors.primary,
+        backgroundColor: AdminTheme.sharedColor(context, AppColors.primary),
         foregroundColor: AppColors.onPrimary,
         icon: const Icon(Icons.add),
         label: const Text('Add Flower'),
@@ -461,7 +488,10 @@ class FloristInventoryScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Unable to update stock: $error'),
-                        backgroundColor: AppColors.primaryDark,
+                        backgroundColor: AdminTheme.sharedColor(
+                          context,
+                          AppColors.primaryDark,
+                        ),
                       ),
                     );
                   }
@@ -475,7 +505,10 @@ class FloristInventoryScreen extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Unable to update stock: $error'),
-                        backgroundColor: AppColors.primaryDark,
+                        backgroundColor: AdminTheme.sharedColor(
+                          context,
+                          AppColors.primaryDark,
+                        ),
                       ),
                     );
                   }
@@ -554,8 +587,11 @@ class _FlowerInventoryCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                        style: const AppTypography.price(
-                          color: AppColors.primary,
+                        style: AppTypography.price(
+                          color: AdminTheme.sharedColor(
+                            context,
+                            AppColors.primary,
+                          ),
                         ),
                       ),
                       Text(
@@ -564,7 +600,12 @@ class _FlowerInventoryCard extends StatelessWidget {
                       if (flower.shortageQuantity > 0)
                         Text(
                           'Restock ${flower.shortageQuantity} stems',
-                          style: const TextStyle(color: AppColors.primaryDark),
+                          style: TextStyle(
+                            color: AdminTheme.sharedColor(
+                              context,
+                              AppColors.primaryDark,
+                            ),
+                          ),
                         ),
                       const SizedBox(height: 8),
                       _FlowerStockBadge(
@@ -603,7 +644,10 @@ class _FlowerInventoryCard extends StatelessWidget {
                     '${flower.stockQuantity}',
                     style: AppTypography.productTitle(
                       color: flower.stockQuantity <= 5
-                          ? AppColors.primaryDark
+                          ? AdminTheme.sharedColor(
+                              context,
+                              AppColors.primaryDark,
+                            )
                           : Colors.black87,
                     ),
                   ),
@@ -616,7 +660,10 @@ class _FlowerInventoryCard extends StatelessWidget {
                 const Text('Custom orders', style: AppTypography.caption()),
                 Switch.adaptive(
                   value: flower.availableForCustomOrder,
-                  activeThumbColor: AppColors.primary,
+                  activeThumbColor: AdminTheme.sharedColor(
+                    context,
+                    AppColors.primary,
+                  ),
                   onChanged: onAvailabilityChanged,
                 ),
               ],
@@ -642,7 +689,7 @@ class _FlowerStockBadge extends StatelessWidget {
 
     if (stock <= 0) {
       label = 'Out of stock';
-      color = AppColors.primaryDark;
+      color = AdminTheme.sharedColor(context, AppColors.primaryDark);
       icon = Icons.cancel_outlined;
     } else if (!available) {
       label = 'Unavailable';
@@ -650,11 +697,11 @@ class _FlowerStockBadge extends StatelessWidget {
       icon = Icons.visibility_off_outlined;
     } else if (stock <= 5) {
       label = 'Low stock';
-      color = AppColors.primaryDark;
+      color = AdminTheme.sharedColor(context, AppColors.primaryDark);
       icon = Icons.warning_amber_rounded;
     } else {
       label = 'In stock';
-      color = AppColors.primaryDark;
+      color = AdminTheme.sharedColor(context, AppColors.primaryDark);
       icon = Icons.check_circle_outline;
     }
 
@@ -675,11 +722,11 @@ class _FlowerImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.inputFill,
-      child: const Center(
+      color: AdminTheme.sharedColor(context, AppColors.inputFill),
+      child: Center(
         child: Icon(
           Icons.local_florist_outlined,
-          color: AppColors.primary,
+          color: AdminTheme.sharedColor(context, AppColors.primary),
           size: 36,
         ),
       ),

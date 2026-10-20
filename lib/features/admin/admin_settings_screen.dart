@@ -27,7 +27,7 @@ class AdminSettingsScreen extends StatelessWidget {
             title: const Text('Admin profile'),
             subtitle: const Text('Update your name and phone number'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => openAdminPage(context, const _Profile()),
+            onTap: () => openAdminPage(context, const AdminProfileScreen()),
           ),
         ),
         const SizedBox(height: 12),
@@ -69,7 +69,7 @@ class AdminSettingsScreen extends StatelessWidget {
             subtitle: const Text(
               'Opening days, delivery area, cutoff and capacity',
             ),
-            onTap: () => openAdminPage(context, const _StorePolicy()),
+            onTap: () => openAdminPage(context, const AdminStorePolicyScreen()),
           ),
         ),
         const SizedBox(height: 12),
@@ -80,7 +80,7 @@ class AdminSettingsScreen extends StatelessWidget {
             subtitle: const Text(
               'Save admin alert preferences and device push settings',
             ),
-            onTap: () => openAdminPage(context, const _Preferences()),
+            onTap: () => openAdminPage(context, const AdminPreferencesScreen()),
           ),
         ),
         const SizedBox(height: 12),
@@ -110,13 +110,13 @@ class AdminSettingsScreen extends StatelessWidget {
   );
 }
 
-class _Profile extends StatefulWidget {
-  const _Profile();
+class AdminProfileScreen extends StatefulWidget {
+  const AdminProfileScreen({super.key});
   @override
-  State<_Profile> createState() => _ProfileState();
+  State<AdminProfileScreen> createState() => AdminProfileScreenState();
 }
 
-class _ProfileState extends State<_Profile> {
+class AdminProfileScreenState extends State<AdminProfileScreen> {
   final _name = TextEditingController(), _phone = TextEditingController();
   bool _loaded = false, _busy = false;
   @override
@@ -190,13 +190,13 @@ class _ProfileState extends State<_Profile> {
   );
 }
 
-class _Preferences extends StatefulWidget {
-  const _Preferences();
+class AdminPreferencesScreen extends StatefulWidget {
+  const AdminPreferencesScreen({super.key});
   @override
-  State<_Preferences> createState() => _PreferencesState();
+  State<AdminPreferencesScreen> createState() => AdminPreferencesScreenState();
 }
 
-class _PreferencesState extends State<_Preferences> {
+class AdminPreferencesScreenState extends State<AdminPreferencesScreen> {
   bool _orders = true,
       _riders = true,
       _push = false,
@@ -287,13 +287,13 @@ class _PreferencesState extends State<_Preferences> {
   );
 }
 
-class _StorePolicy extends StatefulWidget {
-  const _StorePolicy();
+class AdminStorePolicyScreen extends StatefulWidget {
+  const AdminStorePolicyScreen({super.key});
   @override
-  State<_StorePolicy> createState() => _StorePolicyState();
+  State<AdminStorePolicyScreen> createState() => AdminStorePolicyScreenState();
 }
 
-class _StorePolicyState extends State<_StorePolicy> {
+class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
   final _open = TextEditingController(),
       _cutoff = TextEditingController(),
       _capacity = TextEditingController(),

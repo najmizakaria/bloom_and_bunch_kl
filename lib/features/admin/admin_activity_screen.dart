@@ -5,6 +5,8 @@ import '../../core/utils/malaysia_time.dart';
 import '../../core/widgets/firestore_page.dart';
 import 'admin_widgets.dart';
 import 'admin_order_detail_screen.dart';
+import 'admin_layout.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminActivityScreen extends StatelessWidget {
   const AdminActivityScreen({super.key, this.audit = false});
@@ -58,30 +60,52 @@ class AdminActivityScreen extends StatelessWidget {
         );
       },
     );
+    final embedded = AdminSectionScope.contains(context);
+    final content = audit
+        ? records({})
+        : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .doc('admin_preferences/$uid')
+                .snapshots(),
+            builder: (context, s) {
+              if (s.hasError) {
+                return const Center(
+                  child: Text(
+                    'Could not load notification preferences. Reopen to retry.',
+                  ),
+                );
+              }
+              if (!s.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return records(s.data?.data() ?? {});
+            },
+          );
     return Scaffold(
-      appBar: AppBar(
-        title: Text(audit ? 'Administrative activity' : 'Admin alerts'),
-      ),
-      body: audit
-          ? records({})
-          : StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .doc('admin_preferences/$uid')
-                  .snapshots(),
-              builder: (context, s) {
-                if (s.hasError) {
-                  return const Center(
-                    child: Text(
-                      'Could not load notification preferences. Reopen to retry.',
-                    ),
-                  );
-                }
-                if (!s.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                return records(s.data?.data() ?? {});
-              },
+      appBar: embedded
+          ? null
+          : AppBar(
+              title: Text(audit ? 'Administrative activity' : 'Admin alerts'),
             ),
+      body: embedded
+          ? AdminPage(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AdminHeading(
+                    title: audit ? 'Activity history' : 'Admin alerts',
+                    subtitle: audit
+                        ? 'Recorded staff, order, payment and store changes.'
+                        : 'Order, stock, support and rider notifications.',
+                  ),
+                  const SizedBox(height: 24),
+                  Expanded(
+                    child: Card(clipBehavior: Clip.antiAlias, child: content),
+                  ),
+                ],
+              ),
+            )
+          : content,
     );
   }
 }

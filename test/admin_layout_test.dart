@@ -81,32 +81,35 @@ Widget _app(Widget child, {double scale = 1}) => MaterialApp(
 );
 
 void main() {
-  testWidgets('overview uses five equal columns and retains eleven metrics', (
-    tester,
-  ) async {
-    _size(tester, const Size(1920, 1200));
-    await tester.pumpWidget(
-      _app(AdminOverview(summaryLoader: () async => {'generatedAt': 0})),
-    );
-    await tester.pumpAndSettle();
-    final cards = find.descendant(
-      of: find.byType(AdminMetricGrid),
-      matching: find.byType(Card),
-    );
-    expect(cards, findsNWidgets(11));
-    final sizes = List.generate(11, (i) => tester.getSize(cards.at(i)));
-    expect(sizes.every((size) => size == sizes.first), isTrue);
-    final tops = List.generate(11, (i) => tester.getTopLeft(cards.at(i)).dy);
-    expect(tops.take(5).toSet().length, 1);
-    expect(tops.skip(5).take(5).toSet().length, 1);
-    expect(tops[5], greaterThan(tops[0]));
-    expect(tops[10], greaterThan(tops[5]));
-    expect(
-      tester.getTopLeft(cards.at(10)).dx,
-      tester.getTopLeft(cards.first).dx,
-    );
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'overview groups all eleven metrics into payments and operations',
+    (tester) async {
+      _size(tester, const Size(1920, 1200));
+      await tester.pumpWidget(
+        _app(AdminOverview(summaryLoader: () async => {'generatedAt': 0})),
+      );
+      await tester.pumpAndSettle();
+      final cards = find.descendant(
+        of: find.byType(AdminMetricGrid),
+        matching: find.byType(Card),
+      );
+      expect(cards, findsNWidgets(11));
+      final sizes = List.generate(11, (i) => tester.getSize(cards.at(i)));
+      expect(sizes.take(3).every((size) => size == sizes.first), isTrue);
+      expect(sizes.skip(3).every((size) => size == sizes[3]), isTrue);
+      final tops = List.generate(11, (i) => tester.getTopLeft(cards.at(i)).dy);
+      expect(tops.take(3).toSet().length, 1);
+      expect(tops.skip(3).take(4).toSet().length, 1);
+      expect(tops.skip(7).take(4).toSet().length, 1);
+      expect(tops[3], greaterThan(tops[0]));
+      expect(tops[7], greaterThan(tops[3]));
+      expect(
+        tester.getTopLeft(cards.at(7)).dx,
+        tester.getTopLeft(cards.first).dx,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'rider directory hides empty actions and paginates using its cursor',
     (tester) async {

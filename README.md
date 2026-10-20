@@ -29,6 +29,18 @@ npm ci --prefix functions
 
 Create a local `.env` if absent (an empty file is sufficient for emulator/web tests). Native Maps configuration uses the existing `.env` keys. Only client-safe configuration belongs in Flutter assets. Signing material, service-account credentials and payment secrets must never be bundled or committed.
 
+To run against the configured Firebase project locally, ensure the existing
+`.env` contains `FIREBASE_API_KEY_WEB` and `MAPS_API_KEY_WEB`, then run:
+
+```powershell
+flutter run -d edge
+```
+
+Chrome uses `flutter run -d chrome`. Debug web runs automatically load `.env`;
+no `--dart-define-from-file` flag is required. Explicit build defines take
+precedence over `.env`. Release web builds continue to use `tool/build_web.ps1`
+on Windows or `build_web.sh` on Unix.
+
 ## Run a local demo
 
 ```powershell

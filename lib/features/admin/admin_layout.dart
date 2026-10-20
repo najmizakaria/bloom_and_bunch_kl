@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_theme.dart';
 
 /// Shared bounds and spacing for the admin workspace, including embedded tabs.
 class AdminPage extends StatelessWidget {
@@ -42,11 +42,11 @@ class AdminHeading extends StatelessWidget {
             title,
             style: Theme.of(
               context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w500),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 6),
-            Text(subtitle!, style: const TextStyle(color: AppColors.textMuted)),
+            Text(subtitle!, style: const TextStyle(color: AdminTheme.muted)),
           ],
         ],
       );
@@ -78,7 +78,7 @@ class AdminHeading extends StatelessWidget {
 }
 
 class AdminBadge extends StatelessWidget {
-  const AdminBadge(this.label, {super.key, this.color = AppColors.primary});
+  const AdminBadge(this.label, {super.key, this.color = AdminTheme.primary});
   final String label;
   final Color color;
   @override
@@ -113,18 +113,18 @@ class AdminTable extends StatelessWidget {
           constraints: BoxConstraints(minWidth: box.maxWidth),
           child: DataTable(
             headingRowColor: const WidgetStatePropertyAll(
-              AppColors.softBlushStart,
+              AdminTheme.background,
             ),
             headingTextStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
-              color: AppColors.textMuted,
+              color: AdminTheme.muted,
             ),
             dataRowMinHeight: MediaQuery.textScalerOf(context).scale(1) > 1.1
                 ? 112
-                : 80,
+                : 64,
             dataRowMaxHeight: MediaQuery.textScalerOf(context).scale(1) > 1.1
                 ? 112
-                : 80,
+                : 64,
             horizontalMargin: 16,
             columnSpacing: 24,
             dividerThickness: 1,
@@ -161,7 +161,7 @@ class AdminPagination extends StatelessWidget {
       children: [
         Text(
           '$count ${count == 1 ? 'record' : 'records'} on this page',
-          style: const TextStyle(color: AppColors.textMuted),
+          style: const TextStyle(color: AdminTheme.muted),
         ),
         OutlinedButton(onPressed: onPrevious, child: const Text('Previous')),
         Text('Page $page'),
@@ -188,7 +188,7 @@ class AdminEmpty extends StatelessWidget {
       padding: const EdgeInsets.all(32),
       child: Column(
         children: [
-          Icon(icon, size: 32, color: AppColors.textMuted),
+          Icon(icon, size: 32, color: AdminTheme.muted),
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
         ],
@@ -235,21 +235,56 @@ class AdminMetric {
   final VoidCallback onTap;
 }
 
-class AdminMetricGrid extends StatelessWidget {
-  const AdminMetricGrid({super.key, required this.metrics});
+class AdminMetricSections extends StatelessWidget {
+  const AdminMetricSections({super.key, required this.metrics});
   final List<AdminMetric> metrics;
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(
+        'Payments',
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 12),
+      AdminMetricGrid(metrics: metrics.take(3).toList(), maxColumns: 3),
+      const SizedBox(height: 28),
+      Text(
+        'Operational queues',
+        style: Theme.of(
+          context,
+        ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      const SizedBox(height: 12),
+      AdminMetricGrid(metrics: metrics.skip(3).toList()),
+    ],
+  );
+}
+
+class AdminMetricGrid extends StatelessWidget {
+  const AdminMetricGrid({
+    super.key,
+    required this.metrics,
+    this.maxColumns = 4,
+  });
+  final List<AdminMetric> metrics;
+  final int maxColumns;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
-      final columns = box.maxWidth >= 1200
-          ? 5
+      final columns = box.maxWidth >= 1100
+          ? maxColumns
           : box.maxWidth >= 760
-          ? 3
+          ? math.min(3, maxColumns)
           : box.maxWidth >= 520
-          ? 2
+          ? math.min(2, maxColumns)
           : 1;
       final width = (box.maxWidth - 16 * (columns - 1)) / columns;
-      final titleStyle = Theme.of(context).textTheme.bodyLarge!;
+      final titleStyle = Theme.of(
+        context,
+      ).textTheme.labelMedium!.copyWith(fontWeight: FontWeight.w800);
       final valueStyle = Theme.of(
         context,
       ).textTheme.headlineSmall!.copyWith(fontWeight: FontWeight.w700);
@@ -259,23 +294,23 @@ class AdminMetricGrid extends StatelessWidget {
           text: TextSpan(text: metric.title, style: titleStyle),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
-        )..layout(maxWidth: math.max(1, width - 72));
+        )..layout(maxWidth: math.max(1, width - 76));
         final value = TextPainter(
           text: TextSpan(text: metric.value, style: valueStyle),
           textDirection: Directionality.of(context),
           textScaler: MediaQuery.textScalerOf(context),
-        )..layout(maxWidth: math.max(1, width - 32));
+        )..layout(maxWidth: math.max(1, width - 36));
         titleHeight = math.max(titleHeight, title.height);
         valueHeight = math.max(valueHeight, value.height);
         title.dispose();
         value.dispose();
       }
-      final height = math.max(144.0, titleHeight + valueHeight + 52);
+      final height = math.max(132.0, titleHeight + valueHeight + 52);
       return Wrap(
         spacing: 16,
         runSpacing: 16,
         children: [
-          for (final metric in metrics)
+          for (final (index, metric) in metrics.indexed)
             SizedBox(
               width: width,
               height: height,
@@ -285,7 +320,20 @@ class AdminMetricGrid extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: InkWell(
                   onTap: metric.onTap,
-                  child: Padding(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        left: BorderSide(
+                          width: 4,
+                          color: const [
+                            AdminTheme.primary,
+                            AdminTheme.success,
+                            AdminTheme.info,
+                            AdminTheme.warning,
+                          ][index % 4],
+                        ),
+                      ),
+                    ),
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,10 +342,25 @@ class AdminMetricGrid extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Text(metric.title, style: titleStyle),
+                              child: Text(
+                                metric.title,
+                                style: titleStyle.copyWith(
+                                  color: AdminTheme.primary,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 8),
-                            const Icon(Icons.chevron_right, size: 24),
+                            Icon(
+                              index == 0
+                                  ? Icons.payments_outlined
+                                  : index == 1
+                                  ? Icons.receipt_long_outlined
+                                  : index == 2
+                                  ? Icons.local_shipping_outlined
+                                  : Icons.pending_actions_outlined,
+                              size: 28,
+                              color: AdminTheme.border,
+                            ),
                           ],
                         ),
                         const Spacer(),

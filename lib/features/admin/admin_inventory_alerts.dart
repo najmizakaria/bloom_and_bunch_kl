@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
 import '../florist/screens/florist_inventory_screen.dart';
 import 'admin_widgets.dart';
+import 'admin_layout.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminInventoryAlerts extends StatefulWidget {
   const AdminInventoryAlerts({super.key});
@@ -14,7 +16,9 @@ class _AdminInventoryAlertsState extends State<AdminInventoryAlerts> {
   int _revision = 0;
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Flower stock alerts')),
+    appBar: AdminSectionScope.contains(context)
+        ? null
+        : AppBar(title: const Text('Flower stock alerts')),
     body: AdminLoad(
       key: ValueKey(_revision),
       load: () => AdminService().call('adminInventoryAlerts', {
@@ -23,6 +27,13 @@ class _AdminInventoryAlertsState extends State<AdminInventoryAlerts> {
       builder: (data, refresh) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (AdminSectionScope.contains(context)) ...[
+            const AdminHeading(
+              title: 'Stock alerts',
+              subtitle: 'Review flower availability and replenishment needs.',
+            ),
+            const SizedBox(height: 24),
+          ],
           Text(
             'Reviewed ${data['scanned']} flowers on page ${_pages.length}. Alerts use physical stock minus reserved stems. Negative balances require restocking; custom-order sourceability remains separate.',
           ),

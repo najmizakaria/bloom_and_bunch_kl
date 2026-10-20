@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/admin_service.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_theme.dart';
 import '../../core/utils/malaysia_time.dart';
 import 'admin_layout.dart';
 import 'admin_widgets.dart';
 import 'admin_workspace_screen.dart';
 import 'rider_history_screen.dart';
 import 'admin_order_detail_screen.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminRidersScreen extends StatelessWidget {
   const AdminRidersScreen({
@@ -24,7 +25,9 @@ class AdminRidersScreen extends StatelessWidget {
     length: 3,
     initialIndex: initialTab,
     child: Scaffold(
-      backgroundColor: AppColors.softBlushStart,
+      backgroundColor: AdminSectionScope.contains(context)
+          ? Theme.of(context).scaffoldBackgroundColor
+          : AdminTheme.background,
       appBar: AppBar(
         automaticallyImplyLeading: standalone,
         title: standalone ? const Text('Riders') : null,
@@ -79,10 +82,10 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
   Widget _deliveryBadge(Map<String, dynamic> p) => AdminBadge(
     _delivery(p),
     color: p['suspended'] == true
-        ? AppColors.statusLowStock
+        ? Color(0xFFB23B35)
         : p['activeDeliveryId'] != null
-        ? AppColors.statusReady
-        : AppColors.textMuted,
+        ? Color(0xFF237E61)
+        : AdminTheme.muted,
   );
   Widget _locationBadge(Map<String, dynamic> p) => AdminBadge(
     p['location'] is! Map
@@ -90,7 +93,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
         : _fresh(p)
         ? 'Recent location'
         : 'Stale location',
-    color: _fresh(p) ? AppColors.statusReady : AppColors.textMuted,
+    color: _fresh(p) ? Color(0xFF237E61) : AdminTheme.muted,
   );
   String _updated(Map<String, dynamic> p) {
     final l = p['location'];
@@ -215,12 +218,12 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                 located.isEmpty
                     ? 'No recent shared locations. Riders can share their location during an active delivery.'
                     : '${located.length} recent shared ${located.length == 1 ? 'location' : 'locations'} on this page.',
-                style: const TextStyle(color: AppColors.textMuted),
+                style: const TextStyle(color: AdminTheme.muted),
               ),
               const SizedBox(height: 6),
               const Text(
                 'Refreshes every 30 seconds · Locations older than two minutes are marked stale.',
-                style: TextStyle(color: AppColors.textMuted),
+                style: TextStyle(color: AdminTheme.muted),
               ),
               const SizedBox(height: 24),
               if (_showMap && located.isNotEmpty) ...[
@@ -301,9 +304,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                               p['location'] is Map
                                   ? 'Last update: ${_updated(p)}'
                                   : 'This rider has not shared an active-delivery location.',
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                              ),
+                              style: const TextStyle(color: AdminTheme.muted),
                             ),
                           ],
                         ),

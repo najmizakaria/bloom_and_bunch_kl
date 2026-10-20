@@ -90,6 +90,11 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/nunito/Nunito-VariableFont_wght.ttf
+
   # To add assets to your application, add an assets section, like this:
   assets:
     - .env

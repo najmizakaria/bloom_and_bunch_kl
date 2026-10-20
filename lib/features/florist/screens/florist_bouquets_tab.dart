@@ -1,3 +1,4 @@
+import '../../admin/admin_theme.dart';
 import '../../../core/widgets/firestore_page.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
@@ -87,11 +88,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
   ) async {
     if (available && bouquet.readyStock <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Add assembled bouquet stock before enabling Ready to Send.',
           ),
-          backgroundColor: AppColors.primaryDark,
+          backgroundColor: AdminTheme.sharedColor(
+            context,
+            AppColors.primaryDark,
+          ),
         ),
       );
       return;
@@ -151,11 +155,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
             'Bouquet restored as unpublished. Review it before publishing.',
           ),
-          backgroundColor: AppColors.primaryDark,
+          backgroundColor: AdminTheme.sharedColor(
+            context,
+            AppColors.primaryDark,
+          ),
         ),
       );
     } catch (error) {
@@ -203,8 +210,8 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: destructive
-                  ? AppColors.primaryDark
-                  : AppColors.primary,
+                  ? AdminTheme.sharedColor(context, AppColors.primaryDark)
+                  : AdminTheme.sharedColor(context, AppColors.primary),
             ),
             onPressed: () => Navigator.pop(dialogContext, true),
             child: Text(confirmLabel),
@@ -404,7 +411,10 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(editing ? 'Bouquet updated' : 'Bouquet added'),
-                  backgroundColor: AppColors.primaryDark,
+                  backgroundColor: AdminTheme.sharedColor(
+                    context,
+                    AppColors.primaryDark,
+                  ),
                 ),
               );
             } catch (error) {
@@ -504,16 +514,24 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'Customers can see this bouquet in eligible modes.',
                       ),
                       value: isPublished,
-                      activeThumbColor: AppColors.primary,
+                      activeThumbColor: AdminTheme.sharedColor(
+                        context,
+                        AppColors.primary,
+                      ),
                       onChanged: saving
                           ? null
                           : (value) =>
                                 setDialogState(() => isPublished = value),
                     ),
                     const Divider(height: 28),
-                    const Text(
+                    Text(
                       'READY TO SEND',
-                      style: AppTypography.label(color: AppColors.primary),
+                      style: AppTypography.label(
+                        color: AdminTheme.sharedColor(
+                          context,
+                          AppColors.primary,
+                        ),
+                      ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -522,7 +540,10 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'Only already assembled bouquets belong here.',
                       ),
                       value: availableForReadyNow,
-                      activeThumbColor: AppColors.primary,
+                      activeThumbColor: AdminTheme.sharedColor(
+                        context,
+                        AppColors.primary,
+                      ),
                       onChanged: saving
                           ? null
                           : (value) => setDialogState(
@@ -540,9 +561,14 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       ),
                     ),
                     const Divider(height: 32),
-                    const Text(
+                    Text(
                       'PRE-ORDER',
-                      style: AppTypography.label(color: AppColors.primaryDark),
+                      style: AppTypography.label(
+                        color: AdminTheme.sharedColor(
+                          context,
+                          AppColors.primaryDark,
+                        ),
+                      ),
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
@@ -551,7 +577,10 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         'The florist prepares this design after ordering.',
                       ),
                       value: availableForPreOrder,
-                      activeThumbColor: AppColors.primaryDark,
+                      activeThumbColor: AdminTheme.sharedColor(
+                        context,
+                        AppColors.primaryDark,
+                      ),
                       onChanged: saving
                           ? null
                           : (value) => setDialogState(
@@ -565,7 +594,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                           labelText: 'Preparation time',
                           border: OutlineInputBorder(),
                         ),
-                        items: const [
+                        items: [
                           DropdownMenuItem(
                             value: 1,
                             child: Text('1 business day'),
@@ -632,7 +661,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                                     child: Text(
                                       '$count',
                                       textAlign: TextAlign.center,
-                                      style: const AppTypography.label(),
+                                      style: AppTypography.label(),
                                     ),
                                   ),
                                   IconButton(
@@ -668,7 +697,10 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
               ),
               FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: AdminTheme.sharedColor(
+                    context,
+                    AppColors.primary,
+                  ),
                 ),
                 onPressed: saving ? null : save,
                 child: saving
@@ -702,25 +734,33 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
     ScaffoldMessenger.of(dialogContext).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: error ? AppColors.primaryDark : AppColors.primaryDark,
+        backgroundColor: error
+            ? AdminTheme.sharedColor(context, AppColors.primaryDark)
+            : AdminTheme.sharedColor(context, AppColors.primaryDark),
       ),
     );
   }
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: AppColors.primaryDark),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AdminTheme.sharedColor(context, AppColors.primaryDark),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: AdminTheme.sharedColor(context, AppColors.background),
       floatingActionButton: _showArchived
           ? null
           : FloatingActionButton.extended(
-              backgroundColor: AppColors.primary,
+              backgroundColor: AdminTheme.sharedColor(
+                context,
+                AppColors.primary,
+              ),
               foregroundColor: AppColors.onPrimary,
               onPressed: _showBouquetForm,
               icon: const Icon(Icons.add),
@@ -760,7 +800,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         _showArchived
                             ? 'Archived Bouquets'
                             : '${bouquets.length} Bouquets on this page',
-                        style: const AppTypography.label(),
+                        style: AppTypography.label(),
                       ),
                     ),
                     FilterChip(
@@ -888,7 +928,7 @@ class _BouquetCard extends StatelessWidget {
                               if (value == 'delete') onDelete();
                             },
                             itemBuilder: (_) => archived
-                                ? const [
+                                ? [
                                     PopupMenuItem(
                                       value: 'restore',
                                       child: Text('Restore'),
@@ -898,12 +938,15 @@ class _BouquetCard extends StatelessWidget {
                                       child: Text(
                                         'Delete permanently',
                                         style: TextStyle(
-                                          color: AppColors.primaryDark,
+                                          color: AdminTheme.sharedColor(
+                                            context,
+                                            AppColors.primaryDark,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ]
-                                : const [
+                                : [
                                     PopupMenuItem(
                                       value: 'edit',
                                       child: Text('Edit'),
@@ -917,7 +960,10 @@ class _BouquetCard extends StatelessWidget {
                                       child: Text(
                                         'Delete permanently',
                                         style: TextStyle(
-                                          color: AppColors.primaryDark,
+                                          color: AdminTheme.sharedColor(
+                                            context,
+                                            AppColors.primaryDark,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -927,7 +973,12 @@ class _BouquetCard extends StatelessWidget {
                       ),
                       Text(
                         '${bouquet.category} • RM ${bouquet.price.toStringAsFixed(2)}',
-                        style: const TextStyle(color: AppColors.primary),
+                        style: TextStyle(
+                          color: AdminTheme.sharedColor(
+                            context,
+                            AppColors.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -939,21 +990,30 @@ class _BouquetCard extends StatelessWidget {
                                 ? 'Ready Now: ${bouquet.readyStock}'
                                 : 'Ready Now: Off',
                             enabled: bouquet.availableForReadyNow,
-                            color: AppColors.primary,
+                            color: AdminTheme.sharedColor(
+                              context,
+                              AppColors.primary,
+                            ),
                           ),
                           _ModeChip(
                             label: bouquet.availableForPreOrder
                                 ? 'Pre-Order: ${bouquet.leadTimeBusinessDays}d'
                                 : 'Pre-Order: Off',
                             enabled: bouquet.availableForPreOrder,
-                            color: AppColors.primaryDark,
+                            color: AdminTheme.sharedColor(
+                              context,
+                              AppColors.primaryDark,
+                            ),
                           ),
                           _ModeChip(
                             label: bouquet.isPublished
                                 ? 'Published'
                                 : 'Unpublished',
                             enabled: bouquet.isPublished,
-                            color: AppColors.primaryDark,
+                            color: AdminTheme.sharedColor(
+                              context,
+                              AppColors.primaryDark,
+                            ),
                           ),
                         ],
                       ),
@@ -989,7 +1049,10 @@ class _BouquetCard extends StatelessWidget {
                   Switch.adaptive(
                     value:
                         bouquet.availableForReadyNow && bouquet.readyStock > 0,
-                    activeThumbColor: AppColors.primary,
+                    activeThumbColor: AdminTheme.sharedColor(
+                      context,
+                      AppColors.primary,
+                    ),
                     onChanged: onReadyNowChanged,
                   ),
                 ],
@@ -1000,7 +1063,10 @@ class _BouquetCard extends StatelessWidget {
               title: const Text('Published'),
               subtitle: const Text('Visible in eligible customer catalogues'),
               value: bouquet.isPublished,
-              activeThumbColor: AppColors.primary,
+              activeThumbColor: AdminTheme.sharedColor(
+                context,
+                AppColors.primary,
+              ),
               onChanged: onPublishedChanged,
             ),
           ],
@@ -1063,11 +1129,11 @@ class _ImagePlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.inputFill,
-      child: const Center(
+      color: AdminTheme.sharedColor(context, AppColors.inputFill),
+      child: Center(
         child: Icon(
           Icons.add_a_photo_outlined,
-          color: AppColors.primary,
+          color: AdminTheme.sharedColor(context, AppColors.primary),
           size: 40,
         ),
       ),

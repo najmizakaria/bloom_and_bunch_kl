@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
 import 'admin_widgets.dart';
 import 'admin_layout.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_theme.dart';
+import 'admin_navigation_scope.dart';
 
 class AdminStaffScreen extends StatefulWidget {
   const AdminStaffScreen({super.key, this.peopleLoader});
@@ -88,9 +89,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
   );
   Widget _status(Map<String, dynamic> person) => AdminBadge(
     person['suspended'] == true ? 'Suspended' : 'Active',
-    color: person['suspended'] == true
-        ? AppColors.statusLowStock
-        : AppColors.statusReady,
+    color: person['suspended'] == true ? Color(0xFFB23B35) : Color(0xFF237E61),
   );
   Widget _access(Map<String, dynamic> person, VoidCallback refresh) =>
       (person['roles'] as List).contains('admin')
@@ -109,9 +108,14 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
   String _phone(Map<String, dynamic> person) =>
       '${person['phone'] ?? ''}'.trim().isEmpty ? '—' : '${person['phone']}';
   Future<void> _create() async {
+    final workspace = AdminNavigationScope.maybeOf(context);
+    if (workspace != null) {
+      workspace.open(const AdminCreateStaffScreen());
+      return;
+    }
     await Navigator.push<void>(
       context,
-      MaterialPageRoute(builder: (_) => const _CreateStaff()),
+      MaterialPageRoute(builder: (_) => const AdminCreateStaffScreen()),
     );
     if (mounted) setState(() => _revision++);
   }
@@ -224,17 +228,13 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                             const SizedBox(height: 8),
                             SelectableText(
                               '${p['email']}',
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                              ),
+                              style: const TextStyle(color: AdminTheme.muted),
                             ),
                             if (_phone(p) != '—') ...[
                               const SizedBox(height: 4),
                               Text(
                                 _phone(p),
-                                style: const TextStyle(
-                                  color: AppColors.textMuted,
-                                ),
+                                style: const TextStyle(color: AdminTheme.muted),
                               ),
                             ],
                             const SizedBox(height: 12),
@@ -273,13 +273,14 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
   );
 }
 
-class _CreateStaff extends StatefulWidget {
-  const _CreateStaff();
+class AdminCreateStaffScreen extends StatefulWidget {
+  const AdminCreateStaffScreen({super.key, this.onCreated});
+  final VoidCallback? onCreated;
   @override
-  State<_CreateStaff> createState() => _CreateStaffState();
+  State<AdminCreateStaffScreen> createState() => AdminCreateStaffScreenState();
 }
 
-class _CreateStaffState extends State<_CreateStaff> {
+class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController(),
       _email = TextEditingController(),
@@ -317,6 +318,7 @@ class _CreateStaffState extends State<_CreateStaff> {
             ),
           ),
         );
+        widget.onCreated?.call();
         Navigator.pop(context);
       }
     } catch (e) {

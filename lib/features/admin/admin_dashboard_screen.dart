@@ -1,78 +1,20 @@
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
-import '../../core/theme/app_colors.dart';
+import 'admin_shell.dart';
 import '../../core/utils/malaysia_time.dart';
 import '../florist/screens/florist_products_screen.dart';
 import '../support/store_operations_screen.dart';
 import 'admin_widgets.dart';
 import 'admin_orders_screen.dart';
 import 'admin_riders_screen.dart';
-import 'admin_settings_screen.dart';
-import 'admin_staff_screen.dart';
-import 'admin_activity_screen.dart';
+
 import 'admin_inventory_alerts.dart';
 import 'admin_layout.dart';
 
-class AdminDashboardScreen extends StatefulWidget {
+class AdminDashboardScreen extends StatelessWidget {
   const AdminDashboardScreen({super.key});
   @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
-}
-
-class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  int _index = 0;
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.softBlushStart,
-    appBar: AppBar(
-      title: Text(
-        [
-          'Admin dashboard',
-          'Riders',
-          'Staff management',
-          'Admin settings',
-        ][_index],
-      ),
-      actions: [
-        IconButton(
-          tooltip: 'Inventory: bouquets and flowers',
-          onPressed: () =>
-              openAdminPage(context, const FloristProductsScreen()),
-          icon: const Icon(Icons.inventory_2_outlined),
-        ),
-        IconButton(
-          tooltip: 'Admin alerts',
-          onPressed: () => openAdminPage(context, const AdminActivityScreen()),
-          icon: const Icon(Icons.notifications_outlined),
-        ),
-      ],
-    ),
-    body: switch (_index) {
-      0 => const AdminOverview(),
-      1 => const AdminRidersScreen(),
-      2 => const AdminStaffScreen(),
-      _ => const AdminSettingsScreen(),
-    },
-    bottomNavigationBar: NavigationBar(
-      selectedIndex: _index,
-      onDestinationSelected: (value) => setState(() => _index = value),
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          label: 'Dashboard',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.delivery_dining),
-          label: 'Riders',
-        ),
-        NavigationDestination(icon: Icon(Icons.people_outline), label: 'Staff'),
-        NavigationDestination(
-          icon: Icon(Icons.settings_outlined),
-          label: 'Settings',
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) => const AdminShell();
 }
 
 class AdminOverview extends StatelessWidget {
@@ -114,7 +56,7 @@ class AdminOverview extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 24),
           children: [
             AdminHeading(
-              title: 'Store overview',
+              title: 'Dashboard',
               subtitle:
                   'Updated ${malaysiaTime(DateTime.fromMillisecondsSinceEpoch((data['generatedAt'] as num? ?? 0).toInt()))}. Refreshes every 30 seconds.',
               actions: [
@@ -126,7 +68,7 @@ class AdminOverview extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
-            AdminMetricGrid(
+            AdminMetricSections(
               metrics: [
                 metric(
                   'Manual payments received today',

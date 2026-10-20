@@ -1,9 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
+import 'admin_navigation_scope.dart';
 
-void openAdminPage(BuildContext context, Widget page) =>
+void openAdminPage(BuildContext context, Widget page) {
+  final workspace = AdminNavigationScope.maybeOf(context);
+  if (workspace != null) {
+    workspace.open(page);
+  } else {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
+  }
+}
+
 Future<bool> adminAction(
   BuildContext context,
   Future<void> Function() action, {

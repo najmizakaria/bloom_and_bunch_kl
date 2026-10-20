@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../core/services/order_service.dart';
 import 'order_support.dart';
 import '../../core/widgets/firestore_page.dart';
+import '../admin/admin_navigation_scope.dart';
+import '../admin/admin_layout.dart';
 
 class StoreOperationsScreen extends StatefulWidget {
   const StoreOperationsScreen({super.key});
@@ -91,13 +93,24 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      leading: const PageBackButton(),
-      centerTitle: false,
-      title: const Text('Store support'),
-    ),
+    appBar: AdminSectionScope.contains(context)
+        ? null
+        : AppBar(
+            leading: const PageBackButton(),
+            centerTitle: false,
+            title: const Text('Store support'),
+          ),
     body: Column(
       children: [
+        if (AdminSectionScope.contains(context))
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
+            child: AdminHeading(
+              title: 'Support & feedback',
+              subtitle:
+                  'Manage customer issues, pending payments and delivery follow-ups.',
+            ),
+          ),
         Padding(
           padding: const EdgeInsets.all(16),
           child: DropdownButtonFormField<String>(
