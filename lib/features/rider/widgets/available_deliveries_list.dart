@@ -4,6 +4,7 @@ import '../../../core/services/delivery_service.dart';
 import '../../../core/utils/malaysia_time.dart';
 import '../../../models/delivery_job_model.dart';
 import '../screens/rider_available_job_screen.dart';
+import 'delivery_job_card.dart';
 
 class AvailableDeliveriesList extends StatefulWidget {
   const AvailableDeliveriesList({
@@ -31,6 +32,7 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
   bool _loading = false, _foreground = true;
   Timer? _timer;
   int _generation = 0;
+  DateTime? _lastUpdated;
 
   @override
   void initState() {
@@ -85,7 +87,10 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
         _cursors.last,
       );
       if (!mounted || generation != _generation) return;
-      setState(() => _page = page);
+      setState(() {
+        _page = page;
+        _lastUpdated = DateTime.now();
+      });
     } catch (error) {
       if (mounted && generation == _generation) {
         setState(() => _error = DeliveryService.message(error));
@@ -107,6 +112,15 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(12),
             children: [
+              if (_page?.contactReady == false)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      'Your delivery contact needs administrator review. Ask the store to approve your name and Malaysian phone number before accepting a delivery.',
+                    ),
+                  ),
+                ),
               if (_page?.activeDeliveryId != null)
                 Card(
                   margin: const EdgeInsets.all(12),
@@ -126,8 +140,16 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                   ),
                 ),
               const Text(
-                'Only deliveries ready for pickup appear here. The first rider to accept gets the delivery.',
+                'Choose a delivery to see pickup and destination details before accepting.',
               ),
+              if (_lastUpdated != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 16),
+                  child: Text(
+                    'Updated ${malaysiaTime(_lastUpdated!)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
               if (_loading) const LinearProgressIndicator(),
               if (_error != null) ...[
                 Padding(
@@ -157,41 +179,30 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                   ),
                 ),
               for (final job in _readyDeliveries)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: Icon(
-                      job.readyForPickup
-                          ? Icons.local_shipping_outlined
-                          : Icons.hourglass_empty,
-                    ),
-                    title: Text(job.deliveryArea),
-                    subtitle: Text(
-                      '${job.readyForPickup ? 'Ready for pickup' : 'Waiting for preparation'}\n${job.deliveryTimeSlot}\nOrdered ${malaysiaTime(job.createdAt)}',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: _loading || _error != null
-                        ? null
-                        : () async {
-                            final route = MaterialPageRoute<String>(
-                              builder: (_) => RiderAvailableJobScreen(
-                                job: job,
-                                hasActiveDelivery:
-                                    _page?.activeDeliveryId != null,
-                              ),
-                            );
-                            final accepted = await Navigator.push<String>(
-                              context,
-                              route,
-                            );
-                            // The push result resolves when pop starts. Finish
-                            // removing the preview before changing its source tab.
-                            await route.completed;
-                            if (!mounted) return;
-                            if (accepted != null) widget.onMyDelivery();
-                            await _refresh();
-                          },
-                  ),
+                DeliveryJobCard(
+                  job: job,
+                  onView: _loading || _error != null
+                      ? null
+                      : () async {
+                          final route = MaterialPageRoute<String>(
+                            builder: (_) => RiderAvailableJobScreen(
+                              job: job,
+                              contactReady: _page?.contactReady != false,
+                              hasActiveDelivery:
+                                  _page?.activeDeliveryId != null,
+                            ),
+                          );
+                          final accepted = await Navigator.push<String>(
+                            context,
+                            route,
+                          );
+                          // The push result resolves when pop starts. Finish
+                          // removing the preview before changing its source tab.
+                          await route.completed;
+                          if (!mounted) return;
+                          if (accepted != null) widget.onMyDelivery();
+                          await _refresh();
+                        },
                 ),
             ],
           ),
@@ -203,7 +214,7 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Wrap(
             alignment: WrapAlignment.center,
-            spacing: 12,
+            spacing: 8,
             children: [
               TextButton(
                 onPressed: _loading || _cursors.length == 1
@@ -214,6 +225,7 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                       },
                 child: const Text('Previous'),
               ),
+              Text('Page ${_cursors.length}'),
               TextButton(
                 onPressed: _loading ? null : _refresh,
                 child: const Text('Refresh'),

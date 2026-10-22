@@ -32,7 +32,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(ListTile, 'Kuala Lumpur'));
+    await tester.ensureVisible(find.text('View delivery'));
+    await tester.tap(find.text('View delivery'));
     await tester.pumpAndSettle();
     final preview = tester.element(find.byType(RiderAvailableJobScreen));
     // Simulate the successful callable result, without using Firebase.

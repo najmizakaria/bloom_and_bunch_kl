@@ -128,7 +128,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         setState(() => _payment = payment);
         if (payment.canPay && payment.checkoutUri == null) {
           throw StateError(
-            'Payment link is unavailable. Check payment status or contact the store.',
+            'Payment link is unavailable. Try again or contact the store.',
           );
         }
         // Opening the bank page is a separate user click, preserving browser
@@ -139,7 +139,7 @@ class _PaymentScreenState extends State<PaymentScreen>
       final uri = payment.checkoutUri;
       if (uri == null) {
         throw StateError(
-          'Payment link is unavailable. Check payment status or contact the store.',
+          'Payment link is unavailable. Try again or contact the store.',
         );
       }
       final opened =
@@ -169,7 +169,7 @@ class _PaymentScreenState extends State<PaymentScreen>
         : payment.paid
         ? 'Payment verified. Your order can now be prepared and delivered.'
         : payment.needsReview
-        ? 'Your bill needs verification. Check status shortly or contact the store. Please do not create another order to retry payment.'
+        ? 'Your payment needs verification. Please wait or contact the store. Please do not create another order to retry payment.'
         : payment.status == 'expired'
         ? 'Payment expired. This order was cancelled and its reserved stock released.'
         : 'Payment is pending. Your order will proceed after payment is verified. If an attempt fails, reopen the same bill to retry.';
@@ -181,7 +181,7 @@ class _PaymentScreenState extends State<PaymentScreen>
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const AppNote('ToyyibPay sandbox · Test payments only'),
+          const AppNote('Test payments only'),
           const SizedBox(height: 16),
           if (payment != null)
             Text(
@@ -247,16 +247,12 @@ class _PaymentScreenState extends State<PaymentScreen>
           if (payment?.canPay == true)
             FilledButton(
               onPressed: _busy ? null : _pay,
-              child: Text(
-                payment?.checkoutUri == null
-                    ? 'Continue to payment'
-                    : 'Open ToyyibPay sandbox',
-              ),
+              child: const Text('Pay Now'),
             ),
-          if (payment?.paid != true)
+          if (_error != null)
             OutlinedButton(
               onPressed: _busy ? null : _check,
-              child: const Text('Check payment status'),
+              child: const Text('Retry'),
             ),
           TextButton(
             onPressed: _orderId == null ? null : _viewOrder,

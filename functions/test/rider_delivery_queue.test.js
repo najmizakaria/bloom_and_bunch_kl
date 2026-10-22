@@ -4,7 +4,7 @@ const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
 let db,api;
 const req=(uid,data={})=>({auth:{uid},data});
 const act=(uid,id,action='accept')=>api.transitionOrder.run(req(uid,{orderId:id,action}));
-async function profile(uid,roles=['rider']){await db.doc('users/'+uid).set({role:roles[0],roles,name:'Queue rider'});}
+async function profile(uid,roles=['rider']){await db.doc('users/'+uid).set({role:roles[0],roles,name:'Queue rider'});if(roles.includes('rider'))await db.doc('rider_applications/'+uid).set({status:'approved',name:'Queue rider',phone:'0123456789'});}
 async function order(id,extra={}){await db.doc('orders/'+id).set({customerId:'queue_buyer',riderId:null,orderStatus:'Ready for Delivery',deliveryAddress:'12 Main Street, Kuala Lumpur',recipientName:'Private recipient',recipientPhone:'Private phone',latitude:3.139,longitude:101.687,deliveryNote:'Private note',createdAt:new Date('2020-01-01'),...extra});return id;}
 before(async()=>{if(!enabled)return;if(!process.env.GCLOUD_PROJECT?.startsWith('demo-'))throw Error('Use demo emulators only.');api=require('../index');db=require('firebase-admin/firestore').getFirestore();await profile('queue_buyer',['customer']);});
 after(async()=>{if(db)await db.terminate();});
@@ -57,7 +57,10 @@ test('delivery feed filters owners and private fields, hides all preparation sta
  for(let i=0;i<30;i++){const page=await api.listAvailableDeliveries.run(req('queue_feed',{cursor}));items.push(...page.deliveries);assert.ok(page.deliveries.length<=20);cursor=page.nextCursor;if(!cursor)break;}
  assert.ok(items.some(x=>x.orderId===ready));assert.ok(items.every(x=>x.orderStatus==='Ready for Delivery'));assert.ok(waiting.every(id=>!items.some(x=>x.orderId===id)));assert.ok(!items.some(x=>x.orderId==='queue_feed_own'));
 
- for(const item of items)for(const field of ['recipientName','recipientPhone','deliveryAddress','deliveryNote','customerId','latitude','longitude'])assert.equal(field in item,false);
+ for(const item of items){
+  assert.ok(typeof item.deliveryAddress==='string'&&item.deliveryAddress.length>0);
+  for(const field of ['recipientName','recipientPhone','deliveryNote','customerId','latitude','longitude'])assert.equal(field in item,false);
+ }
 });
 test('owner-only scan pages keep a cursor and do not skip later eligible orders',{skip:!enabled},async()=>{
  await profile('queue_pager');const batch=db.batch();
@@ -74,4 +77,36 @@ test('preparing order appears only after florist marks it ready; old phase curso
  await act('queue_florist',id,'ready');
  page=await api.listAvailableDeliveries.run(req('queue_new_ready'));assert.ok(page.deliveries.some(x=>x.orderId===id));
  const oldPage=await api.listAvailableDeliveries.run(req('queue_new_ready',{cursor:{phase:1,orderId:id}}));assert.deepEqual(oldPage.deliveries,[]);assert.equal(oldPage.nextCursor,null);
+});
+
+test('rider feed repairs destination previews and sync upgrades existing job projections',{skip:!enabled},async()=>{
+ await profile('queue_area_rider');await profile('queue_area_admin',['admin']);
+ const id=await order('queue_area_legacy',{deliveryAddress:'Unit 5, Private Street, 43000 Kajang, Selangor, Malaysia',
+  createdAt:new Date('1900-01-01'),estimatedDispatchDate:'2026-10-16',items:[{quantity:2},{quantity:1}]});
+ await db.doc('delivery_jobs/'+id).set({orderId:id,deliveryArea:'Selangor, Malaysia'});
+ const page=await api.listAvailableDeliveries.run(req('queue_area_rider'));
+ const result=page.deliveries.find(job=>job.orderId===id);
+ assert.equal(result.deliveryArea,'Kajang · 43000');assert.equal(result.deliveryState,'Selangor');
+ assert.equal(result.itemCount,3);assert.equal(result.estimatedDispatchDate,'2026-10-16');
+ assert.equal(result.deliveryAddress,'Unit 5, Private Street, 43000 Kajang, Selangor, Malaysia');
+ await api.syncDeliveryJobs.run(req('queue_area_admin'));
+ const job=(await db.doc('delivery_jobs/'+id).get()).data();
+ assert.equal(job.previewVersion,3);assert.equal(job.deliveryArea,'Kajang · 43000');
+ assert.equal('recipientPhone' in job,false);assert.equal(job.deliveryAddress,result.deliveryAddress);
+});
+
+test('saved structured area survives checkout, rejects stale area and permits exact retries',{skip:!enabled},async()=>{
+ await profile('queue_area_buyer',['customer']);
+ const address={label:'Home',address:'Unit 5, Private Street, 43000 Kajang, Selangor',recipientName:'Buyer',recipientPhone:'0123456789',
+  latitude:3.1,longitude:101.7,isDefault:true,locality:'Kajang',postcode:'43000',state:'Selangor'};
+ await api.saveAddress.run(req('queue_area_buyer',{addressId:'area',address}));
+ assert.equal((await db.doc('users/queue_area_buyer/addresses/area').get()).data().postcode,'43000');
+ await db.doc('bouquets/queue_area_bouquet').set({name:'Bouquet',price:50,readyStock:2,availableForReadyNow:true,isPublished:true});
+ const data={checkoutId:'queue_area_checkout',addressId:'area',address,items:[{quantity:1,fulfillmentType:'ready_now',bouquetId:'queue_area_bouquet'}],expectedTotal:50};
+ await assert.rejects(()=>api.placeOrder.run(req('queue_area_buyer',{...data,address:{...address,locality:'Cyberjaya'}})),error=>error.code==='failed-precondition');
+ const result=await api.placeOrder.run(req('queue_area_buyer',data));
+ const order=(await db.doc('orders/'+result.orderIds[0]).get()).data();
+ assert.equal(order.deliveryLocality,'Kajang');assert.equal(order.deliveryPostcode,'43000');
+ assert.deepEqual(await api.placeOrder.run(req('queue_area_buyer',data)),result);
+ await assert.rejects(()=>api.saveAddress.run(req('queue_area_buyer',{address:{...address,postcode:'4300'}})),error=>error.code==='invalid-argument');
 });

@@ -197,7 +197,12 @@ class _AdminRouterDelegate extends RouterDelegate<AdminLocation>
         initialDates: _dates(q),
       ),
       AdminDestination.inventory => FloristProductsScreen(
-        initialTab: q['tab'] == 'flowers' ? 1 : 0,
+        initialTab: switch (q['tab']) {
+          'flowers' => 1,
+          'addons' => 2,
+          'cards' => 3,
+          _ => 0,
+        },
       ),
       AdminDestination.stock => const AdminInventoryAlerts(),
       AdminDestination.support => const StoreOperationsScreen(),

@@ -10,6 +10,7 @@ import '../../../core/widgets/delivery_progress.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../support/order_support.dart';
 import 'payment_screen.dart';
+import 'checkout_receipt_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -124,6 +125,21 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 'Estimated dispatch: ${d['estimatedDispatchDate']}',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
+            if (d['scheduledDeliveryDate'] != null)
+              Text('Requested delivery: ${d['scheduledDeliveryDate']}'),
+            if (d['schemaVersion'] == 3 && d['checkoutGroupId'] != null)
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => CheckoutReceiptScreen(
+                      checkoutId: d['checkoutGroupId'] as String,
+                    ),
+                  ),
+                ),
+                icon: const Icon(Icons.receipt_long),
+                label: const Text('View combined receipt'),
+              ),
             AppNote(
               (d['deliveryTimeSlot'] ??
                       'Contact the store for delivery timing.')
@@ -152,7 +168,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             Text(switch (d['paymentStatus']) {
               'paid' =>
                 d['orderMode'] == 'toyyibpay_sandbox'
-                    ? 'Sandbox payment verified'
+                    ? 'Payment verified'
                     : 'Payment confirmed by the store',
               'pending' =>
                 d['orderMode'] == 'toyyibpay_sandbox'
@@ -178,6 +194,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               AppNote(
                 d['orderMode'] == 'demo'
                     ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
+                    : d['orderMode'] == 'toyyibpay_sandbox'
+                    ? 'Your order will proceed after payment is verified. Unpaid reservations expire after 30 minutes.'
                     : d['paymentInstructions'].toString(),
               ),
             if (d['checkoutGroupId'] != null)

@@ -10,6 +10,7 @@ import '../../../models/user_model.dart';
 import '../widgets/available_deliveries_list.dart';
 import '../widgets/rider_location_sharing.dart';
 import 'rider_order_detail_screen.dart';
+import '../widgets/rider_delivery_details.dart';
 
 class RiderHomeScreen extends StatefulWidget {
   const RiderHomeScreen({super.key});
@@ -63,43 +64,66 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           .where('orderStatus', whereIn: ['Completed', 'Delivered'])
           .orderBy('createdAt', descending: true),
     );
-    Widget orders(Query<Map<String, dynamic>> query, String empty) =>
-        FirestorePage(
-          query: query,
-          emptyMessage: empty,
-          builder: (context, docs) => ListView(
-            padding: const EdgeInsets.all(12),
-            children: [
-              for (final doc in docs)
-                Builder(
-                  builder: (context) {
-                    final order = OrderModel.fromMap(doc.data(), doc.id);
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        title: Text(
-                          order.deliveryAddress,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          '${order.recipientName}\n${order.orderStatus}',
-                        ),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.push(
+    Widget orders(
+      Query<Map<String, dynamic>> query,
+      String empty, {
+      bool active = false,
+    }) => FirestorePage(
+      query: query,
+      emptyMessage: empty,
+      builder: (context, docs) => ListView(
+        padding: const EdgeInsets.all(12),
+        children: [
+          for (final doc in docs)
+            Builder(
+              builder: (context) {
+                final order = OrderModel.fromMap(doc.data(), doc.id);
+                if (active) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      RiderDeliveryDetails(order: order),
+                      const SizedBox(height: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => Navigator.push(
                           context,
                           MaterialPageRoute<void>(
                             builder: (_) =>
                                 RiderOrderDetailScreen(order: order),
                           ),
                         ),
+                        icon: const Icon(Icons.map_outlined),
+                        label: const Text('Open map and delivery actions'),
                       ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        );
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                }
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    title: Text(
+                      order.deliveryAddress,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      '${order.recipientName}\n${order.orderStatus}',
+                    ),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => RiderOrderDetailScreen(order: order),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
     return PageNavigationScope(
       canGoHome: _index != 0,
       onHome: () => _select(0),
@@ -132,6 +156,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                           orders(
                             assigned,
                             'You have no active delivery. Choose one from Available Deliveries.',
+                            active: true,
                           ),
                           orders(history, 'No completed deliveries yet.'),
                           ListView(

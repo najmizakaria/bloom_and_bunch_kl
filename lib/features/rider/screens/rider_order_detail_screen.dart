@@ -9,7 +9,7 @@ import '../../../core/services/order_service.dart';
 import '../../support/order_support.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../widgets/rider_delivery_details.dart';
 import '../../../models/order_model.dart';
 
 class RiderOrderDetailScreen extends StatelessWidget {
@@ -116,32 +116,6 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
     }
   }
 
-  Future<void> _callRecipient() async {
-    final uri = Uri(scheme: 'tel', path: widget.order.recipientPhone);
-    if (!await launchUrl(uri) && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the phone dialer.')),
-      );
-    }
-  }
-
-  Future<void> _openNavigation() async {
-    final destination =
-        widget.order.latitude != null && widget.order.longitude != null
-        ? '${widget.order.latitude},${widget.order.longitude}'
-        : widget.order.deliveryAddress;
-    final uri = Uri.https('www.google.com', '/maps/dir/', {
-      'api': '1',
-      'destination': destination,
-    });
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication) &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open navigation.')),
-      );
-    }
-  }
-
   Future<void> _markAsDelivered() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -181,13 +155,14 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    final isOutForDelivery = widget.order.orderStatus == 'Out for Delivery';
-
+    final active = widget.order.orderStatus == 'Out for Delivery';
     return Scaffold(
       appBar: AppBar(
         leading: const PageBackButton(),
         centerTitle: false,
-        title: const Text('Delivery Route'),
+        title: const Text('My delivery'),
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         actions: [
           IconButton(
             tooltip: 'Report delivery problem',
@@ -195,13 +170,30 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
             icon: const Icon(Icons.report_problem_outlined),
           ),
         ],
-        backgroundColor: AppColors.primary,
-        foregroundColor: AppColors.onPrimary,
       ),
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.order.hasOpenIssue)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'An open delivery issue pauses completion. Contact the store.',
+                ),
+              ),
+            if (widget.order.orderStatus == 'Awaiting Customer Confirmation')
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Delivery recorded. Waiting for customer receipt confirmation.',
+                ),
+              ),
+            RiderDeliveryDetails(order: widget.order),
+            const SizedBox(height: 24),
+            const Text('Delivery map', style: AppTypography.sectionTitle()),
+            const SizedBox(height: 12),
             SizedBox(
               height: 250,
               width: double.infinity,
@@ -230,6 +222,49 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
                       ),
                     )
                   : MapAccess(
+                      errorBuilder: (context, retry) => ColoredBox(
+                        color: AppColors.secondarySurface,
+                        child: Center(
+                          child: SingleChildScrollView(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.map_outlined),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'The map could not load. You can still open navigation to this delivery.',
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    alignment: WrapAlignment.center,
+                                    spacing: 8,
+                                    children: [
+                                      TextButton(
+                                        onPressed: retry,
+                                        child: const Text('Retry map'),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: () =>
+                                            RiderNavigation.navigate(
+                                              context,
+                                              widget.order,
+                                            ),
+                                        icon: const Icon(
+                                          Icons.navigation_outlined,
+                                        ),
+                                        label: const Text('Open Google Maps'),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                       child: GoogleMap(
                         key: ValueKey(
                           '${_deliveryLocation!.latitude},${_deliveryLocation!.longitude}',
@@ -253,136 +288,47 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
                       ),
                     ),
             ),
-
             if (_approximate)
               const Padding(
-                padding: EdgeInsets.all(12),
+                padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   'Approximate address marker. Confirm the exact entrance with the recipient.',
                 ),
               ),
-            if (widget.order.hasOpenIssue)
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'An open delivery issue pauses completion. Contact the store.',
-                ),
-              ),
-            if (widget.order.orderStatus == 'Awaiting Customer Confirmation')
-              const Padding(
-                padding: EdgeInsets.all(12),
-                child: Text(
-                  'Delivery recorded. Waiting for customer receipt confirmation.',
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Card(
-                    color: AppColors.inputFill,
-                    child: ListTile(
-                      title: const Text(
-                        'Current Status',
-                        style: AppTypography.label(),
-                      ),
-                      subtitle: Text(
-                        widget.order.orderStatus,
-                        style: AppTypography.sectionTitle(
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  const Text(
-                    'Drop-off Details',
-                    style: AppTypography.sectionTitle(),
-                  ),
-                  const Divider(),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(
-                      Icons.location_on,
-                      color: AppColors.primary,
-                    ),
-                    title: Text(widget.order.deliveryAddress),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.person, color: AppColors.primary),
-                    title: Text(widget.order.recipientName),
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.phone, color: AppColors.primary),
-                    title: Text(widget.order.recipientPhone),
-                  ),
-                  if (widget.order.deliveryNote.trim().isNotEmpty)
-                    Card(
-                      color: AppColors.inputFill,
-                      child: ListTile(
-                        leading: const Icon(
-                          Icons.sticky_note_2_outlined,
-                          color: AppColors.primary,
-                        ),
-                        title: const Text(
-                          'Delivery instructions',
-                          style: AppTypography.label(),
-                        ),
-                        subtitle: Text(widget.order.deliveryNote),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _callRecipient,
-                          icon: const Icon(Icons.call_outlined),
-                          label: const Text('Call'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _openNavigation,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                          ),
-                          icon: const Icon(Icons.navigation_outlined),
-                          label: const Text('Navigate'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => reportIssue(context, widget.order.orderId),
+              icon: const Icon(Icons.report_problem_outlined),
+              label: const Text('Report a delivery problem'),
             ),
           ],
         ),
       ),
-      bottomNavigationBar: isOutForDelivery
-          ? Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white),
-              child: ElevatedButton(
+      bottomNavigationBar: active
+          ? SafeArea(
+              minimum: const EdgeInsets.all(16),
+              child: FilledButton(
                 onPressed: _isLoading || widget.order.hasOpenIssue
                     ? null
                     : _markAsDelivered,
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: AppColors.primaryDark,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 16,
+                  ),
                 ),
                 child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : Text(
-                        'Mark as Delivered',
-                        style: const AppTypography.sectionTitle(
+                    ? const SizedBox.square(
+                        dimension: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
                           color: Colors.white,
                         ),
+                      )
+                    : const Text(
+                        'Mark as Delivered',
+                        style: AppTypography.button(color: Colors.white),
                       ),
               ),
             )

@@ -5,9 +5,14 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 
 class AuthScaffold extends StatelessWidget {
-  const AuthScaffold({super.key, required this.child});
+  const AuthScaffold({
+    super.key,
+    required this.child,
+    this.showBackButton = true,
+  });
 
   final Widget child;
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -32,13 +37,14 @@ class AuthScaffold extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            SizedBox(
-                              height: 48,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: const PageBackButton(),
+                            if (showBackButton)
+                              SizedBox(
+                                height: 48,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: const PageBackButton(),
+                                ),
                               ),
-                            ),
                             child,
                           ],
                         ),

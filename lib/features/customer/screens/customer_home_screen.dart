@@ -19,6 +19,8 @@ import 'bouquet_builder_screen.dart';
 import 'bouquet_catalogue_screen.dart';
 import 'bouquet_detail_screen.dart';
 import 'cart_screen.dart';
+import 'bouquet_options_screen.dart';
+import '../../../models/cart_item_model.dart';
 
 enum DeliveryMode { readyNow, preOrder }
 
@@ -130,30 +132,23 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   void _addBouquetToCart(BouquetModel bouquet) {
-    final cart = context.read<CartProvider>();
-    final added = cart.addReadyMadeItem(
-      bouquetId: bouquet.id,
-      name: bouquet.name,
-      imageUrl: bouquet.imageUrl,
-      price: bouquet.price,
-      fulfillmentType: _fulfillmentType,
-      leadTimeBusinessDays: _deliveryMode == DeliveryMode.preOrder
-          ? bouquet.leadTimeBusinessDays
-          : 0,
-    );
-    if (!added) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
-      );
-      return;
-    }
-
-    final modeLabel = FulfillmentTypes.customerLabel(_fulfillmentType);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${bouquet.name} added as $modeLabel'),
-        duration: const Duration(seconds: 1),
+    Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BouquetOptionsScreen(
+          bouquet: CartItemModel(
+            id: 'bouquet_${DateTime.now().microsecondsSinceEpoch}',
+            type: 'ready',
+            bouquetId: bouquet.id,
+            name: bouquet.name,
+            imageUrl: bouquet.imageUrl,
+            unitPrice: bouquet.price,
+            fulfillmentType: _fulfillmentType,
+            leadTimeBusinessDays: _deliveryMode == DeliveryMode.preOrder
+                ? bouquet.leadTimeBusinessDays
+                : 0,
+          ),
+        ),
       ),
     );
   }
@@ -552,7 +547,7 @@ class _CustomerBouquetCard extends StatelessWidget {
                   Text(
                     readyNow
                         ? 'Ready; dispatch depends on rider availability'
-                        : 'Prepared in ${bouquet.leadTimeBusinessDays} business day${bouquet.leadTimeBusinessDays == 1 ? '' : 's'}',
+                        : 'Choose a date · ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} business days minimum',
                     maxLines: 2,
                     style: const AppTypography.caption(
                       color: AppColors.textMuted,

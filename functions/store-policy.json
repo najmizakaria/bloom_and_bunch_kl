@@ -13,5 +13,6 @@
   "openingHour": 9,
   "cutoffHour": 17,
   "holidays": [],
-  "dailyDeliveryCapacity": 0
+  "dailyDeliveryCapacity": 0,
+  "bookingWindowDays": 90
 }

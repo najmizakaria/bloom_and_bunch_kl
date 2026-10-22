@@ -5,11 +5,14 @@ const {onSchedule}=require('firebase-functions/v2/scheduler');
 const {initializeApp}=require('firebase-admin/app');
 const {getFirestore,FieldValue,Timestamp,FieldPath,Filter}=require('firebase-admin/firestore');
 const {createHash}=require('node:crypto');
+const {isDeepStrictEqual}=require('node:util');
 const d=require('./domain');
 const storePolicy=require('./store-policy');
 const payments=require('./payments');
 const toyyibpay=require('./toyyibpay');
 const riderContact=require('./rider-contact');
+const commerce=require('./commerce');
+const deliveryPreview=require('./delivery-preview');
 const paymentEnabled=defineBoolean('TOYYIBPAY_ENABLED',{default:false});
 const paymentCategory=defineString('TOYYIBPAY_SANDBOX_CATEGORY_CODE',{default:''});
 const paymentReturnUrl=defineString('TOYYIBPAY_RETURN_URL',{default:''});
@@ -27,17 +30,12 @@ const options={region:'asia-southeast1',maxInstances:10,invoker:'public',enforce
 function hasRole(profile,role){return !profile?.accountSuspended&&(profile?.role===role||(Array.isArray(profile?.roles)&&profile.roles.includes(role)));}
 function deliveryEligible(order){return order?.riderId==null&&typeof order?.deliveryAddress==='string'&&order.deliveryAddress.trim().length>0&&
  Number.isFinite(order.latitude)&&Math.abs(order.latitude)<=90&&Number.isFinite(order.longitude)&&Math.abs(order.longitude)<=180;}
-function deliveryArea(address){
- const parts=address.split(',').map(value=>value.trim()).filter(Boolean);
- if(parts.length>=3)return parts.slice(-2).join(', ');
- if(parts.length===2)return parts[1];
- return 'Kuala Lumpur delivery area';
-}
 function writeAvailableJob(tx,orderId,order){
  const ref=db.collection('delivery_jobs').doc(orderId);
- if(!deliveryEligible(order)||payments.requiresPayment(order)){tx.delete(ref);return;}
+ if(!deliveryEligible(order)||payments.requiresPayment(order)||!commerce.due(order)){tx.delete(ref);return;}
  tx.set(ref,{orderId,orderStatus:'Ready for Delivery',riderId:null,
-  deliveryArea:deliveryArea(order.deliveryAddress),deliveryTimeSlot:order.deliveryTimeSlot??'',
+  ...deliveryPreview.preview(order),deliveryTimeSlot:order.deliveryTimeSlot??'',
+  previewVersion:3,
   requestedDeliveryDate:order.requestedDeliveryDate??null,hasValidAddress:true,hasValidCoordinates:true,
   createdAt:order.createdAt??FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()});
 }
@@ -50,16 +48,20 @@ function callable(handler,extra={}){return onCall({...options,...extra},async re
 });}
 exports.getAssignedRiderContact=callable(riderContact.createContactHandler({db,hasRole}));
 const adminHandlers=require('./admin-operations').createAdminHandlers({db,auth:require('firebase-admin/auth').getAuth(),defaultPolicy:storePolicy.configured});
-for(const [name,handler]of Object.entries({adminSummary:'summary',adminInventoryAlerts:'inventoryAlerts',adminOrders:'orders',adminPeople:'people',adminCreateStaff:'createStaff',adminUpdateStaff:'updateStaff',adminRiders:'riders',publishRiderLocation:'location',saveAdminPreferences:'preferences',adminStorePolicy:'policy',saveAdminStorePolicy:'savePolicy'}))exports[name]=callable(req=>adminHandlers[handler](req));
+for(const [name,handler]of Object.entries({adminSummary:'summary',adminInventoryAlerts:'inventoryAlerts',adminOrders:'orders',adminPeople:'people',adminCreateStaff:'createStaff',adminUpdateStaff:'updateStaff',adminRiders:'riders',adminSaveRiderContact:'saveRiderContact',publishRiderLocation:'location',saveAdminPreferences:'preferences',adminStorePolicy:'policy',saveAdminStorePolicy:'savePolicy'}))exports[name]=callable(req=>adminHandlers[handler](req));
 async function readStorePolicy(tx){const s=await tx.get(db.doc('store_settings/operations'));return {...storePolicy.configured,...s.data()};}
+const commerceHandlers=require('./commerce-handlers').createHandlers({db,hasRole,readStorePolicy});
+for(const name of ['saveCommerceProduct','deliveryAvailability','saveCart'])exports[name]=callable(req=>commerceHandlers[name](req));
 async function readPlan(tx, items) {
- const bouquets={},flowers={};
+ const bouquets={},flowers={},addons={};
+ for(const key of new Set(items.filter(i=>i.type==='addon').map(i=>i.addonId))){const s=await tx.get(db.doc('addons/'+key));if(s.exists)addons[key]=s.data();}
  for(const key of new Set(items.filter(i=>i.bouquetId).map(i=>i.bouquetId))){const s=await tx.get(db.doc('bouquets/'+key));if(s.exists)bouquets[key]=s.data();}
  const flowerIds=new Set();
  for(const i of items)Object.keys(i.fulfillmentType==='custom'?i.customStems:i.fulfillmentType==='pre_order'?d.stems(bouquets[i.bouquetId]?.recipeStems):{}).forEach(k=>flowerIds.add(k));
  for(const key of flowerIds){const s=await tx.get(db.doc('flowers/'+key));if(s.exists)flowers[key]=s.data();}
- return {plan:d.buildPlan(items,bouquets,flowers),bouquets,flowers};
+ return {plan:d.buildPlan(items,bouquets,flowers,addons),bouquets,flowers,addons};
 }
+async function readCards(tx, selected){const designs={};for(const key of new Set(Object.values(commerce.cards(selected)).map(c=>c.designId))){const s=await tx.get(db.doc('card_designs/'+key));if(s.exists)designs[key]=s.data();}return commerce.snapshotCards(selected,designs);}
 exports.quoteCheckout=callable(async req=>{
  if(storePolicy.configured.mode===payments.MODE)assertPaymentsEnabled();
  const items=d.normalizeItems(req.data?.items),address=d.address(req.data?.address);
@@ -67,36 +69,47 @@ exports.quoteCheckout=callable(async req=>{
   const profile=await tx.get(db.doc('users/'+req.auth.uid));
   if(!hasRole(profile.data(),'customer')||profile.data()?.deletionPending)d.fail('Customer access required.','permission-denied');
   const {plan}=await readPlan(tx,items);
-  return storePolicy.quote(plan,address,new Date(),await readStorePolicy(tx));
+  const messageCards=await readCards(tx,req.data?.messageCards??{});
+  return storePolicy.quote(plan,address,new Date(),await readStorePolicy(tx),{requireDates:true,messageCards});
  });
 });
 exports.placeOrder=callable(async req=>{
  const uid=req.auth.uid,payload=req.data??{},checkoutId=d.id(payload.checkoutId);
  const addressId=d.id(payload.addressId);
  const items=d.normalizeItems(payload.items);
+ const selectedCards=commerce.cards(payload.messageCards??{});
  const confirmedAddress=d.address(payload.address);
+ const confirmedArea=deliveryPreview.addressArea(payload.address);
+ const hasStructuredArea=['locality','postcode','state'].some(key=>!!payload.address?.[key]);
  const expectedCents=d.money(payload.expectedTotal);
- const fingerprint=createHash('sha256').update(JSON.stringify({items,addressId,confirmedAddress,expectedCents,...(payload.quoteId?{quoteId:payload.quoteId}:{})})).digest('hex');
+ const fingerprintInput={items,...(Object.hasOwn(payload,'messageCards')?{selectedCards}:{}),addressId,confirmedAddress,...(hasStructuredArea?{confirmedArea}:{}),expectedCents,...(payload.quoteId?{quoteId:payload.quoteId}:{})};
+ const fingerprint=createHash('sha256').update(Object.hasOwn(payload,'messageCards')?commerce.stableStringify(fingerprintInput):JSON.stringify(fingerprintInput)).digest('hex');
  const requestRef=db.collection('users').doc(uid).collection('checkouts').doc(checkoutId);
  const userRef=db.collection('users').doc(uid);
- const readyRef=db.collection('orders').doc(),plannedRef=db.collection('orders').doc();
  return db.runTransaction(async tx=>{
   const customer=await tx.get(userRef);
    if(!hasRole(customer.data(),'customer')||customer.data()?.deletionPending)d.fail('Customer access required.','permission-denied');
   const previous=await tx.get(requestRef);
   if(previous.exists){
    if(previous.data().fingerprint!==fingerprint)d.fail('Checkout changed. Review your cart before retrying.','failed-precondition');
+   const replayCartRef=db.doc('users/'+uid+'/cart/current'),replayCart=await tx.get(replayCartRef);
+   if(replayCart.data()?.checkoutId===checkoutId)tx.set(replayCartRef,{checkoutId:'completed_'+checkoutId,items:[],messageCards:{},pendingRequest:null,revision:(replayCart.data().revision??0)+1,updatedAt:FieldValue.serverTimestamp()});
    return {orderIds:previous.data().orderIds};
   }
   if(storePolicy.configured.mode===payments.MODE)assertPaymentsEnabled();
   const addressSnapshot=await tx.get(db.collection('users').doc(uid).collection('addresses').doc(addressId));
   if(!addressSnapshot.exists)d.fail('Select a saved delivery address.','failed-precondition');
   const submittedAddress=d.address(addressSnapshot.data());
+  const submittedArea=deliveryPreview.addressArea(addressSnapshot.data());
   if(JSON.stringify(submittedAddress)!==JSON.stringify(confirmedAddress))d.fail('Your saved address changed. Select it again and confirm the delivery location.','failed-precondition');
+  if(hasStructuredArea&&!isDeepStrictEqual(submittedArea,confirmedArea))d.fail('Your saved delivery area changed. Select the address again.','failed-precondition');
   if(!deliveryEligible({...submittedAddress,riderId:null}))d.fail('Confirm a delivery pin in your Address Book before ordering.','failed-precondition');
-  const {plan,bouquets,flowers}=await readPlan(tx,items);
+  const cartRef=db.doc('users/'+uid+'/cart/current'),cloudCart=await tx.get(cartRef);
+  if(payload.cartSync===true&&(!cloudCart.exists||cloudCart.data().checkoutId!==checkoutId||!isDeepStrictEqual(d.normalizeItems(cloudCart.data().items),items)||!isDeepStrictEqual(commerce.cards(cloudCart.data().messageCards??{}),selectedCards)))d.fail('Your cart changed on another device. Review it before ordering.','failed-precondition');
+  const {plan,bouquets,flowers,addons}=await readPlan(tx,items);
+  const messageCards=await readCards(tx,selectedCards);
   const policy=await readStorePolicy(tx);
-  const quote=storePolicy.quote(plan,submittedAddress,new Date(),policy);
+  const quote=storePolicy.quote(plan,submittedAddress,new Date(),policy,{requireDates:true,messageCards});
   if(quote.mode===payments.MODE&&quote.totalSen<100)d.fail('Online payment requires a total of at least RM 1.00.','failed-precondition');
   if((payload.quoteId||quote.mode!=='demo')&&payload.quoteId!==quote.quoteId)d.fail('Delivery details changed. Refresh your order summary before confirming.','failed-precondition');
   const total=quote.totalSen;
@@ -109,7 +122,9 @@ exports.placeOrder=callable(async req=>{
    capacity.push({ref,acceptedGroups:used+count});
   }
   // A shared profile write serializes checkout against account deletion.
+  if(payload.cartSync===true)tx.set(cartRef,{checkoutId:'completed_'+checkoutId,items:[],messageCards:{},pendingRequest:null,revision:(cloudCart.data().revision??0)+1,updatedAt:FieldValue.serverTimestamp()});
   tx.update(userRef,{updatedAt:FieldValue.serverTimestamp()});
+  for(const [key,count]of Object.entries(plan.addonRequirements))tx.update(db.doc('addons/'+key),{stockQuantity:addons[key].stockQuantity-count,revision:(addons[key].revision??0)+1,updatedAt:FieldValue.serverTimestamp()});
   for(const c of capacity)tx.set(c.ref,{acceptedGroups:c.acceptedGroups,updatedAt:FieldValue.serverTimestamp()});
   for(const [key,count]of Object.entries(plan.readyRequirements)){
    const b=bouquets[key],stock=(b.readyStock??b.stockCount??0)-count;
@@ -119,21 +134,25 @@ exports.placeOrder=callable(async req=>{
    tx.update(db.collection('flowers').doc(key),{reservedQuantity:(flowers[key].reservedQuantity??0)+count,updatedAt:FieldValue.serverTimestamp()});
   }
   const orderIds=[];
-  for(const [ref,group,isReady] of [[readyRef,plan.ready,true],[plannedRef,plan.planned,false]]){
-   if(!group.length)continue;
-   const pricing=quote.groups.find(g=>g.kind===(isReady?'ready_now':'planned'));
-   const mode=isReady?'ready_now':group.every(i=>i.fulfillmentType==='custom')?'custom':'pre_order';
-    const order={schemaVersion:2,deliveryWorkflowVersion:2,customerId:uid,checkoutGroupId:checkoutId,riderId:null,
+  for(const pricing of quote.groups){
+   const ref=db.collection('orders').doc(),group=pricing.items,isReady=pricing.kind==='ready_now';
+   const prepared=group.filter(i=>i.type!=='addon'&&i.fulfillmentType!=='ready_now');
+   const mode=isReady?'ready_now':prepared.every(i=>i.fulfillmentType==='custom')?'custom':'pre_order';
+   const groupMaterials={};for(const item of prepared)for(const [key,count]of Object.entries(item.recipeStems??{}))groupMaterials[key]=(groupMaterials[key]??0)+count*item.quantity;
+    const order={schemaVersion:3,deliveryWorkflowVersion:2,customerId:uid,checkoutGroupId:checkoutId,riderId:null,
      ...submittedAddress,addressId,
+     deliveryLocality:submittedArea.locality,deliveryPostcode:submittedArea.postcode,deliveryState:submittedArea.state,
     items:group,totalAmount:pricing.totalSen/100,subtotalAmount:pricing.subtotalSen/100,deliveryFee:pricing.deliveryFeeSen/100,
+    messageCard:pricing.messageCard,cardFee:pricing.cardFeeSen/100,deliveryGroupKey:pricing.key,
+    scheduledDeliveryDate:pricing.scheduled?pricing.date:null,
     orderMode:quote.mode,paymentStatus:quote.mode==='demo'?'not_required':'pending',paymentInstructions:quote.paymentInstructions,
     ...(quote.mode===payments.MODE?{paymentId:payments.paymentId(uid,checkoutId)}:{}),
     estimatedDispatchDate:pricing.date,quoteId:quote.quoteId,
-    fulfillmentType:mode,requiresPrepTime:!isReady,leadTimeBusinessDays:isReady?0:plan.lead,
+    fulfillmentType:mode,requiresPrepTime:!isReady,leadTimeBusinessDays:prepared.reduce((lead,item)=>Math.max(lead,item.leadTimeBusinessDays),0),
     orderStatus:isReady?'Ready for Delivery':'Awaiting Preparation',
     requestedDeliveryDate:Timestamp.fromDate(new Date(pricing.date+'T00:00:00+08:00')),
     deliveryTimeSlot:quote.timingNotice,
-    materialRequirements:isReady?{}:plan.materialRequirements,
+    materialRequirements:groupMaterials,
      materialState:isReady?'not_required':'reserved',
      createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()};
     tx.create(ref,order);
@@ -142,6 +161,7 @@ exports.placeOrder=callable(async req=>{
    orderIds.push(ref.id);
   }
   tx.create(requestRef,{fingerprint,orderIds,createdAt:FieldValue.serverTimestamp()});
+  tx.create(db.doc('users/'+uid+'/receipts/'+checkoutId),{checkoutId,orderIds,groups:quote.groups,subtotalSen:quote.subtotalSen,cardFeeSen:quote.cardFeeSen,totalSen:total,orderMode:quote.mode,paymentId:quote.mode===payments.MODE?payments.paymentId(uid,checkoutId):null,createdAt:FieldValue.serverTimestamp()});
   if(quote.mode===payments.MODE){
    const id=payments.paymentId(uid,checkoutId),expiresAt=Timestamp.fromMillis(Date.now()+payments.HOLD_MS);
    tx.create(db.doc('payments/'+id),{id,customerId:uid,checkoutId,orderIds,totalSen:total,
@@ -180,6 +200,18 @@ exports.toyyibpayCallback=onRequest({...options,...paymentOptions},async(req,res
 });
 exports.expireToyyibpayPayments=onSchedule({region:options.region,maxInstances:1,secrets:[paymentSecret],schedule:'every 5 minutes'},
  async()=>{if(paymentEnabled.value())await paymentHandlers.sweep();});
+// Publishing an order early must never make a future booking collectable.
+exports.releaseScheduledDeliveries=onSchedule({region:options.region,maxInstances:1,schedule:'every 15 minutes'},async()=>{
+ const today=new Date(Date.now()+8*3600000).toISOString().slice(0,10);
+ let after=null;
+ while(true){
+  let query=db.collection('orders').where('orderStatus','==','Ready for Delivery').where('scheduledDeliveryDate','<=',today).orderBy('scheduledDeliveryDate').orderBy(FieldPath.documentId()).limit(100);
+  if(after)query=query.startAfter(after);
+  const page=await query.get();if(page.empty)break;
+  for(const row of page.docs)if(row.data().scheduledDeliveryDate&&row.data().scheduledDeliveryDate<=today)await db.runTransaction(async tx=>{const current=await tx.get(row.ref),job=await tx.get(db.doc('delivery_jobs/'+row.id));if(!job.exists&&current.data()?.orderStatus==='Ready for Delivery')writeAvailableJob(tx,row.id,current.data());});
+  if(page.size<100)break;after=page.docs.at(-1);
+ }
+});
 async function riderActiveDelivery(reader,uid){
  const active=await reader.get(db.collection('orders').where('riderId','==',uid).where('orderStatus','in',riderActiveStatuses).limit(1));
  return active.docs[0]?.id??null;
@@ -188,10 +220,11 @@ exports.listAvailableDeliveries=callable(async req=>{
  const uid=req.auth.uid,profile=await db.doc(`users/${uid}`).get();
  if(!hasRole(profile.data(),'rider')||profile.data()?.deletionPending)d.fail('An approved rider account is required.','permission-denied');
  const activeDeliveryId=await riderActiveDelivery({get:query=>query.get()},uid);
+ const contactReady=!!riderContact.approvedContact((await db.doc('rider_applications/'+uid).get()).data());
  const cursor=req.data?.cursor;
  if(cursor!=null&&(typeof cursor!=='object'||![0,1].includes(cursor.phase)))d.fail('Invalid delivery cursor.');
  // Older clients can send a preparation-phase cursor. That queue is now closed.
- if(cursor?.phase===1)return {deliveries:[],activeDeliveryId,nextCursor:null};
+ if(cursor?.phase===1)return {deliveries:[],activeDeliveryId,contactReady,nextCursor:null};
  let phase=0,last=cursor?.orderId?d.id(cursor.orderId):null;
  let after=null;
  if(last){after=await db.doc(`orders/${last}`).get();if(!after.exists||!after.data().createdAt)d.fail('Delivery list changed. Refresh the list.','failed-precondition');}
@@ -209,15 +242,15 @@ exports.listAvailableDeliveries=callable(async req=>{
   for(const doc of batch.docs){
    consumed++;scanned++;after=doc;last=doc.id;
    const order=doc.data();
-   if(order.customerId===uid||!deliveryEligible(order)||payments.requiresPayment(order))continue;
-   deliveries.push({orderId:doc.id,deliveryArea:deliveryArea(order.deliveryAddress),orderStatus:order.orderStatus,
+   if(order.customerId===uid||!deliveryEligible(order)||payments.requiresPayment(order)||!commerce.due(order))continue;
+   deliveries.push({orderId:doc.id,...deliveryPreview.preview(order),orderStatus:order.orderStatus,
     requestedDeliveryDate:order.requestedDeliveryDate?.toMillis?.()??null,createdAt:order.createdAt.toMillis(),
     deliveryTimeSlot:'Estimated dispatch: '+(order.estimatedDispatchDate??'Contact the store for timing')});
    if(deliveries.length===20)break;
   }
   if(consumed===batch.size&&batch.size<batchLimit){phase++;last=null;after=null;}
  }
- return {deliveries,activeDeliveryId,nextCursor:phase<1?{phase,orderId:last}:null};
+ return {deliveries,activeDeliveryId,contactReady,nextCursor:phase<1?{phase,orderId:last}:null};
 });
 exports.transitionOrder=callable(async req=>{
  const uid=req.auth.uid,orderId=d.id(req.data?.orderId),action=d.text(req.data?.action,'action',30);
@@ -234,6 +267,7 @@ exports.transitionOrder=callable(async req=>{
    if(o.orderMode===payments.MODE&&o.paymentStatus!=='paid'&&action==='cancel')
     d.fail('Unpaid online orders expire through payment verification. Please wait or contact support.','failed-precondition');
    if(action==='accept'){
+    if(!commerce.due(o))d.fail('This delivery is scheduled for '+o.scheduledDeliveryDate+'.','failed-precondition');
     if(!hasRole(user.data(),'rider'))d.fail('An approved rider account is required.','permission-denied');
     if(o.customerId===uid)d.fail('You cannot deliver your own order.','permission-denied');
     if(status==='Out for Delivery'&&o.riderId===uid){tx.delete(jobRef);return {status};}
@@ -241,9 +275,12 @@ exports.transitionOrder=callable(async req=>{
     if(status!=='Ready for Delivery')d.fail('This order is still being prepared. Wait until it is ready for pickup.','failed-precondition');
     if(await riderActiveDelivery(tx,uid))d.fail('Complete your current delivery and wait for customer receipt confirmation before accepting another.','failed-precondition');
     if(!deliveryEligible(o))d.fail('This delivery location needs store review.','failed-precondition');
+    const application=await tx.get(db.doc('rider_applications/'+uid));
+    const contact=riderContact.approvedContact(application.data());
+    if(!contact)d.fail('Your delivery contact needs administrator review. Ask the store to approve your name and Malaysian phone number before accepting a delivery.','failed-precondition');
     // The shared rider-profile write serializes acceptance of different orders.
     tx.update(user.ref,{activeDeliveryId:orderId,updatedAt:FieldValue.serverTimestamp()});
-    Object.assign(updates,{orderStatus:'Out for Delivery',deliveryWorkflowVersion:2,riderId:uid,riderName:d.text(user.data().name??'Rider','rider name',160,true)||'Rider',acceptedAt:FieldValue.serverTimestamp()});
+    Object.assign(updates,{orderStatus:'Out for Delivery',deliveryWorkflowVersion:2,riderId:uid,riderName:contact.name,acceptedAt:FieldValue.serverTimestamp()});
     tx.delete(jobRef);
    }else if(action==='deliver'){
     if(!hasRole(user.data(),'rider')||o.riderId!==uid)d.fail('Only the assigned rider can complete delivery.','permission-denied');
@@ -274,8 +311,17 @@ exports.transitionOrder=callable(async req=>{
      return {status};
     }
    if(action==='ready'&&status!=='Processing')d.fail('Start preparation first.','failed-precondition');
-   if(action==='cancel'&&!['Awaiting Preparation','Pending','Processing'].includes(status))d.fail('This order cannot be cancelled here.','failed-precondition');
+   if(action==='cancel'&&!['Awaiting Preparation','Pending','Processing','Ready for Delivery'].includes(status))d.fail('This order cannot be cancelled here.','failed-precondition');
    const material=[];
+   const restocks=[];
+   if(action==='cancel')for(const item of o.items??[]){
+    const collection=item.type==='addon'?'addons':item.fulfillmentType==='ready_now'?'bouquets':null;
+    if(!collection)continue;
+    const productRef=db.doc(collection+'/'+d.id(item.type==='addon'?item.addonId:item.bouquetId));
+    const product=await tx.get(productRef);if(!product.exists)d.fail('Inventory needs store review.','failed-precondition');
+    const existing=restocks.find(r=>r.ref.path===productRef.path);
+    if(existing)existing.quantity+=item.quantity;else restocks.push({ref:productRef,data:product.data(),quantity:item.quantity,addon:item.type==='addon'});
+   }
    if(o.materialState==='reserved'){
     for(const [key,count]of Object.entries(o.materialRequirements??{})){
      const fref=db.collection('flowers').doc(d.id(key)),f=await tx.get(fref);
@@ -286,6 +332,7 @@ exports.transitionOrder=callable(async req=>{
      material.push({fref,data,count});
     }
    }
+   for(const entry of restocks)tx.update(entry.ref,entry.addon?{stockQuantity:entry.data.stockQuantity+entry.quantity,revision:(entry.data.revision??0)+1,updatedAt:FieldValue.serverTimestamp()}:{readyStock:(entry.data.readyStock??entry.data.stockCount??0)+entry.quantity,stockCount:(entry.data.readyStock??entry.data.stockCount??0)+entry.quantity,availableForReadyNow:true,readyToSend:true,updatedAt:FieldValue.serverTimestamp()});
    for(const {fref,data,count}of material)tx.update(fref,{reservedQuantity:data.reservedQuantity-count,
     stockQuantity:action==='ready'?data.stockQuantity-count:data.stockQuantity,updatedAt:FieldValue.serverTimestamp()});
     Object.assign(updates,{orderStatus:target,materialState:o.materialState==='reserved'?(action==='ready'?'consumed':'released'):o.materialState??'legacy',
@@ -383,7 +430,10 @@ exports.confirmManualPayment=callable(async req=>{
   if(o?.orderMode!=='manual')d.fail('This order does not use manual payment.','failed-precondition');
   if(o.paymentStatus==='paid')return {saved:true};
   if(o.orderStatus==='Cancelled')d.fail('Cancelled orders require store review.','failed-precondition');
-  tx.update(ref,{paymentStatus:'paid',paidAt:FieldValue.serverTimestamp(),updatedBy:req.auth.uid});return {saved:true};
+  const related=o.schemaVersion===3&&o.checkoutGroupId?await tx.get(db.collection('orders').where('customerId','==',o.customerId).where('checkoutGroupId','==',o.checkoutGroupId).limit(21)):{docs:[s]};
+  if(related.docs.length>20)d.fail('This checkout needs store review.','failed-precondition');
+  for(const order of related.docs)if(order.data().orderMode==='manual'&&order.data().orderStatus!=='Cancelled')tx.update(order.ref,{paymentStatus:'paid',paidAt:FieldValue.serverTimestamp(),updatedBy:req.auth.uid});
+  return {saved:true};
  });
 });
 
@@ -410,8 +460,9 @@ exports.reviewRiderApplication=callable(async req=>{
   if(currentStatus!=='pending')d.fail('This application has already been reviewed.','failed-precondition');
 
   const contactPhone=decision==='approved'?riderContact.normalizePhone(application.data().phone):null;
+  const contactName=decision==='approved'?d.text(application.data().name||applicant.data().name,'rider name',160):null;
   tx.update(applicationRef,{
-   ...(contactPhone?{phone:contactPhone}:{}),
+   ...(contactPhone?{phone:contactPhone,name:contactName,contactRevision:(application.data().contactRevision??0)+1}:{}),
    status:decision,
    reviewedAt:FieldValue.serverTimestamp(),
    reviewedBy:reviewerId,
@@ -464,7 +515,7 @@ exports.saveBouquet=callable(async req=>{
  }
  const recipe=Object.keys(raw.recipeStems??{}).length?d.stems(raw.recipeStems):{};
  if(flags.availableForPreOrder&&!Object.keys(recipe).length)d.fail('Choose a flower recipe for pre-order.');
- const stock=d.integer(raw.readyStock,999999,0),lead=d.integer(raw.leadTimeBusinessDays,3);
+ const stock=d.integer(raw.readyStock,999999,0),lead=Math.max(2,d.integer(raw.leadTimeBusinessDays,3));
  const ref=payload.bouquetId==null?db.collection('bouquets').doc():db.collection('bouquets').doc(d.id(payload.bouquetId));
  return db.runTransaction(async tx=>{
   const profile=await tx.get(db.doc(`users/${req.auth.uid}`));
@@ -487,7 +538,11 @@ async function changeAddress(req,action){
  if(action==='save'){
   const normalized=d.address(raw);
   if(typeof raw.isDefault!=='boolean')d.fail('Invalid default address.');
-  value={label:d.text(raw.label,'label',60),address:normalized.deliveryAddress,recipientName:normalized.recipientName,recipientPhone:normalized.recipientPhone,note:normalized.deliveryNote,latitude:normalized.latitude,longitude:normalized.longitude,isDefault:raw.isDefault};
+  const locality=d.text(raw.locality??'','town/city',80,true),postcode=d.text(raw.postcode??'','postcode',5,true),state=d.text(raw.state??'','state',80,true);
+  if(locality&&!deliveryPreview.safeLocality(locality))d.fail('Enter a town or city without a street or unit number.');
+  if(postcode&&!/^\d{5}$/.test(postcode))d.fail('Enter a five-digit postcode.');
+  if(state&&!deliveryPreview.stateName(state))d.fail('Choose a Malaysian state or federal territory.');
+  value={label:d.text(raw.label,'label',60),address:normalized.deliveryAddress,recipientName:normalized.recipientName,recipientPhone:normalized.recipientPhone,note:normalized.deliveryNote,latitude:normalized.latitude,longitude:normalized.longitude,isDefault:raw.isDefault,locality,postcode,state:deliveryPreview.stateName(state)};
  }
  const id=req.data?.addressId==null&&action==='save'?addresses.doc().id:d.id(req.data?.addressId);
  return db.runTransaction(async tx=>{
@@ -548,8 +603,8 @@ async function processAccountDeletion(uid){
    const batch=db.batch();
    for(const order of orders.docs.slice(i,i+400)){
     const updates={[field]:`deleted_${field}`,updatedAt:FieldValue.serverTimestamp()};
-    if(field==='customerId')Object.assign(updates,{recipientName:'Deleted customer',recipientPhone:'',deliveryAddress:'',deliveryNote:'',latitude:null,longitude:null,addressId:null,
-     items:(order.data().items??[]).map(item=>({...item,cardNote:''})),feedback:FieldValue.delete(),support:FieldValue.delete()});
+    if(field==='customerId')Object.assign(updates,{recipientName:'Deleted customer',recipientPhone:'',deliveryAddress:'',deliveryNote:'',deliveryLocality:'',deliveryPostcode:'',deliveryState:'',latitude:null,longitude:null,addressId:null,
+     items:(order.data().items??[]).map(item=>({...item,cardNote:''})),messageCard:FieldValue.delete(),feedback:FieldValue.delete(),support:FieldValue.delete()});
     if(field==='riderId')updates.riderName=FieldValue.delete();
     if(field==='riderId'&&order.data().support?.reportedBy==='rider')updates.support=FieldValue.delete();
     batch.update(order.ref,updates);

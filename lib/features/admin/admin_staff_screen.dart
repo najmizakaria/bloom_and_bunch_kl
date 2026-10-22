@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
+import '../../core/utils/malaysian_phone.dart';
 import 'admin_widgets.dart';
 import 'admin_layout.dart';
 import 'admin_theme.dart';
@@ -22,6 +23,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
         ? 'florist'
         : 'rider';
     bool suspended = person['suspended'] == true;
+    var contactName = '${person['name'] ?? ''}',
+        contactPhone = '${person['phone'] ?? ''}';
+    bool contactApproved = false;
+    String? contactError;
     final result = await showDialog<bool>(
       context: context,
       builder: (c) => StatefulBuilder(
@@ -47,6 +52,41 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                 value: suspended,
                 onChanged: (v) => setDialog(() => suspended = v),
               ),
+              if (selected == 'rider' &&
+                  !(person['roles'] as List).contains('rider')) ...[
+                const Text(
+                  'Review the contact customers will use during deliveries.',
+                ),
+                TextFormField(
+                  initialValue: contactName,
+                  decoration: const InputDecoration(labelText: 'Rider name'),
+                  maxLength: 160,
+                  onChanged: (v) => contactName = v,
+                ),
+                TextFormField(
+                  initialValue: contactPhone,
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery phone number',
+                  ),
+                  keyboardType: TextInputType.phone,
+                  maxLength: 30,
+                  onChanged: (v) => contactPhone = v,
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'I reviewed and approve this delivery contact',
+                  ),
+                  value: contactApproved,
+                  onChanged: (v) =>
+                      setDialog(() => contactApproved = v == true),
+                ),
+                if (contactError != null)
+                  Text(
+                    contactError!,
+                    style: TextStyle(color: Theme.of(c).colorScheme.error),
+                  ),
+              ],
               const Text(
                 'Role changes and suspensions are checked against active assignments. Administrator accounts are read-only here.',
               ),
@@ -58,7 +98,25 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(c, true),
+              onPressed: () {
+                if (selected == 'rider' &&
+                    !(person['roles'] as List).contains('rider')) {
+                  try {
+                    if (!contactApproved || contactName.trim().isEmpty) {
+                      throw const FormatException(
+                        'Review and approve the rider name and phone.',
+                      );
+                    }
+                    contactPhone = MalaysianPhone.normalize(
+                      contactPhone.trim(),
+                    );
+                  } on FormatException catch (e) {
+                    setDialog(() => contactError = e.message);
+                    return;
+                  }
+                }
+                Navigator.pop(c, true);
+              },
               child: const Text('Save'),
             ),
           ],
@@ -71,6 +129,12 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
       await AdminService().call('adminUpdateStaff', {
         'uid': person['uid'],
         'suspended': suspended,
+        if (selected == 'rider' &&
+            !(person['roles'] as List).contains('rider')) ...{
+          'contactName': contactName.trim(),
+          'contactPhone': contactPhone,
+          'contactApproved': contactApproved,
+        },
         if (person['managed'] == true &&
             !(person['roles'] as List).contains(selected))
           'role': selected,
@@ -305,7 +369,9 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
       await AdminService().call('adminCreateStaff', {
         'name': _name.text.trim(),
         'email': _email.text.trim(),
-        'phone': _phone.text.trim(),
+        'phone': _role == 'rider'
+            ? MalaysianPhone.normalize(_phone.text.trim())
+            : _phone.text.trim(),
         'password': _password.text,
         'role': _role,
         'requestId': _request,
@@ -377,10 +443,19 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
                     labelText: 'Phone number',
                     hintText: '+60123456789',
                   ),
-                  validator: (v) =>
-                      RegExp(r'^\+?\d{9,15}$').hasMatch(v?.trim() ?? '')
-                      ? null
-                      : 'Enter 9–15 digits, optionally starting with +',
+                  validator: (v) {
+                    if (_role == 'rider') {
+                      try {
+                        MalaysianPhone.normalize(v?.trim() ?? '');
+                        return null;
+                      } on FormatException catch (e) {
+                        return e.message;
+                      }
+                    }
+                    return RegExp(r'^\+?\d{9,15}$').hasMatch(v?.trim() ?? '')
+                        ? null
+                        : 'Enter 9–15 digits, optionally starting with +';
+                  },
                 ),
                 DropdownButtonFormField<String>(
                   initialValue: _role,
@@ -392,6 +467,10 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
                   onChanged: _busy ? null : (v) => setState(() => _role = v!),
                 ),
                 const SizedBox(height: 16),
+                if (_role == 'rider')
+                  const Text(
+                    'Creating this rider account approves the name and Malaysian phone above as their delivery contact. Confirm these details with the rider.',
+                  ),
                 TextFormField(
                   controller: _password,
                   enabled: !_busy,

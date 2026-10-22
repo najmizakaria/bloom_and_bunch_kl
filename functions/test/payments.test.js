@@ -62,7 +62,8 @@ test('mixed checkout creates one backend-owned payment and does not publish unpa
     await db.doc('flowers/pay_checkout').set({name: 'Rose', stockQuantity: 10, reservedQuantity: 0, pricePerStem: 3});
     const address = {recipientName: 'Recipient', recipientPhone: '0123456789', address: '12 Test Street, Kuala Lumpur', note: '', latitude: 3.139, longitude: 101.687};
     await db.doc('users/pay_buyer/addresses/home').set(address);
-    const items = ['ready_now', 'pre_order'].map(fulfillmentType => ({bouquetId: 'pay_checkout', quantity: 1, fulfillmentType}));
+    const date=require('../store-policy').dateFor(new Date(),2,policy);
+    const items = ['ready_now', 'pre_order'].map(fulfillmentType => ({bouquetId: 'pay_checkout', quantity: 1, fulfillmentType,...(fulfillmentType==='pre_order'?{requestedDeliveryDate:date}:{})}));
     const quote = await api.quoteCheckout.run({auth: {uid: 'pay_buyer'}, data: {items, address}});
     const request = {auth: {uid: 'pay_buyer'}, data: {checkoutId: 'pay_checkout', addressId: 'home', address, items, expectedTotal: 100, quoteId: quote.quoteId}};
     const result = await api.placeOrder.run(request);
@@ -218,6 +219,16 @@ test('payment completed before expiry is settled instead of releasing inventory'
   await f.handlers.expire(await db.doc('payments/' + id).get());
   assert.equal((await db.doc('payments/' + id).get()).data().status, 'paid');
   assert.equal((await db.doc('bouquets/' + id).get()).data().readyStock, 8);
+});
+test('expiry restores add-on stock in a mixed planned group exactly once', {skip: !enabled}, async () => {
+  const id='pay_addon_expiry',f=await fixture(id,{expiresAt:Timestamp.fromMillis(clock-1000)});
+  await db.doc('addons/'+id).set({name:'Teddy',price:29,stockQuantity:2,revision:1});
+  await db.doc('orders/'+f.orderIds[1]).update({items:[
+    {type:'addon',addonId:id,quantity:3,fulfillmentType:'ready_now'},
+  ]});
+  await Promise.all([f.handlers.expire(await db.doc('payments/'+id).get()),f.handlers.expire(await db.doc('payments/'+id).get())]);
+  assert.equal((await db.doc('addons/'+id).get()).data().stockQuantity,5);
+  assert.equal((await db.doc('addons/'+id).get()).data().revision,2);
 });
 
 test('payment expiry restores reserved capacity and uncertain bills retain inventory for review', {skip: !enabled}, async () => {

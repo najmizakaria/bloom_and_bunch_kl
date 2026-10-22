@@ -119,7 +119,7 @@ void main() {
       expect(find.text('Must not open'), findsNothing);
       service.failCheck = false;
       service.current = session('paid');
-      await tester.tap(find.text('Check payment status'));
+      await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(find.text('Must not open'), findsOneWidget);
     },
@@ -137,18 +137,18 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Your phone number for payment'), findsOneWidget);
-      await tester.ensureVisible(find.text('Continue to payment'));
-      await tester.tap(find.text('Continue to payment'));
+      await tester.ensureVisible(find.text('Pay Now'));
+      await tester.tap(find.text('Pay Now'));
       await tester.pumpAndSettle();
       expect(find.text('Enter your phone number to continue.'), findsOneWidget);
       expect(service.starts, 0);
       await tester.enterText(find.byType(TextFormField), '+60 12-3456789');
-      await tester.ensureVisible(find.text('Continue to payment'));
-      await tester.tap(find.text('Continue to payment'));
+      await tester.ensureVisible(find.text('Pay Now'));
+      await tester.tap(find.text('Pay Now'));
       await tester.pumpAndSettle();
       expect(service.submittedPhone, '+60 12-3456789');
       expect(service.starts, 1);
-      expect(find.text('Open ToyyibPay sandbox'), findsOneWidget);
+      expect(find.text('Pay Now'), findsOneWidget);
       expect(find.byType(TextFormField), findsNothing);
     },
   );
@@ -217,19 +217,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Total RM 55.00'), findsOneWidget);
       expect(find.textContaining('covers all deliveries'), findsOneWidget);
-      await tester.tap(find.text('Continue to payment'));
+      expect(find.textContaining('ToyyibPay'), findsNothing);
+      expect(find.textContaining('sandbox'), findsNothing);
+      await tester.tap(find.text('Pay Now'));
       await tester.pumpAndSettle();
       expect(opened, isNull);
-      await tester.tap(find.text('Open ToyyibPay sandbox'));
+      await tester.tap(find.text('Pay Now'));
       await tester.pumpAndSettle();
       expect(opened.toString(), 'https://dev.toyyibpay.com/testbill');
       expect(find.textContaining('Payment is pending'), findsOneWidget);
-      expect(find.text('Check payment status'), findsOneWidget);
+      expect(find.text('Check payment status'), findsNothing);
       service.current = session('paid');
-      await tester.tap(find.text('Check payment status'));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       await tester.pumpAndSettle();
       expect(find.textContaining('Payment verified.'), findsOneWidget);
-      expect(find.text('Open ToyyibPay sandbox'), findsNothing);
+      expect(find.text('Pay Now'), findsNothing);
       expect(find.text('Check payment status'), findsNothing);
       expect(find.textContaining('You can reopen payment'), findsNothing);
       expect(service.starts, 1);
@@ -250,8 +253,7 @@ void main() {
       find.textContaining('Please do not create another order'),
       findsOneWidget,
     );
-    expect(find.text('Continue to payment'), findsNothing);
-    expect(find.text('Open ToyyibPay sandbox'), findsNothing);
+    expect(find.text('Pay Now'), findsNothing);
   });
 
   testWidgets('failed status check exposes retry and recovers', (tester) async {
@@ -264,8 +266,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Check failed. Retry shortly.'), findsOneWidget);
     service.failCheck = false;
-    await tester.tap(find.text('Check payment status'));
+    await tester.tap(find.text('Retry'));
     await tester.pumpAndSettle();
-    expect(find.text('Continue to payment'), findsOneWidget);
+    expect(find.text('Pay Now'), findsOneWidget);
   });
 }

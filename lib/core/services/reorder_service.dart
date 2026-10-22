@@ -3,12 +3,42 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../providers/cart_provider.dart';
 import '../../models/bouquet_model.dart';
+import '../../models/cart_item_model.dart';
 import '../utils/money.dart';
 
 typedef ProductReader =
     Future<Map<String, dynamic>?> Function(String collection, String id);
 
 class ReorderService {
+  static Future<CartItemModel> draft(Map<String, dynamic> item) async {
+    if (item['type'] == 'addon') {
+      final id = item['addonId'] as String,
+          product = await _read('addons', item['addonId'] as String);
+      final count = (item['quantity'] as num?)?.toInt() ?? 1;
+      if (product == null ||
+          product['isPublished'] != true ||
+          (product['stockQuantity'] as num? ?? 0) < count) {
+        throw StateError('An add-on is unavailable.');
+      }
+      return CartItemModel(
+        id: 'addon_${id}_${DateTime.now().microsecondsSinceEpoch}',
+        type: 'addon',
+        addonId: id,
+        name: product['name'] as String,
+        imageUrl: product['imageUrl'] as String? ?? '',
+        unitPrice: (product['price'] as num).toDouble(),
+        quantity: count,
+      );
+    }
+    final scratch = CartProvider();
+    try {
+      await add(scratch, {...item, 'cardNote': ''});
+      return scratch.items.single;
+    } finally {
+      scratch.dispose();
+    }
+  }
+
   static const _wrappers = {
     'Kraft Paper (Classic)': 5.0,
     'Pastel Pink Waterproof': 8.0,
@@ -40,7 +70,8 @@ class ReorderService {
     }
     final read = readDocument ?? _read;
     void checkSession() {
-      if (readDocument == null && FirebaseAuth.instance.currentUser?.uid != uid) {
+      if (readDocument == null &&
+          FirebaseAuth.instance.currentUser?.uid != uid) {
         throw StateError('Your sign-in changed. Please retry.');
       }
     }

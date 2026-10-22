@@ -12,6 +12,22 @@ function normalizePhone(value) {
   return '+60' + phone.slice(1);
 }
 
+function approvedContact(application) {
+  if (application?.status !== 'approved') return null;
+  try {
+    return {name: d.text(application.name, 'rider name', 160), phone: normalizePhone(application.phone)};
+  } catch (_) { return null; }
+}
+
+// Includes legacy records without a revision, so an administrator cannot
+// overwrite a contact reviewed or changed after the directory was loaded.
+function contactVersion(application) {
+  return require('node:crypto').createHash('sha256')
+    .update(JSON.stringify([application?.status ?? null, application?.name ?? null,
+      application?.phone ?? null, application?.contactRevision ?? 0,
+      application?.reviewedAt?.toMillis?.() ?? null])).digest('hex');
+}
+
 function createContactHandler({db, hasRole}) {
   return req => db.runTransaction(async tx => {
     const order = await tx.get(db.doc('orders/' + d.id(req.data?.orderId)));
@@ -26,14 +42,12 @@ function createContactHandler({db, hasRole}) {
     const riderId = d.id(o.riderId);
     const rider = await tx.get(db.doc('users/' + riderId));
     const application = await tx.get(db.doc('rider_applications/' + riderId));
-    if (!hasRole(rider.data(), 'rider') || rider.data()?.deletionPending || application.data()?.status !== 'approved') {
+    const contact = approvedContact(application.data());
+    if (!hasRole(rider.data(), 'rider') || rider.data()?.deletionPending || !contact) {
       d.fail('Rider contact is unavailable. Please call the florist.', 'failed-precondition');
     }
-    let phone;
-    try { phone = normalizePhone(application.data().phone); }
-    catch (_) { d.fail('Rider contact is unavailable. Please call the florist.', 'failed-precondition'); }
-    return {name: d.text(application.data().name || rider.data().name || 'Rider', 'rider name', 160), phone};
+    return contact;
   });
 }
 
-module.exports = {normalizePhone, createContactHandler};
+module.exports = {normalizePhone, approvedContact, contactVersion, createContactHandler};

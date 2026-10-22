@@ -8,6 +8,7 @@ import 'core/services/payment_links.dart';
 import 'core/widgets/payment_link_session.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/cart_provider.dart';
+import 'core/services/cart_sync_service.dart';
 import 'core/widgets/auth_cart_sync.dart';
 import 'core/widgets/notification_session.dart';
 import 'core/widgets/app_router.dart';
@@ -124,7 +125,7 @@ class _BloomAndBunchAppState extends State<BloomAndBunchApp> {
 
   @override
   Widget build(BuildContext context) => ChangeNotifierProvider(
-    create: (_) => CartProvider(),
+    create: (_) => CartProvider(syncService: CartSyncService()),
     child: AuthCartSync(
       navigatorKey: appNavigatorKey,
       child: MaterialApp.router(

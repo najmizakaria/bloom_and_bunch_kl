@@ -1,6 +1,7 @@
 'use strict';
 const {FieldValue, FieldPath, Filter, AggregateField, Timestamp} = require('firebase-admin/firestore');
 const d = require('./domain');
+const riderContact = require('./rider-contact');
 const role = (p, r) => p?.role === r || p?.roles?.includes(r);
 const active = ['Awaiting Preparation', 'Pending', 'Processing', 'Ready for Delivery', 'Out for Delivery', 'Awaiting Customer Confirmation'];
 const statusValues = [...active, 'Completed', 'Delivered', 'Cancelled'];
@@ -18,6 +19,14 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
   }
   function audit(tx, uid, action, target, details = {}) {
     tx.create(db.collection('admin_audit').doc(), {actorId: uid, action, target, ...details, createdAt: FieldValue.serverTimestamp()});
+  }
+  function saveContact(tx, uid, actorId, name, phone, application, source) {
+    tx.set(db.doc('rider_applications/'+uid), {
+      uid, name, phone, status:'approved', reviewedBy:actorId,
+      reviewedAt:FieldValue.serverTimestamp(), contactRevision:(application?.contactRevision ?? 0)+1,
+      contactSource:source,
+    }, {merge:true});
+    audit(tx,actorId,'rider_contact_approved',uid,{source});
   }
   async function count(q) { return (await q.count().get()).data().count; }
   async function received(start, mode) {
@@ -82,6 +91,7 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
       await authorize(req);
       const p=req.data??{},name=d.text(p.name,'name',120),email=d.text(p.email,'email',254).toLowerCase(),phone=d.text(p.phone,'phone',30),staffRole=p.role;
       if(!['florist','rider'].includes(staffRole)||!/^\S+@\S+\.\S+$/.test(email)||!/^\+?\d{9,15}$/.test(phone))d.fail('Enter a valid staff role, email and phone.');
+      const deliveryPhone=staffRole==='rider'?riderContact.normalizePhone(phone):null;
       const password=p.password;if(typeof password!=='string'||password.length<10||password.length>128)d.fail('Use a temporary password of 10–128 characters.');
       const requestId=d.id(p.requestId),operation=db.doc('admin_staff_requests/'+req.auth.uid+'_'+requestId);
       const uid='staff_'+require('node:crypto').createHash('sha256').update(operation.path).digest('hex').slice(0,40);
@@ -95,6 +105,7 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
         catch(e){if(e.code!=='auth/uid-already-exists')throw e;const user=await auth.getUser(uid);if(user.email!==email)throw e;}
         await db.runTransaction(async tx=>{const s=await tx.get(operation);if(s.data()?.state==='complete')return;
           tx.set(db.doc('users/'+uid),{uid,name,email,phone,role:staffRole,roles:[staffRole],activeRole:staffRole,createdByAdmin:true,accountSuspended:false,createdAt:FieldValue.serverTimestamp()});
+          if(staffRole==='rider')saveContact(tx,uid,req.auth.uid,name,deliveryPhone,null,'staff_creation');
           tx.update(operation,{state:'complete'});audit(tx,req.auth.uid,'staff_created',uid,{role:staffRole});});
       } catch(e) {
         if(created){await auth.deleteUser(uid);await operation.delete();}
@@ -111,12 +122,19 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
         if(!p||role(p,'admin')||p.deletionPending)d.fail('This account cannot be changed here.','failed-precondition');
         const roles=p.roles??[p.role];if(!roles.some(r=>['rider','florist'].includes(r)))d.fail('Staff account required.');
         const changes={accountSuspended:disabled,updatedAt:FieldValue.serverTimestamp()};
+        let newContact=null, application=null;
         if(req.data.role!=null){if(!p.createdByAdmin||!['florist','rider'].includes(req.data.role))d.fail('Only managed staff roles can be changed.');
           if(p.activeDeliveryId)d.fail('Complete the active delivery first.','failed-precondition');
           const current=await tx.get(db.collection('orders').where('floristId','==',uid).where('orderStatus','==','Processing').limit(1));if(!current.empty)d.fail('Complete assigned preparation first.','failed-precondition');
+          if(req.data.role==='rider'&&!role(p,'rider')){
+            if(req.data.contactApproved!==true)d.fail('Review and approve the rider delivery contact before changing this role.','failed-precondition');
+            newContact={name:d.text(req.data.contactName,'rider name',160),phone:riderContact.normalizePhone(req.data.contactPhone)};
+            application=(await tx.get(db.doc('rider_applications/'+uid))).data();
+          }
           Object.assign(changes,{role:req.data.role,roles:[req.data.role],activeRole:req.data.role});}
         if(disabled&&p.activeDeliveryId)d.fail('Complete the active delivery first.','failed-precondition');
         if(disabled){const preparing=await tx.get(db.collection('orders').where('floristId','==',uid).where('orderStatus','==','Processing').limit(1));if(!preparing.empty)d.fail('Complete assigned preparation first.','failed-precondition');}
+        if(newContact)saveContact(tx,uid,req.auth.uid,newContact.name,newContact.phone,application,'staff_role_change');
         tx.update(ref,changes);audit(tx,req.auth.uid,'staff_access_changed',uid,{suspended:disabled,...(req.data.role?{role:req.data.role}:{})});});
       // Profile suspension is authoritative even if the Auth request needs retry.
       await auth.updateUser(uid,{disabled});if(disabled)await auth.revokeRefreshTokens(uid);
@@ -126,8 +144,32 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
       await authorize(req);
       let q=db.collection('users').where(Filter.or(Filter.where('role','==','rider'),Filter.where('roles','array-contains','rider'))).orderBy(FieldPath.documentId());
       if(req.data?.after)q=q.startAfter(d.id(req.data.after));
-      const s=await q.limit(51).get(),page=s.docs.slice(0,50),locations=page.length?await db.getAll(...page.map(s=>db.doc('rider_locations/'+s.id))):[];
-      return {riders:page.map((s,i)=>({uid:s.id,name:s.data().name??'Rider',suspended:s.data().accountSuspended===true,activeDeliveryId:s.data().activeDeliveryId??null,location:locations[i].exists?{latitude:locations[i].data().latitude,longitude:locations[i].data().longitude,updatedAt:ms(locations[i].data().updatedAt)}:null})),next:s.size>50?page.at(-1).id:null};
+      const s=await q.limit(51).get(),page=s.docs.slice(0,50);
+      const [locations,applications]=page.length?await Promise.all([
+        db.getAll(...page.map(s=>db.doc('rider_locations/'+s.id))),
+        db.getAll(...page.map(s=>db.doc('rider_applications/'+s.id))),
+      ]):[[],[]];
+      return {riders:page.map((s,i)=>{const a=applications[i].data(),contact=riderContact.approvedContact(a);return {
+        uid:s.id,name:s.data().name??'Rider',suspended:s.data().accountSuspended===true,
+        activeDeliveryId:s.data().activeDeliveryId??null,contactReady:!!contact,
+        contactName:a?.name??s.data().name??'',contactPhone:a?.phone??s.data().phone??'',
+        contactVersion:riderContact.contactVersion(a),
+        location:locations[i].exists?{latitude:locations[i].data().latitude,longitude:locations[i].data().longitude,updatedAt:ms(locations[i].data().updatedAt)}:null,
+      };}),next:s.size>50?page.at(-1).id:null};
+    },
+    async saveRiderContact(req) {
+      await authorize(req);const p=req.data??{},uid=d.id(p.uid);
+      if(p.confirmed!==true)d.fail('Review and approve this delivery contact before saving.');
+      const name=d.text(p.name,'rider name',160),phone=riderContact.normalizePhone(p.phone);
+      return db.runTransaction(async tx=>{
+        const actor=await tx.get(db.doc('users/'+req.auth.uid));
+        if(!role(actor.data(),'admin')||actor.data()?.accountSuspended||actor.data()?.deletionPending)d.fail('Administrator access required.','permission-denied');
+        const rider=await tx.get(db.doc('users/'+uid)),application=await tx.get(db.doc('rider_applications/'+uid));
+        if(!role(rider.data(),'rider')||rider.data()?.deletionPending)d.fail('An existing rider account is required.','failed-precondition');
+        if(p.contactVersion!==riderContact.contactVersion(application.data()))d.fail('This rider contact changed. Refresh the directory and review it again.','failed-precondition');
+        saveContact(tx,uid,req.auth.uid,name,phone,application.data(),'admin_review');
+        return {saved:true};
+      });
     },
     async location(req) {
       await authorize(req,'rider');const p=req.data??{},ref=db.doc('rider_locations/'+req.auth.uid);
@@ -150,7 +192,7 @@ function createAdminHandlers({db, auth, defaultPolicy, policyPath='store_setting
       return {policy:{...defaultPolicy,...saved.data()},editable:true};
     },
     async savePolicy(req) {
-      await authorize(req);const allowed=['paymentInstructions','operatingWeekdays','openingHour','cutoffHour','holidays','dailyDeliveryCapacity','serviceArea'];
+      await authorize(req);const allowed=['paymentInstructions','operatingWeekdays','openingHour','cutoffHour','holidays','dailyDeliveryCapacity','serviceArea','bookingWindowDays'];
       const updates=req.data?.policy;if(!updates||Object.keys(updates).some(k=>!allowed.includes(k)))d.fail('Invalid store configuration.');
       const ref=db.doc(policyPath);
       await db.runTransaction(async tx=>{const old=await tx.get(ref);const next={...defaultPolicy,...old.data(),...updates};

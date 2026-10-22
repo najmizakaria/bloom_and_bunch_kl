@@ -17,6 +17,11 @@ class CartItemModel {
   final String? wrapper;
   final String? ribbon;
   final String? cardNote;
+  final String? addonId;
+  final String? requestedDeliveryDate;
+  String get deliveryGroupKey =>
+      requestedDeliveryDate ??
+      (fulfillmentType == FulfillmentTypes.readyNow ? 'ready_now' : 'planned');
 
   CartItemModel({
     required this.id,
@@ -33,6 +38,8 @@ class CartItemModel {
     this.wrapper,
     this.ribbon,
     this.cardNote,
+    this.addonId,
+    this.requestedDeliveryDate,
   });
 
   factory CartItemModel.fromMap(Map<String, dynamic> data) => CartItemModel(
@@ -42,6 +49,8 @@ class CartItemModel {
     imageUrl: data['imageUrl'] as String,
     unitPrice: (data['unitPrice'] as num).toDouble(),
     quantity: data['quantity'] as int,
+    addonId: data['addonId'] as String?,
+    requestedDeliveryDate: data['requestedDeliveryDate'] as String?,
     bouquetId: data['bouquetId'] as String?,
     fulfillmentType: data['fulfillmentType'] as String,
     leadTimeBusinessDays: data['leadTimeBusinessDays'] as int? ?? 0,
@@ -74,6 +83,11 @@ class CartItemModel {
       'wrapper': wrapper,
       'ribbon': ribbon,
       'cardNote': cardNote,
+      'addonId': addonId,
+      'requestedDeliveryDate': requestedDeliveryDate,
     };
   }
+
+  CartItemModel withDate(String? date) =>
+      CartItemModel.fromMap({...toMap(), 'requestedDeliveryDate': date});
 }

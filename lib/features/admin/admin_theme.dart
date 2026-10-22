@@ -2,17 +2,17 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import 'admin_navigation_scope.dart';
 
-/// SB Admin 2's visual tokens, scoped to the administration workspace.
+/// The app's brand colours, scoped to the administration workspace.
 class AdminTheme {
-  static const primary = Color(0xFF4E73DF);
-  static const primaryDark = Color(0xFF224ABE);
-  static const background = Color(0xFFF8F9FC);
-  static const border = Color(0xFFE3E6F0);
-  static const ink = Color(0xFF5A5C69);
-  static const muted = Color(0xFF6E707E);
-  static const success = Color(0xFF1CC88A);
-  static const info = Color(0xFF36B9CC);
-  static const warning = Color(0xFFF6C23E);
+  static const primary = AppColors.primary;
+  static const primaryDark = AppColors.primaryDark;
+  static const background = AppColors.softBlushStart;
+  static const border = AppColors.inputBorder;
+  static const ink = AppColors.textDark;
+  static const muted = AppColors.textMuted;
+  static const success = AppColors.success;
+  static const info = AppColors.warning;
+  static const warning = AppColors.primaryDark;
 
   /// Shared inventory widgets keep their florist palette outside this shell.
   static Color sharedColor(BuildContext context, Color original) {
@@ -51,6 +51,9 @@ class AdminTheme {
         primary: primary,
         surface: Colors.white,
         onSurface: ink,
+        secondaryContainer: AppColors.softBlushEnd,
+        surfaceContainerLow: AppColors.softBlushStart,
+        outline: AppColors.inputBorder,
         error: const Color(0xFFE74A3B),
       ),
       scaffoldBackgroundColor: background,

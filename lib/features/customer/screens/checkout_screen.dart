@@ -91,10 +91,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _error = null;
     });
     try {
-      final quote = await (widget.checkoutService ?? CheckoutService()).quote(
-        cart.items,
-        _address!,
-      );
+      await cart.flush();
+      final quote =
+          await (widget.checkoutService ??
+                  CheckoutService(messageCards: cart.messageCards))
+              .quote(cart.items, _address!);
       if (mounted &&
           generation == _generation &&
           uid == _uid &&
@@ -152,14 +153,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           context,
           title: 'Place Order',
           message:
-              'Confirm the delivery address and total RM ${((_quote?.totalSen ?? 0) / 100).toStringAsFixed(2)}. ${_quote?.usesToyyibpay == true ? 'Next, complete a test payment with ToyyibPay sandbox. Preparation starts only after payment is verified.' : 'Submitting an order does not confirm payment.'}',
+              'Confirm the delivery address and total RM ${((_quote?.totalSen ?? 0) / 100).toStringAsFixed(2)}. ${_quote?.usesToyyibpay == true ? 'Next, continue to payment. Preparation starts only after payment is verified.' : 'Submitting an order does not confirm payment.'}',
           action: 'Confirm order',
         );
         if (!confirmed || !mounted || uid != _uid) return;
+        if (_quotedCartId != cart.checkoutId) {
+          throw StateError(
+            'Your cart changed. Refresh the order summary before confirming.',
+          );
+        }
       }
       final request = await cart.prepareCheckout({
         'checkoutId': cart.checkoutId,
         'items': cart.items.map((i) => i.toMap()).toList(),
+        'messageCards': cart.messageCards,
+        'cartSync': cart.cloudSyncEnabled,
         'expectedTotal': (_quote?.totalSen ?? 0) / 100,
         'quoteId': _quote?.id,
         'quote': _quote?.data,
@@ -332,7 +340,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   : _quote == null || stale
                   ? 'Order summary unavailable'
                   : _quote?.usesToyyibpay == true
-                  ? 'Continue to sandbox payment'
+                  ? 'Continue to payment'
                   : 'Place Order',
             ),
           ),
@@ -362,7 +370,7 @@ class CheckoutSummary extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            '${g['kind'] == 'ready_now' ? 'Ready bouquets' : 'Made-to-order bouquets'}: estimated dispatch ${g['date']}',
+            '${g['scheduled'] == true ? 'Requested delivery' : 'Estimated dispatch'}: ${g['date']}',
           ),
         ),
       ],
@@ -376,6 +384,10 @@ class CheckoutSummary extends StatelessWidget {
       AppNote(quote.paymentInstructions),
       const SizedBox(height: 16),
       Text('Items: ${CheckoutQuote.money(quote.data['subtotalSen'] as num)}'),
+      if ((quote.data['cardFeeSen'] as num? ?? 0) > 0)
+        Text(
+          'Message cards: ${CheckoutQuote.money(quote.data['cardFeeSen'] as num)}',
+        ),
       Text(
         'Total: ${CheckoutQuote.money(quote.totalSen)}',
         style: Theme.of(context).textTheme.titleLarge,

@@ -7,10 +7,12 @@ class AvailableDeliveryPage {
     required this.deliveries,
     this.nextCursor,
     this.activeDeliveryId,
+    this.contactReady = true,
   });
   final List<DeliveryJobModel> deliveries;
   final Map<String, dynamic>? nextCursor;
   final String? activeDeliveryId;
+  final bool contactReady;
 }
 
 class DeliveryService {
@@ -45,6 +47,7 @@ class DeliveryService {
           ? null
           : Map<String, dynamic>.from(data['nextCursor'] as Map),
       activeDeliveryId: data['activeDeliveryId'] as String?,
+      contactReady: data['contactReady'] != false,
     );
   }
 }

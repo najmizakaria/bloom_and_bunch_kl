@@ -73,7 +73,7 @@ class FlowerDetailScreen extends StatelessWidget {
                             const SizedBox(width: 8),
                             Text(
                               flower.availableForCustomOrder
-                                  ? 'Prepared in 1–3 business days'
+                                  ? 'Choose a delivery date after preparation'
                                   : 'Currently not offered',
                               style: const AppTypography.body(),
                             ),

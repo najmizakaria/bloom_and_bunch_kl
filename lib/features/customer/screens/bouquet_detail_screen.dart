@@ -11,6 +11,8 @@ import '../../../core/widgets/action_feedback.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/bouquet_model.dart';
 import 'cart_screen.dart';
+import 'bouquet_options_screen.dart';
+import '../../../models/cart_item_model.dart';
 
 class BouquetDetailScreen extends StatefulWidget {
   const BouquetDetailScreen({
@@ -18,10 +20,12 @@ class BouquetDetailScreen extends StatefulWidget {
     required this.bouquet,
     this.initialFulfillmentType,
     this.favouritesService,
+    this.optionsBuilder,
   });
   final BouquetModel bouquet;
   final String? initialFulfillmentType;
   final FavouritesService? favouritesService;
+  final Widget Function(CartItemModel)? optionsBuilder;
 
   @override
   State<BouquetDetailScreen> createState() => _BouquetDetailScreenState();
@@ -43,30 +47,30 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
         widget.bouquet.readyStock > 0;
   }
 
-  void _add() {
+  Future<void> _add() async {
     final bouquet = widget.bouquet;
-    final cart = context.read<CartProvider>();
-    final added = cart.addReadyMadeItem(
-      bouquetId: bouquet.id,
-      name: bouquet.name,
-      imageUrl: bouquet.imageUrl,
-      price: bouquet.price,
-      fulfillmentType: _readyNow
-          ? FulfillmentTypes.readyNow
-          : FulfillmentTypes.preOrder,
-      leadTimeBusinessDays: _readyNow ? 0 : bouquet.leadTimeBusinessDays,
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) {
+          final draft = CartItemModel(
+            id: 'bouquet_${DateTime.now().microsecondsSinceEpoch}',
+            type: 'ready',
+            bouquetId: bouquet.id,
+            name: bouquet.name,
+            imageUrl: bouquet.imageUrl,
+            unitPrice: bouquet.price,
+            fulfillmentType: _readyNow
+                ? FulfillmentTypes.readyNow
+                : FulfillmentTypes.preOrder,
+            leadTimeBusinessDays: _readyNow ? 0 : bouquet.leadTimeBusinessDays,
+          );
+          return widget.optionsBuilder?.call(draft) ??
+              BouquetOptionsScreen(bouquet: draft);
+        },
+      ),
     );
-    if (!added) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
-      );
-      return;
-    }
-
-    AppMonitoring.event('cart_added');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${bouquet.name} added to your cart.')),
-    );
+    if (added == true) AppMonitoring.event('cart_added');
   }
 
   @override
@@ -203,7 +207,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
                     icon: Icons.calendar_today_outlined,
                     title: 'Pre-order',
                     subtitle:
-                        'Prepared in ${bouquet.leadTimeBusinessDays} business days',
+                        'Choose a date after ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} business days',
                     onTap: () => setState(() => _readyNow = false),
                   ),
                 const SizedBox(height: 24),
@@ -236,7 +240,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
           child: FilledButton.icon(
             onPressed: readyAvailable || preorderAvailable ? _add : null,
             icon: const Icon(Icons.shopping_bag_outlined),
-            label: const Text('Add to cart'),
+            label: Text(_readyNow ? 'Choose add-ons' : 'Choose add-ons & date'),
           ),
         ),
       ),

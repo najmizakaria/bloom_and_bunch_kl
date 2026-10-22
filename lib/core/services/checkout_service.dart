@@ -15,6 +15,8 @@ class CheckoutQuote {
       .toList();
   String get paymentInstructions => isDemo
       ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
+      : usesToyyibpay
+      ? 'Complete payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
       : data['paymentInstructions'] as String;
   String get timingNotice => isDemo
       ? 'Estimated dispatch dates depend on preparation and rider availability.'
@@ -23,6 +25,9 @@ class CheckoutQuote {
 }
 
 class CheckoutService {
+  CheckoutService({Map<String, Map<String, dynamic>> messageCards = const {}})
+    : _messageCards = Map.unmodifiable(messageCards);
+  final Map<String, Map<String, dynamic>> _messageCards;
   Future<CheckoutQuote> quote(
     List<CartItemModel> items,
     SavedAddressModel address,
@@ -33,6 +38,7 @@ class CheckoutService {
         ).httpsCallable('quoteCheckout').call({
           'items': items.map((i) => i.toMap()).toList(),
           'address': address.toMap(),
+          'messageCards': _messageCards,
         });
     return CheckoutQuote(Map<String, dynamic>.from(result.data as Map));
   }

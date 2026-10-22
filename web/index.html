@@ -33,14 +33,22 @@
   <link rel="manifest" href="manifest.json">
   <!-- API KEY -->
   <script>
+    // Authorization errors arrive after the SDK callback, once a map is made.
+    // Notify Flutter as well as rejecting any subsequent attempt to use it.
+    window.gm_authFailure = function () {
+      window.bloomMapsFailure = 'authorization';
+      window.dispatchEvent(new Event('bloom-maps-error'));
+    };
     window.bloomLoadMaps = function (providedKey) {
-      if (window.google && window.google.maps) return Promise.resolve(true);
+      if (window.bloomMapsFailure) return Promise.reject(new Error('Maps authorization failed'));
+      if (window.bloomMapsPromise) return window.bloomMapsPromise;
+      if (window.google && window.google.maps && typeof window.google.maps.Map === 'function') return Promise.resolve(true);
       const configuredKey = '%%MAPS_API_KEY_WEB%%';
       const key = providedKey || (configuredKey.includes('%%') ? '' : configuredKey);
       if (!key) return Promise.reject(new Error('Maps web configuration missing'));
-      if (window.bloomMapsPromise) return window.bloomMapsPromise;
       window.bloomMapsPromise = new Promise(function (resolve, reject) {
         const script = document.createElement('script');
+        script.async = true;
         const timer = setTimeout(failed, 20000);
         function failed() {
           clearTimeout(timer);
@@ -48,7 +56,11 @@
           window.bloomMapsPromise = null;
           reject(new Error('Maps could not load'));
         }
-        window.bloomMapsLoaded = function () { clearTimeout(timer); resolve(true); };
+        window.bloomMapsLoaded = function () {
+          if (!window.google || !window.google.maps || typeof window.google.maps.Map !== 'function') { failed(); return; }
+          clearTimeout(timer);
+          resolve(true);
+        };
         script.onerror = failed;
         script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=bloomMapsLoaded&loading=async';
         document.head.appendChild(script);

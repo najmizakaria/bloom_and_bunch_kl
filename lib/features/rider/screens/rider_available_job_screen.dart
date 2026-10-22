@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/widgets/action_confirmation.dart';
 import '../../../models/delivery_job_model.dart';
+import '../widgets/delivery_job_card.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 class RiderAvailableJobScreen extends StatefulWidget {
   final DeliveryJobModel job;
@@ -14,7 +16,11 @@ class RiderAvailableJobScreen extends StatefulWidget {
     super.key,
     required this.job,
     this.hasActiveDelivery = false,
+    this.contactReady = true,
+    this.accept,
   });
+  final Future<void> Function(String)? accept;
+  final bool contactReady;
 
   @override
   State<RiderAvailableJobScreen> createState() =>
@@ -25,7 +31,10 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
   bool _accepting = false;
 
   Future<void> _accept() async {
-    if (_accepting || !widget.job.readyForPickup || widget.hasActiveDelivery) {
+    if (_accepting ||
+        !widget.contactReady ||
+        !widget.job.readyForPickup ||
+        widget.hasActiveDelivery) {
       return;
     }
     if (!await confirmAction(
@@ -40,13 +49,40 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
     }
     setState(() => _accepting = true);
     try {
-      await OrderService().transition(widget.job.orderId, 'accept');
+      await (widget.accept?.call(widget.job.orderId) ??
+          OrderService().transition(widget.job.orderId, 'accept'));
       if (!mounted) return;
       // My Delivery confirms acceptance. A snackbar here would follow the
       // closing preview into subsequent routes with an in-flight Hero.
       Navigator.pop(context, widget.job.orderId);
     } catch (error) {
       if (mounted) {
+        if (error is FirebaseFunctionsException &&
+            (error.code == 'not-found' &&
+                    (error.message ?? '').contains('Order no longer exists') ||
+                error.code == 'failed-precondition' &&
+                    (error.message ?? '').contains(
+                      'Another rider has accepted',
+                    ))) {
+          setState(() => _accepting = false);
+          await showDialog<void>(
+            context: context,
+            builder: (dialog) => AlertDialog(
+              title: const Text('Delivery unavailable'),
+              content: const Text(
+                'This delivery has already been taken or is no longer available. Choose another delivery.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialog),
+                  child: const Text('Back to deliveries'),
+                ),
+              ],
+            ),
+          );
+          if (mounted) Navigator.pop(context);
+          return;
+        }
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(OrderService.message(error))));
@@ -62,52 +98,28 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
       appBar: AppBar(
         leading: const PageBackButton(),
         centerTitle: false,
-        title: const Text('Available Delivery'),
+        title: const Text('Delivery details'),
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const Icon(
-            Icons.local_shipping_outlined,
-            size: 72,
-            color: AppColors.primary,
-          ),
-          const SizedBox(height: 20),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: Text(
-                    widget.job.readyForPickup
-                        ? 'Ready for pickup'
-                        : 'Waiting for preparation',
-                  ),
-                  subtitle: widget.hasActiveDelivery
-                      ? const Text(
-                          'Complete your current delivery and wait for customer confirmation before accepting another.',
-                        )
-                      : null,
-                ),
-                ListTile(
-                  leading: const Icon(Icons.location_city_outlined),
-                  title: const Text('Delivery area'),
-                  subtitle: Text(widget.job.deliveryArea),
-                ),
-                ListTile(
-                  leading: const Icon(Icons.schedule_outlined),
-                  title: const Text('Delivery timing'),
-                  subtitle: Text(
-                    widget.job.deliveryTimeSlot.isEmpty
-                        ? 'As soon as possible'
-                        : widget.job.deliveryTimeSlot,
-                  ),
-                ),
-              ],
+          DeliveryJobCard(job: widget.job, detailed: true),
+          if (!widget.contactReady)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Ask the store administrator to approve your delivery name and Malaysian phone number. Refresh available deliveries after the contact is approved.',
+              ),
             ),
-          ),
+          if (widget.hasActiveDelivery)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                'Complete your current delivery and wait for customer confirmation before accepting another.',
+              ),
+            ),
           const SizedBox(height: 12),
           const Card(
             color: AppColors.secondarySurface,
@@ -120,7 +132,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'The exact address, recipient contact, delivery note and navigation become available after you accept.',
+                      'Recipient contact, delivery instructions and navigation become available after you accept.',
                     ),
                   ),
                 ],
@@ -134,13 +146,14 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
         child: FilledButton.icon(
           onPressed:
               _accepting ||
+                  !widget.contactReady ||
                   !widget.job.readyForPickup ||
                   widget.hasActiveDelivery
               ? null
               : _accept,
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
           ),
           icon: _accepting
               ? const SizedBox(
@@ -155,6 +168,8 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
           label: Text(
             _accepting
                 ? 'Accepting…'
+                : !widget.contactReady
+                ? 'Delivery contact needs review'
                 : widget.hasActiveDelivery
                 ? 'Complete current delivery first'
                 : !widget.job.readyForPickup

@@ -72,7 +72,7 @@ test('REGRESSION: reject a published pre-order recipe that checkout cannot accep
 test('REGRESSION: custom checkout agrees with current fractional stem prices', {skip: !enabled}, async () => {
   await db.doc(`users/${uid}/addresses/rounding`).set(address);
   await db.doc('flowers/feature_audit_rose').set({ name: 'Rose', category: 'Rose', imageUrl: '', stockQuantity: 0, reservedQuantity: 0, pricePerStem: 0.333, availableForCustomOrder: true });
-  const item = { fulfillmentType: 'custom', quantity: 1, customStems: { feature_audit_rose: 3 }, wrapper: 'Kraft Paper (Classic)', ribbon: 'Red Satin', cardNote: '' };
+  const item = { fulfillmentType: 'custom', quantity: 1, customStems: { feature_audit_rose: 3 }, wrapper: 'Kraft Paper (Classic)', ribbon: 'Red Satin', cardNote: '', requestedDeliveryDate:require('../store-policy').dateFor(new Date(),2,require('../store-policy').configured) };
   // Same formula used by the builder and ReorderService.
   const displayedTotal = 7 + 0.333 * 3;
   await api.placeOrder.run(request('audit_rounding', 'rounding', [item], displayedTotal));

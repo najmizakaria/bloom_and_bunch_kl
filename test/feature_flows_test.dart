@@ -3,6 +3,7 @@ import 'package:bloom_and_bunch_kl/core/providers/cart_provider.dart';
 import 'package:bloom_and_bunch_kl/core/services/favourites_service.dart';
 import 'package:bloom_and_bunch_kl/core/widgets/legal_documents.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/bouquet_detail_screen.dart';
+import 'package:bloom_and_bunch_kl/features/customer/screens/bouquet_options_screen.dart';
 import 'package:bloom_and_bunch_kl/models/bouquet_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,13 @@ class FakeFavourites implements FavouritesService {
   Stream<DocumentSnapshot<Map<String, dynamic>>> isBouquetFavourited(
     String id,
   ) => const Stream.empty();
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class EmptyAddons implements QuerySnapshot<Map<String, dynamic>> {
+  @override
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => [];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -47,6 +55,11 @@ void main() {
             bouquet: bouquet,
             initialFulfillmentType: mode,
             favouritesService: FakeFavourites(),
+            optionsBuilder: (draft) => BouquetOptionsScreen(
+              bouquet: draft,
+              catalogueStream: Stream.value(EmptyAddons()),
+              datePicker: (_, items) async => '2026-11-12',
+            ),
           ),
         ),
       ),
@@ -59,7 +72,24 @@ void main() {
     'pre-order detail retains the selected mode for a dual-mode bouquet',
     (tester) async {
       final cart = await mount(tester, mode: FulfillmentTypes.preOrder);
-      await tester.tap(find.text('Add to cart'));
+      await tester.tap(find.text('Choose add-ons & date'));
+      await tester.pumpAndSettle();
+      expect(cart.isEmpty, true);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(
+                FilledButton,
+                'Add bouquet and extras to cart',
+              ),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Choose delivery date'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add bouquet and extras to cart'));
+      await tester.pumpAndSettle();
       expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
       expect(cart.items.single.leadTimeBusinessDays, 2);
     },
@@ -68,7 +98,13 @@ void main() {
     'pre-order-only favourite can be ordered through the details selector',
     (tester) async {
       final cart = await mount(tester, ready: false);
-      await tester.tap(find.text('Add to cart'));
+      await tester.tap(find.text('Choose add-ons & date'));
+      await tester.pumpAndSettle();
+      expect(cart.isEmpty, true);
+      await tester.tap(find.text('Choose delivery date'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add bouquet and extras to cart'));
+      await tester.pumpAndSettle();
       expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
     },
   );
@@ -83,8 +119,10 @@ void main() {
       price: 55,
       quantity: 20,
     );
-    await tester.tap(find.text('Add to cart'));
-    await tester.pump();
+    await tester.tap(find.text('Choose add-ons'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add bouquet and extras to cart'));
+    await tester.pumpAndSettle();
     expect(cart.items.single.quantity, 20);
     expect(find.text('Maximum 20 bouquets per cart line.'), findsOneWidget);
     expect(find.text('Rose added to your cart.'), findsNothing);

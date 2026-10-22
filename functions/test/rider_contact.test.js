@@ -67,7 +67,7 @@ test('missing approval, malformed contact, deleted accounts and role removal nev
 });
 test('approval normalizes the application contact without changing the general profile phone', {skip:!enabled}, async () => {
   const id='contact_applicant';
-  await db.doc('users/'+id).set({role:'customer',phone:'0199999999'});
+  await db.doc('users/'+id).set({role:'customer',name:'Applicant',phone:'0199999999'});
   const application=db.doc('rider_applications/'+id);
   await application.set({status:'pending',phone:'not a phone'});
   const request={auth:{uid:'contact_admin'},data:{applicantId:id,decision:'approved'}};

@@ -161,6 +161,9 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
       _address = TextEditingController(),
       _name = TextEditingController(),
       _phone = TextEditingController(),
+      _locality = TextEditingController(),
+      _postcode = TextEditingController(),
+      _state = TextEditingController(),
       _note = TextEditingController();
   bool _busy = false, _default = true;
   double? _lat, _lng;
@@ -173,6 +176,9 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
     _name.text = a?.recipientName ?? '';
     _phone.text = a?.recipientPhone ?? '';
     _note.text = a?.note ?? '';
+    _locality.text = a?.locality ?? '';
+    _postcode.text = a?.postcode ?? '';
+    _state.text = a?.state ?? '';
     _default = a?.isDefault ?? true;
     _lat = a?.latitude;
     _lng = a?.longitude;
@@ -224,6 +230,9 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
         );
         if (!mounted) return;
         _address.text = resolved.address;
+        _locality.text = resolved.locality;
+        _postcode.text = resolved.postcode;
+        _state.text = SavedAddressModel.canonicalState(resolved.state);
       } catch (_) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -261,6 +270,11 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
             .fromAddress(_address.text.trim())
             .timeout(const Duration(seconds: 10));
         position = LatLng(resolved.latitude, resolved.longitude);
+        if (_locality.text.isEmpty) _locality.text = resolved.locality;
+        if (_postcode.text.isEmpty) _postcode.text = resolved.postcode;
+        if (_state.text.isEmpty) {
+          _state.text = SavedAddressModel.canonicalState(resolved.state);
+        }
       } catch (_) {}
     }
     if (!mounted) return;
@@ -304,6 +318,9 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
         isDefault: _default,
         latitude: _lat,
         longitude: _lng,
+        locality: _locality.text.trim(),
+        postcode: _postcode.text.trim(),
+        state: SavedAddressModel.canonicalState(_state.text),
       );
       await _service.saveAddress(submitted);
       if (mounted) Navigator.pop(context, submitted);
@@ -316,7 +333,16 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_label, _address, _name, _phone, _note]) {
+    for (final c in [
+      _label,
+      _address,
+      _name,
+      _phone,
+      _note,
+      _locality,
+      _postcode,
+      _state,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -327,12 +353,15 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
     String label,
     int max, {
     bool optional = false,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
       controller: c,
       enabled: !_busy,
       maxLength: max,
+      keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: optional ? '$label (optional)' : '$label *',
         border: const OutlineInputBorder(),
@@ -343,8 +372,10 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
               _lng = null;
             }
           : null,
-      validator: (s) =>
-          !optional && (s == null || s.trim().isEmpty) ? 'Required' : null,
+      validator:
+          validator ??
+          (s) =>
+              !optional && (s == null || s.trim().isEmpty) ? 'Required' : null,
     ),
   );
   @override
@@ -356,53 +387,94 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
     ),
     body: Form(
       key: _form,
-      child: ListView(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        children: [
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _detect,
-            icon: const Icon(Icons.my_location),
-            label: const Text('Use current location'),
-          ),
-          const Text('Check your unit, building and street before saving.'),
-          const Text('* Required'),
-          const SizedBox(height: 16),
-          _field(_label, 'Label', 60),
-          _field(_address, 'Full address', 600),
-          _field(_name, 'Recipient name', 120),
-          _field(_phone, 'Phone', 30),
-          _field(_note, 'Delivery note', 300, optional: true),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : _confirmPin,
-            icon: const Icon(Icons.location_pin),
-            label: Text(
-              _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _detect,
+              icon: const Icon(Icons.my_location),
+              label: const Text('Use current location'),
             ),
-          ),
-          const Text(
-            'After changing the street or building, confirm the entrance pin again.',
-          ),
-          SwitchListTile(
-            title: const Text('Use as default address'),
-            value: _default,
-            onChanged: _busy ? null : (v) => setState(() => _default = v),
-          ),
-          if (_saveError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Semantics(
-                liveRegion: true,
-                child: Text(
-                  _saveError!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
+            const Text('Check your unit, building and street before saving.'),
+            const Text('* Required'),
+            const SizedBox(height: 16),
+            _field(_label, 'Label', 60),
+            _field(_address, 'Full address', 600),
+            const Text(
+              'Town, postcode and state help your rider identify the delivery area.',
+            ),
+            const SizedBox(height: 12),
+            _field(
+              _locality,
+              'Town / City',
+              80,
+              validator: (value) {
+                final text = (value ?? '').trim();
+                return text.isEmpty
+                    ? 'Required'
+                    : RegExp(r'[0-9/@+]').hasMatch(text)
+                    ? 'Enter the town or city without a street or unit number.'
+                    : null;
+              },
+            ),
+            _field(
+              _postcode,
+              'Postcode',
+              5,
+              keyboardType: TextInputType.number,
+              validator: (value) =>
+                  RegExp(r'^\d{5}$').hasMatch((value ?? '').trim())
+                  ? null
+                  : 'Enter a five-digit postcode.',
+            ),
+            _field(
+              _state,
+              'State / Federal territory',
+              80,
+              validator: (value) =>
+                  SavedAddressModel.canonicalState(value ?? '').isEmpty
+                  ? 'Enter a Malaysian state or federal territory.'
+                  : null,
+            ),
+            _field(_name, 'Recipient name', 120),
+            _field(_phone, 'Phone', 30),
+            _field(_note, 'Delivery note', 300, optional: true),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _confirmPin,
+              icon: const Icon(Icons.location_pin),
+              label: Text(
+                _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin',
               ),
             ),
-          FilledButton(
-            onPressed: _busy ? null : _save,
-            child: Text(_busy ? 'Please wait…' : 'Save address'),
-          ),
-        ],
+            const Text(
+              'After changing the street or building, confirm the entrance pin again.',
+            ),
+            SwitchListTile(
+              title: const Text('Use as default address'),
+              value: _default,
+              onChanged: _busy ? null : (v) => setState(() => _default = v),
+            ),
+            if (_saveError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _saveError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
+            FilledButton(
+              onPressed: _busy ? null : _save,
+              child: Text(_busy ? 'Please wait…' : 'Save address'),
+            ),
+          ],
+        ),
       ),
     ),
   );

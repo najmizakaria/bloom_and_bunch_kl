@@ -9,6 +9,7 @@ class OrderModel {
   final String customerId;
   final String? floristId;
   final String? riderId;
+  final String riderName;
   final double totalAmount;
   final String orderStatus;
   final String fulfillmentType;
@@ -28,6 +29,9 @@ class OrderModel {
   final DateTime? customerAcceptedAt;
   final bool hasOpenIssue;
   final String orderMode, paymentStatus;
+  final Map<String, dynamic>? messageCard;
+  final String? scheduledDeliveryDate;
+  final String? estimatedDispatchDate;
   bool get paymentOnHold =>
       orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
   bool get receiptConfirmed => customerAcceptedAt != null;
@@ -37,6 +41,7 @@ class OrderModel {
     required this.customerId,
     this.floristId,
     this.riderId,
+    this.riderName = '',
     required this.totalAmount,
     required this.orderStatus,
     required this.fulfillmentType,
@@ -58,6 +63,9 @@ class OrderModel {
     this.hasOpenIssue = false,
     this.orderMode = '',
     this.paymentStatus = '',
+    this.messageCard,
+    this.scheduledDeliveryDate,
+    this.estimatedDispatchDate,
   });
 
   factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -71,6 +79,11 @@ class OrderModel {
 
     return OrderModel(
       orderId: documentId,
+      messageCard: map['messageCard'] is Map
+          ? Map<String, dynamic>.from(map['messageCard'] as Map)
+          : null,
+      scheduledDeliveryDate: map['scheduledDeliveryDate'] as String?,
+      estimatedDispatchDate: map['estimatedDispatchDate'] as String?,
       orderMode: (map['orderMode'] ?? '').toString(),
       paymentStatus: (map['paymentStatus'] ?? '').toString(),
       hasOpenIssue: map['support'] is Map && map['support']['status'] == 'open',
@@ -80,6 +93,7 @@ class OrderModel {
       customerId: (map['customerId'] ?? '').toString(),
       floristId: map['floristId']?.toString(),
       riderId: map['riderId']?.toString(),
+      riderName: (map['riderName'] ?? '').toString(),
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0,
       orderStatus: _normalizedStatus(map['orderStatus']?.toString()),
       fulfillmentType: FulfillmentTypes.values.contains(explicitFulfillmentType)

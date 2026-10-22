@@ -3,6 +3,8 @@ import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'bouquet_options_screen.dart';
+import '../../../models/cart_item_model.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -64,23 +66,39 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
   Future<void> _orderAgain(Map<String, dynamic> data) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final cart = context.read<CartProvider>();
     try {
-      var added = 0, unavailable = 0;
+      var unavailable = 0;
+      final drafts = <CartItemModel>[];
       for (final raw in data['items'] as List? ?? []) {
         if (!mounted || FirebaseAuth.instance.currentUser?.uid != uid) return;
         try {
-          await ReorderService.add(cart, Map<String, dynamic>.from(raw as Map));
-          added++;
+          drafts.add(
+            await ReorderService.draft(Map<String, dynamic>.from(raw as Map)),
+          );
         } catch (_) {
           unavailable++;
         }
       }
       if (mounted && FirebaseAuth.instance.currentUser?.uid == uid) {
+        final bouquets = drafts.where((i) => i.type != 'addon').toList();
+        if (bouquets.isNotEmpty) {
+          await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => BouquetOptionsScreen(
+                bouquet: bouquets.first,
+                extraBouquets: bouquets.skip(1).toList(),
+                initialAddons: drafts.where((i) => i.type == 'addon').toList(),
+              ),
+            ),
+          );
+        }
+        if (!mounted) return;
+        if (unavailable == 0) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '$added item(s) added at current prices${unavailable > 0 ? '; $unavailable could not be added' : ''}.',
+              '$unavailable item(s) are no longer available. Available items use current prices.',
             ),
           ),
         );

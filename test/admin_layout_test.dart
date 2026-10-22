@@ -111,7 +111,7 @@ void main() {
     },
   );
   testWidgets(
-    'rider directory hides empty actions and paginates using its cursor',
+    'rider directory offers contact review for every rider and paginates using its cursor',
     (tester) async {
       _size(tester, const Size(1440, 1000));
       final requests = <String?>[];
@@ -130,7 +130,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(DataTable), findsOneWidget);
-      expect(find.byType(PopupMenuButton<String>), findsOneWidget);
+      expect(find.byType(PopupMenuButton<String>), findsNWidgets(2));
       expect(find.textContaining('No recent shared locations'), findsOneWidget);
       await tester.ensureVisible(find.text('Next'));
       await tester.tap(find.text('Next'));

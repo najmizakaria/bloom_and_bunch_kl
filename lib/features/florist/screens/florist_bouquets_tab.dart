@@ -263,7 +263,8 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
     var isPublished = existingBouquet?.isPublished ?? true;
     var availableForReadyNow = existingBouquet?.availableForReadyNow ?? true;
     var availableForPreOrder = existingBouquet?.availableForPreOrder ?? false;
-    var leadTimeBusinessDays = existingBouquet?.leadTimeBusinessDays ?? 2;
+    var leadTimeBusinessDays = (existingBouquet?.leadTimeBusinessDays ?? 2)
+        .clamp(2, 3);
     final recipeStems = <String, int>{...?existingBouquet?.recipeStems};
 
     ProductImage? selectedImage;
@@ -595,10 +596,6 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                           border: OutlineInputBorder(),
                         ),
                         items: [
-                          DropdownMenuItem(
-                            value: 1,
-                            child: Text('1 business day'),
-                          ),
                           DropdownMenuItem(
                             value: 2,
                             child: Text('2 business days'),

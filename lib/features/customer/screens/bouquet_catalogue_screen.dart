@@ -364,7 +364,7 @@ class _BouquetTile extends StatelessWidget {
                   Text(
                     ready
                         ? 'Ready to send'
-                        : '${bouquet.leadTimeBusinessDays} day preparation',
+                        : '${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} business days minimum',
                     style: AppTypography.caption(
                       color: ready
                           ? AppColors.availability

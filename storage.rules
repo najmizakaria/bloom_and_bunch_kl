@@ -9,8 +9,8 @@ service firebase.storage {
   }
   function staff(){return signedIn() && (hasRole('florist') || hasRole('admin'));}
   match /{folder}/{file} {
-   allow read: if signedIn() && folder in ['flowers','bouquets'];
-   allow write: if folder in ['flowers','bouquets'] && staff() &&
+   allow read: if signedIn() && folder in ['flowers','bouquets','addons','card_designs'];
+   allow write: if folder in ['flowers','bouquets','addons','card_designs'] && staff() &&
     (request.resource == null || (request.resource.size <= 5*1024*1024 && request.resource.contentType.matches('image/(jpeg|png|webp)')));
   }
  }

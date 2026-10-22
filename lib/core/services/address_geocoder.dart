@@ -6,7 +6,15 @@ import 'geocoder_native.dart'
 class ResolvedLocation {
   final double latitude, longitude;
   final String address;
-  const ResolvedLocation(this.latitude, this.longitude, this.address);
+  final String locality, postcode, state;
+  const ResolvedLocation(
+    this.latitude,
+    this.longitude,
+    this.address, {
+    this.locality = '',
+    this.postcode = '',
+    this.state = '',
+  });
 }
 
 class AddressGeocoder {

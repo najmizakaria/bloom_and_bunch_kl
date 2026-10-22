@@ -4,13 +4,12 @@ import '../widgets/product_components.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
-import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/services/reorder_service.dart';
 import '../../../models/bouquet_model.dart';
 import 'bouquet_detail_screen.dart';
+import 'bouquet_options_screen.dart';
 
 class FavouritesScreen extends StatefulWidget {
   const FavouritesScreen({super.key});
@@ -43,12 +42,14 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     ),
   );
   Future<void> _add(BuildContext context, Map<String, dynamic> item) async {
-    final cart = context.read<CartProvider>();
     try {
-      await ReorderService.add(cart, item);
+      final draft = await ReorderService.draft(item);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Added at the current price.')),
+        await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BouquetOptionsScreen(bouquet: draft),
+          ),
         );
       }
     } catch (error) {

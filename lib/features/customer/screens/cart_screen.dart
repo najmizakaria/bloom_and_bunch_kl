@@ -7,9 +7,150 @@ import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import 'checkout_screen.dart';
+import 'message_card_screen.dart';
+import '../widgets/delivery_date_picker.dart';
+import '../../../models/cart_item_model.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
+
+  Future<void> _remove(
+    BuildContext context,
+    CartProvider cart,
+    CartItemModel item,
+  ) async {
+    final others = cart.items.where(
+      (i) =>
+          i.id != item.id &&
+          i.type != 'addon' &&
+          i.deliveryGroupKey == item.deliveryGroupKey,
+    );
+    final addons = cart.items
+        .where(
+          (i) =>
+              i.type == 'addon' && i.deliveryGroupKey == item.deliveryGroupKey,
+        )
+        .toList();
+    if (item.type != 'addon' && others.isEmpty && addons.isNotEmpty) {
+      final destinations = cart.items
+          .where(
+            (i) =>
+                i.type != 'addon' &&
+                i.deliveryGroupKey != 'planned' &&
+                i.deliveryGroupKey != item.deliveryGroupKey,
+          )
+          .map((i) => i.deliveryGroupKey)
+          .toSet();
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (dialog) => SimpleDialog(
+          title: const Text('What about the add-ons?'),
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('These add-ons need a bouquet in their delivery.'),
+            ),
+            for (final group in destinations)
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(dialog, group),
+                child: Text(
+                  'Move to ${group == 'ready_now' ? 'earliest delivery' : group}',
+                ),
+              ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialog, 'remove'),
+              child: const Text('Remove bouquet and its add-ons'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('Keep items'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null) return;
+      for (final addon in addons) {
+        if (choice == 'remove') {
+          cart.removeItem(addon.id);
+        } else {
+          cart.moveAddon(addon.id, choice);
+        }
+      }
+    }
+    cart.removeItem(item.id);
+  }
+
+  Widget _delivery(BuildContext context, CartProvider cart, String group) {
+    final card = cart.messageCards[group],
+        items = cart.items.where((i) => i.deliveryGroupKey == group).toList();
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (group != 'ready_now') ...[
+              Text(
+                group == 'planned'
+                    ? 'Choose delivery date'
+                    : 'Delivery · $group',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              OutlinedButton.icon(
+                onPressed: cart.hasPendingCheckout
+                    ? null
+                    : () async {
+                        final date = await chooseDeliveryDate(context, items);
+                        if (date != null) cart.changeGroupDate(group, date);
+                      },
+                icon: const Icon(Icons.calendar_month),
+                label: Text(
+                  group == 'planned' ? 'Choose date' : 'Change delivery date',
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+            if (card != null) ...[
+              MessageCardPreview(
+                designName: (card['designName'] ?? 'Selected design')
+                    .toString(),
+                imageUrl: (card['imageUrl'] ?? '').toString(),
+                message: (card['message'] ?? '').toString(),
+                senderName: (card['senderName'] ?? '').toString(),
+              ),
+              Text(
+                'Card: ${(card['price'] as num? ?? 0) == 0 ? 'Free' : 'RM ${(card['price'] as num).toStringAsFixed(2)}'}',
+              ),
+            ],
+            TextButton.icon(
+              onPressed: cart.hasPendingCheckout
+                  ? null
+                  : () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => MessageCardScreen(group: group),
+                      ),
+                    ),
+              icon: const Icon(Icons.mail_outline),
+              label: Text(
+                card == null
+                    ? 'Add a message card (optional)'
+                    : 'Edit message card',
+              ),
+            ),
+            if (card != null)
+              TextButton(
+                onPressed: cart.hasPendingCheckout
+                    ? null
+                    : () => cart.setMessageCard(group, null),
+                child: const Text('Remove message card'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +162,34 @@ class CartScreen extends StatelessWidget {
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
+          if (cart.loading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (cart.isEmpty &&
+              cart.cloudSyncEnabled &&
+              cart.errorMessage != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(cart.errorMessage!),
+                    TextButton(
+                      onPressed: () async {
+                        try {
+                          await cart.reloadCloud();
+                        } catch (_) {
+                          /* Keep the draft available for another retry. */
+                        }
+                      },
+                      child: const Text('Reload account cart'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           if (cart.isEmpty) {
             return const Center(
               child: Padding(
@@ -49,13 +218,55 @@ class CartScreen extends StatelessWidget {
               if (cart.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: Text(cart.errorMessage!),
+                  child: Column(
+                    children: [
+                      Text(cart.errorMessage!),
+                      if (cart.cloudSyncEnabled)
+                        Wrap(
+                          children: [
+                            TextButton(
+                              onPressed: () async {
+                                try {
+                                  await cart.retrySync();
+                                } catch (_) {
+                                  /* Error is displayed by the provider. */
+                                }
+                              },
+                              child: const Text('Retry sync'),
+                            ),
+                            TextButton(
+                              onPressed: () async {
+                                try {
+                                  await cart.reloadCloud();
+                                } catch (_) {
+                                  /* Keep the current draft on failure. */
+                                }
+                              },
+                              child: const Text('Reload account cart'),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               Expanded(
                 child: ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: cart.items.length,
+                  itemCount: cart.items.length + cart.deliveryGroups.length,
                   itemBuilder: (context, index) {
+                    if (index >= cart.items.length) {
+                      return Padding(
+                        padding: EdgeInsets.only(
+                          top: index == cart.items.length ? 20 : 0,
+                          bottom: 12,
+                        ),
+                        child: _delivery(
+                          context,
+                          cart,
+                          cart.deliveryGroups[index - cart.items.length],
+                        ),
+                      );
+                    }
                     final item = cart.items[index];
                     final modeLabel = FulfillmentTypes.customerLabel(
                       item.fulfillmentType,
@@ -104,7 +315,7 @@ class CartScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    modeLabel,
+                                    item.type == 'addon' ? 'Add-on' : modeLabel,
                                     style: AppTypography.badge(
                                       color:
                                           item.fulfillmentType ==
@@ -119,6 +330,10 @@ class CartScreen extends StatelessWidget {
                                       style: const AppTypography.caption(
                                         color: AppColors.textMuted,
                                       ),
+                                    ),
+                                  if (item.requestedDeliveryDate != null)
+                                    Text(
+                                      'Delivery: ${item.requestedDeliveryDate}',
                                     ),
                                   if (item.type == 'custom') ...[
                                     const SizedBox(height: 3),
@@ -146,9 +361,13 @@ class CartScreen extends StatelessWidget {
                                   children: [
                                     IconButton(
                                       visualDensity: VisualDensity.compact,
-                                      onPressed: () => context
-                                          .read<CartProvider>()
-                                          .decrementQuantity(item.id),
+                                      onPressed: () {
+                                        if (item.quantity == 1) {
+                                          _remove(context, cart, item);
+                                        } else {
+                                          cart.decrementQuantity(item.id);
+                                        }
+                                      },
                                       icon: const Icon(
                                         Icons.remove_circle_outline,
                                         size: 20,
@@ -171,9 +390,7 @@ class CartScreen extends StatelessWidget {
                                   ],
                                 ),
                                 TextButton(
-                                  onPressed: () => context
-                                      .read<CartProvider>()
-                                      .removeItem(item.id),
+                                  onPressed: () => _remove(context, cart, item),
                                   child: const Text(
                                     'Remove',
                                     style: AppTypography.caption(
@@ -219,8 +436,10 @@ class CartScreen extends StatelessWidget {
                             runSpacing: 8,
                             spacing: 16,
                             children: [
-                              const Text(
-                                'Items subtotal',
+                              Text(
+                                cart.messageCards.isEmpty
+                                    ? 'Items subtotal'
+                                    : 'Items and cards',
                                 style: AppTypography.body(
                                   color: AppColors.textMuted,
                                 ),
@@ -235,7 +454,7 @@ class CartScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 12),
                           const Text(
-                            'Review your total and payment details at checkout. Ready and made-to-order bouquets travel separately.',
+                            'Items and cards share one payment and receipt. Different dates are shown as separate deliveries.',
                           ),
                           const SizedBox(height: 12),
                           SizedBox(
@@ -250,12 +469,17 @@ class CartScreen extends StatelessWidget {
                                 backgroundColor: AppColors.primary,
                                 foregroundColor: AppColors.onPrimary,
                               ),
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const CheckoutScreen(),
-                                ),
-                              ),
+                              onPressed:
+                                  cart.needsDeliveryDates ||
+                                      !cart.cardsComplete ||
+                                      cart.hasOrphanAddons
+                                  ? null
+                                  : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) => const CheckoutScreen(),
+                                      ),
+                                    ),
                               child: const Text(
                                 'Proceed to Checkout',
                                 style: AppTypography.button(),

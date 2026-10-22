@@ -223,7 +223,10 @@ class BouquetBuilderFooter extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.primary,
         side: const BorderSide(color: AppColors.primary, width: 1.5),
-        minimumSize: const Size(48, 52),
+        minimumSize: Size(
+          48,
+          52 * MediaQuery.textScalerOf(context).scale(14) / 14,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       ),
       onPressed: onSave,
@@ -232,12 +235,15 @@ class BouquetBuilderFooter extends StatelessWidget {
     );
     final add = FilledButton.icon(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(48, 52),
+        minimumSize: Size(
+          48,
+          52 * MediaQuery.textScalerOf(context).scale(14) / 14,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       ),
       onPressed: onAdd,
       icon: const Icon(Icons.shopping_cart_outlined),
-      label: const Text('Add to Cart'),
+      label: const Text('Continue'),
     );
     return DecoratedBox(
       decoration: const BoxDecoration(
@@ -279,12 +285,15 @@ class BouquetBuilderFooter extends StatelessWidget {
                       children: [save, const SizedBox(height: 8), add],
                     );
                   }
-                  return Row(
-                    children: [
-                      Expanded(child: save),
-                      const SizedBox(width: 12),
-                      Expanded(child: add),
-                    ],
+                  return IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: save),
+                        const SizedBox(width: 12),
+                        Expanded(child: add),
+                      ],
+                    ),
                   );
                 },
               ),

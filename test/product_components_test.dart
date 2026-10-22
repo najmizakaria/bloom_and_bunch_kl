@@ -138,7 +138,7 @@ void main() {
           expect(saveRect.height, closeTo(addRect.height, 0.1));
           expect(844 - addRect.bottom, closeTo(12, 0.1));
           await tester.tap(find.text('Save Recipe'));
-          await tester.tap(find.text('Add to Cart'));
+          await tester.tap(find.text('Continue'));
           expect(saves, 1);
           expect(adds, 1);
         },

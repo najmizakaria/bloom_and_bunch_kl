@@ -9,6 +9,7 @@ import '../../core/widgets/firestore_page.dart';
 import '../../models/order_model.dart';
 import '../florist/screens/order_materials_panel.dart';
 import 'admin_widgets.dart';
+import '../customer/screens/message_card_screen.dart';
 
 class AdminOrderDetailScreen extends StatefulWidget {
   const AdminOrderDetailScreen({super.key, required this.orderId});
@@ -190,6 +191,15 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
             ),
             const Divider(),
             Text('Items', style: Theme.of(context).textTheme.titleLarge),
+            if (order.scheduledDeliveryDate != null)
+              Text('Requested delivery: ${order.scheduledDeliveryDate}'),
+            if (order.messageCard != null)
+              MessageCardPreview(
+                designName: order.messageCard!['designName'] as String,
+                imageUrl: order.messageCard!['imageUrl'] as String? ?? '',
+                message: order.messageCard!['message'] as String,
+                senderName: order.messageCard!['senderName'] as String,
+              ),
             for (final item in order.items)
               ListTile(
                 contentPadding: EdgeInsets.zero,

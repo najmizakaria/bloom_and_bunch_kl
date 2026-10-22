@@ -139,6 +139,16 @@ service cloud.firestore {
       match /checkouts/{checkoutId} {
         allow read, write: if false;
       }
+      // Account cart drafts (bounded/CAS-validated by saveCart) and immutable
+      // receipt snapshots are owner-readable and server-written only.
+      match /cart/{id} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
+      match /receipts/{id} {
+        allow read: if isOwner(uid);
+        allow write: if false;
+      }
 
       match /favourite_bouquets/{bouquetId} {
         allow read, delete: if isOwner(uid);
@@ -249,6 +259,17 @@ service cloud.firestore {
       allow create, update: if isStaff() && validBouquet(request.resource.data);
       allow delete: if isStaff();
     }
+    // Catalogue fields: name/imageUrl strings, price number, isPublished bool,
+    // revision int; add-ons also have category string and stockQuantity int.
+    // saveCommerceProduct validates all fields and requires staff entitlement.
+    match /addons/{id} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+    match /card_designs/{id} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
 
     match /orders/{orderId} {
       allow read: if isAuthenticated() && (
@@ -281,8 +302,8 @@ service cloud.firestore {
       }
     }
 
-    // Sanitized dispatch feed. Exact address, coordinates, contact details,
-    // customer identity, items and totals remain in the assigned order only.
+    // Rider dispatch feed includes the order's delivery address. Coordinates,
+    // recipient contact, customer identity, item details and totals stay in the assigned order.
     match /delivery_jobs/{orderId} {
       allow read: if isAuthenticated() && hasRole('rider');
       allow write: if false;
@@ -311,7 +332,7 @@ service cloud.firestore {
       allow update: if isOwner(uid)
         && resource.data.status in ['pending', 'rejected']
         && validPendingRiderApplication(request.resource.data, uid);
-      // Approval and rejection are written only by reviewRiderApplication.
+      // Reviews and approved delivery contacts are written only by server admin handlers.
       allow delete: if false;
     }
 

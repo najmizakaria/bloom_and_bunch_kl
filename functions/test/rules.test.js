@@ -12,6 +12,24 @@ test('admin-only collections cannot be forged and profiles remain owner-only',{s
  await assertFails(setDoc(doc(admin,'rider_locations','admin'),{latitude:3,longitude:101}));
 });
 let env;
+test('commerce catalogues require authentication; carts and receipts are private server writes',{skip:!enabled},async()=>{
+ const owner=env.authenticatedContext('customer').firestore(),other=env.authenticatedContext('other').firestore(),staff=env.authenticatedContext('florist').firestore(),anonymous=env.unauthenticatedContext().firestore();
+ await env.withSecurityRulesDisabled(async context=>{
+  await setDoc(doc(context.firestore(),'users/customer/cart/current'),{items:[],revision:1});
+  await setDoc(doc(context.firestore(),'users/customer/receipts/commerce'),{totalSen:5000});
+ });
+ for(const kind of ['addons','card_designs']){
+  await assertSucceeds(getDocs(collection(owner,kind)));
+  await assertFails(getDocs(collection(anonymous,kind)));
+  await assertFails(setDoc(doc(staff,kind,'forged'),{name:'Fake',price:0}));
+ }
+ for(const [kind,id]of [['cart','current'],['receipts','commerce']]){
+  await assertSucceeds(getDoc(doc(owner,'users/customer/'+kind+'/'+id)));
+  await assertFails(getDoc(doc(other,'users/customer/'+kind+'/'+id)));
+  await assertFails(getDoc(doc(staff,'users/customer/'+kind+'/'+id)));
+  await assertFails(setDoc(doc(owner,'users/customer/'+kind+'/'+id),{items:[]}));
+ }
+});
 before(async()=>{if(!enabled)return;
  env=await initializeTestEnvironment({projectId:'demo-bloom',firestore:{rules:readFileSync('../firestore.rules','utf8')}});
  await env.withSecurityRulesDisabled(async c=>{

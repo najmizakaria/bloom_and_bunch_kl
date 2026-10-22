@@ -13,6 +13,13 @@ extension type _Result._(JSObject _) implements JSObject {
   @JS('formatted_address')
   external String get formattedAddress;
   external _Geometry get geometry;
+  @JS('address_components')
+  external JSArray<_AddressComponent> get addressComponents;
+}
+extension type _AddressComponent._(JSObject _) implements JSObject {
+  @JS('long_name')
+  external String get longName;
+  external JSArray<JSString> get types;
 }
 extension type _Geometry._(JSObject _) implements JSObject {
   external _LatLng get location;
@@ -28,10 +35,24 @@ Future<ResolvedLocation> _resolve(Map<String, Object> request) async {
   final matches = response.results.toDart;
   if (matches.isEmpty) throw StateError('Address not found.');
   final first = matches.first;
+  String component(String type) {
+    for (final part in first.addressComponents.toDart) {
+      if (part.types.toDart.any((value) => value.toDart == type)) {
+        return part.longName;
+      }
+    }
+    return '';
+  }
+
   return ResolvedLocation(
     first.geometry.location.lat(),
     first.geometry.location.lng(),
     first.formattedAddress,
+    locality: component('locality').isNotEmpty
+        ? component('locality')
+        : component('postal_town'),
+    postcode: component('postal_code'),
+    state: component('administrative_area_level_1'),
   );
 }
 

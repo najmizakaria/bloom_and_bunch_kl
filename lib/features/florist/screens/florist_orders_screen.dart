@@ -9,7 +9,8 @@ import 'florist_order_detail_screen.dart';
 import '../../../core/widgets/firestore_page.dart';
 
 class FloristOrdersScreen extends StatefulWidget {
-  const FloristOrdersScreen({super.key});
+  const FloristOrdersScreen({super.key, this.watchOrders});
+  final Stream<List<OrderModel>> Function(String status)? watchOrders;
 
   @override
   State<FloristOrdersScreen> createState() => FloristOrdersScreenState();
@@ -34,6 +35,7 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
     'New': 'Awaiting Preparation',
     'Preparing': 'Processing',
     'Ready': 'Ready for Delivery',
+    'Delivering': 'Out for Delivery',
     'Awaiting receipt': 'Awaiting Customer Confirmation',
     'Completed': 'Completed',
     'Delivered (older)': 'Delivered',
@@ -83,11 +85,29 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
         return 'No orders are being prepared';
       case 'Ready for Delivery':
         return 'No orders are ready for delivery';
+      case 'Out for Delivery':
+        return 'No orders are out for delivery';
       case 'Delivered':
         return 'No completed orders';
       default:
         return 'No orders found';
     }
+  }
+
+  Widget _orders(List<OrderModel> orders) {
+    final filtered = _filteredOrders(orders);
+    if (filtered.isEmpty) return Center(child: Text(_emptyMessage()));
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        for (final order in filtered)
+          _OrderCard(
+            order: order,
+            orderId: _shortOrderId(order.orderId),
+            orderDate: _formatDate(order.createdAt),
+          ),
+      ],
+    );
   }
 
   @override
@@ -123,29 +143,34 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
             ),
           ),
           Expanded(
-            child: FirestorePage(
-              key: ValueKey(_selectedStatus),
-              query: _query(),
-              emptyMessage: _emptyMessage(),
-              builder: (context, docs) {
-                final orders = _filteredOrders(
-                  docs
-                      .map((doc) => OrderModel.fromMap(doc.data(), doc.id))
-                      .toList(),
-                );
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    for (final order in orders)
-                      _OrderCard(
-                        order: order,
-                        orderId: _shortOrderId(order.orderId),
-                        orderDate: _formatDate(order.createdAt),
-                      ),
-                  ],
-                );
-              },
-            ),
+            child: widget.watchOrders != null
+                ? StreamBuilder<List<OrderModel>>(
+                    key: ValueKey(_selectedStatus),
+                    stream: widget.watchOrders!(_selectedStatus),
+                    builder: (_, snapshot) => snapshot.hasError
+                        ? const Center(
+                            child: Text(
+                              'Could not load orders. Please try again.',
+                            ),
+                          )
+                        : !snapshot.hasData
+                        ? const Center(child: CircularProgressIndicator())
+                        : _orders(snapshot.data!),
+                  )
+                : FirestorePage(
+                    key: ValueKey(_selectedStatus),
+                    query: _query(),
+                    emptyMessage: _emptyMessage(),
+                    builder: (context, docs) {
+                      return _orders(
+                        docs
+                            .map(
+                              (doc) => OrderModel.fromMap(doc.data(), doc.id),
+                            )
+                            .toList(),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -171,6 +196,7 @@ class _OrderCard extends StatelessWidget {
       case 'Processing':
         return AppColors.primaryDark;
       case 'Ready for Delivery':
+      case 'Out for Delivery':
         return AppColors.primaryDark;
       case 'Delivered':
         return Colors.grey;
@@ -190,6 +216,8 @@ class _OrderCard extends StatelessWidget {
         return 'PREPARING';
       case 'Ready for Delivery':
         return 'READY';
+      case 'Out for Delivery':
+        return 'DELIVERING';
       case 'Completed':
         return 'COMPLETED';
       case 'Delivered':
@@ -309,7 +337,23 @@ class _OrderCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (order.requiresPrepTime) ...[
+              if (order.riderId?.isNotEmpty == true &&
+                  [
+                    'Out for Delivery',
+                    'Awaiting Customer Confirmation',
+                  ].contains(order.orderStatus)) ...[
+                const SizedBox(height: 14),
+                Text(
+                  order.riderName.isEmpty
+                      ? 'Rider assigned'
+                      : 'Assigned rider: ${order.riderName}',
+                ),
+              ],
+              if (order.requiresPrepTime &&
+                  [
+                    'Awaiting Preparation',
+                    'Processing',
+                  ].contains(order.orderStatus)) ...[
                 const SizedBox(height: 14),
                 Container(
                   width: double.infinity,

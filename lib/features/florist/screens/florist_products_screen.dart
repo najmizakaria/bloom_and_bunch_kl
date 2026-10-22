@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import 'florist_bouquets_tab.dart';
 import 'florist_inventory_screen.dart';
+import 'commerce_catalogue_screen.dart';
 import '../../admin/admin_navigation_scope.dart';
 import '../../admin/admin_layout.dart';
 
@@ -16,7 +17,7 @@ class FloristProductsScreen extends StatefulWidget {
 class FloristProductsScreenState extends State<FloristProductsScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _controller = TabController(
-    length: 2,
+    length: 4,
     initialIndex: widget.initialTab,
     vsync: this,
   )..addListener(_changed);
@@ -55,6 +56,7 @@ class FloristProductsScreenState extends State<FloristProductsScreen>
           ? Theme.of(context).colorScheme.onSurface
           : Colors.white,
       bottom: TabBar(
+        isScrollable: true,
         controller: _controller,
         labelColor: AdminSectionScope.contains(context)
             ? Theme.of(context).colorScheme.primary
@@ -65,6 +67,8 @@ class FloristProductsScreenState extends State<FloristProductsScreen>
         tabs: const [
           Tab(icon: Icon(Icons.local_florist), text: 'Bouquets'),
           Tab(icon: Icon(Icons.grass), text: 'Flowers'),
+          Tab(icon: Icon(Icons.redeem), text: 'Add-ons'),
+          Tab(icon: Icon(Icons.mail_outline), text: 'Cards'),
         ],
       ),
     ),
@@ -75,7 +79,7 @@ class FloristProductsScreenState extends State<FloristProductsScreen>
             padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
             child: AdminHeading(
               title: 'Inventory',
-              subtitle: 'Manage the shared bouquet catalogue and flower stock.',
+              subtitle: 'Manage bouquets, flowers, add-ons and card designs.',
             ),
           ),
         Expanded(
@@ -87,6 +91,12 @@ class FloristProductsScreenState extends State<FloristProductsScreen>
                   : const SizedBox.shrink(),
               _visited.contains(1)
                   ? const FloristInventoryScreen(showAppBar: false)
+                  : const SizedBox.shrink(),
+              _visited.contains(2)
+                  ? const CommerceCatalogueScreen(kind: 'addons')
+                  : const SizedBox.shrink(),
+              _visited.contains(3)
+                  ? const CommerceCatalogueScreen(kind: 'card_designs')
                   : const SizedBox.shrink(),
             ],
           ),

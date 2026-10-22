@@ -76,7 +76,7 @@ class BouquetModel {
           map['availableForPreOrder'] as bool? ?? false,
       leadTimeBusinessDays:
           ((map['leadTimeBusinessDays'] as num?)?.toInt() ?? 2)
-              .clamp(1, 3),
+              .clamp(2, 3),
       recipeStems: recipe,
     );
   }

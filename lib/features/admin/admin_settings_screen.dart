@@ -297,6 +297,7 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
   final _open = TextEditingController(),
       _cutoff = TextEditingController(),
       _capacity = TextEditingController(),
+      _booking = TextEditingController(),
       _instructions = TextEditingController(),
       _holidays = TextEditingController(),
       _latitude = TextEditingController(),
@@ -311,6 +312,7 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
       _open,
       _cutoff,
       _capacity,
+      _booking,
       _instructions,
       _holidays,
       _latitude,
@@ -334,6 +336,7 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
           _open.text = '${p['openingHour'] ?? 9}';
           _cutoff.text = '${p['cutoffHour'] ?? 17}';
           _capacity.text = '${p['dailyDeliveryCapacity'] ?? 0}';
+          _booking.text = '${p['bookingWindowDays'] ?? 90}';
           _instructions.text = p['paymentInstructions'] ?? '';
           _holidays.text = (p['holidays'] as List? ?? []).join(', ');
           _days.addAll((p['operatingWeekdays'] as List? ?? []).cast<int>());
@@ -421,6 +424,11 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
                     _holidays,
                     'Closed dates: YYYY-MM-DD, separated by commas',
                   ),
+                  field(
+                    _booking,
+                    'Booking window in days (7–365)',
+                    number: true,
+                  ),
                   field(_instructions, 'Manual payment instructions', lines: 3),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -451,6 +459,9 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
                                 {
                                   'policy': {
                                     'openingHour': int.tryParse(_open.text),
+                                    'bookingWindowDays': int.tryParse(
+                                      _booking.text,
+                                    ),
                                     'cutoffHour': int.tryParse(_cutoff.text),
                                     'dailyDeliveryCapacity': int.tryParse(
                                       _capacity.text,

@@ -11,6 +11,7 @@ import 'admin_workspace_screen.dart';
 import 'rider_history_screen.dart';
 import 'admin_order_detail_screen.dart';
 import 'admin_navigation_scope.dart';
+import 'rider_contact_editor.dart';
 
 class AdminRidersScreen extends StatelessWidget {
   const AdminRidersScreen({
@@ -54,8 +55,9 @@ class AdminRidersScreen extends StatelessWidget {
 }
 
 class AdminRiderDirectory extends StatefulWidget {
-  const AdminRiderDirectory({super.key, this.ridersLoader});
+  const AdminRiderDirectory({super.key, this.ridersLoader, this.contactSaver});
   final Future<Map<String, dynamic>> Function(String? after)? ridersLoader;
+  final Future<void> Function(Map<String, dynamic>)? contactSaver;
   @override
   State<AdminRiderDirectory> createState() => _AdminRiderDirectoryState();
 }
@@ -107,13 +109,31 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
   }
 
   Widget _actions(Map<String, dynamic> p) {
-    if (p['activeDeliveryId'] == null && !_fresh(p)) {
-      return const SizedBox.shrink();
-    }
     return PopupMenuButton<String>(
       tooltip: 'Actions for ${p['name']}',
       onSelected: (value) async {
-        if (value == 'order') {
+        if (value == 'contact') {
+          final saved = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => RiderContactEditor(
+              rider: p,
+              save:
+                  widget.contactSaver ??
+                  (data) async {
+                    await AdminService().call('adminSaveRiderContact', data);
+                  },
+            ),
+          );
+          if (saved == true && mounted) {
+            setState(() => _revision++);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Rider contact approved.')),
+              );
+            }
+          }
+        } else if (value == 'order') {
           openAdminPage(
             context,
             AdminOrderDetailScreen(orderId: p['activeDeliveryId']),
@@ -130,6 +150,10 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
         }
       },
       itemBuilder: (_) => [
+        const PopupMenuItem(
+          value: 'contact',
+          child: Text('Review delivery contact'),
+        ),
         if (p['activeDeliveryId'] != null)
           const PopupMenuItem(
             value: 'order',
@@ -143,6 +167,20 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
       ],
     );
   }
+
+  Widget _contact(Map<String, dynamic> p) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      AdminBadge(
+        p['contactReady'] == true ? 'Contact approved' : 'Contact needs review',
+        color: p['contactReady'] == true
+            ? const Color(0xFF237E61)
+            : const Color(0xFFB23B35),
+      ),
+      if (p['contactReady'] == true) Text('${p['contactPhone']}'),
+    ],
+  );
 
   Widget _map(List<Map<String, dynamic>> located) => Card(
     margin: EdgeInsets.zero,
@@ -232,7 +270,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
               ],
               if (riders.isEmpty)
                 const AdminEmpty(
-                  'No approved rider accounts found.',
+                  'No rider accounts found.',
                   icon: Icons.delivery_dining,
                 )
               else if (adminUsesTable(context, box.maxWidth))
@@ -240,6 +278,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                   columns: const [
                     DataColumn(label: Text('Rider')),
                     DataColumn(label: Text('Delivery status')),
+                    DataColumn(label: Text('Delivery contact')),
                     DataColumn(label: Text('Location status')),
                     DataColumn(label: Text('Last update (MYT)')),
                     DataColumn(label: Text('Actions')),
@@ -259,6 +298,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                             ),
                           ),
                           DataCell(_deliveryBadge(p)),
+                          DataCell(_contact(p)),
                           DataCell(_locationBadge(p)),
                           DataCell(
                             SizedBox(width: 220, child: Text(_updated(p))),
@@ -299,6 +339,8 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                               runSpacing: 8,
                               children: [_deliveryBadge(p), _locationBadge(p)],
                             ),
+                            const SizedBox(height: 12),
+                            _contact(p),
                             const SizedBox(height: 12),
                             Text(
                               p['location'] is Map

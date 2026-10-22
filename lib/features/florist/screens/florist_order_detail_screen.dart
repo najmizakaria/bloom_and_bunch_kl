@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../../models/order_model.dart';
 import 'order_materials_panel.dart';
+import '../../customer/screens/message_card_screen.dart';
 
 class FloristOrderDetailScreen extends StatelessWidget {
   const FloristOrderDetailScreen({super.key, required this.order, this.watch});
@@ -110,7 +111,7 @@ class _FloristOrderDetailContentState
       case 'Ready for Delivery':
         return 'Bouquet Ready';
       case 'Out for Delivery':
-        return 'Out for Delivery';
+        return 'Delivering';
       case 'Awaiting Customer Confirmation':
         return 'Awaiting Customer Receipt';
       case 'Completed':
@@ -309,6 +310,19 @@ class _FloristOrderDetailContentState
             _buildOrderHeading(),
             const SizedBox(height: 16),
             _buildStatusCard(),
+            if (widget.order.riderId?.isNotEmpty == true &&
+                [
+                  'Out for Delivery',
+                  'Awaiting Customer Confirmation',
+                ].contains(_currentStatus))
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Text(
+                  widget.order.riderName.isEmpty
+                      ? 'Rider assigned'
+                      : 'Assigned rider: ${widget.order.riderName}',
+                ),
+              ),
             if (widget.order.hasOpenIssue)
               const Padding(
                 padding: EdgeInsets.all(12),
@@ -344,6 +358,19 @@ class _FloristOrderDetailContentState
 
             const SizedBox(height: 20),
             _buildSectionTitle('Delivery Information'),
+            if (widget.order.scheduledDeliveryDate != null)
+              Text('Requested delivery: ${widget.order.scheduledDeliveryDate}'),
+            if (widget.order.messageCard != null) ...[
+              const SizedBox(height: 16),
+              _buildSectionTitle('Message card to include'),
+              MessageCardPreview(
+                designName: widget.order.messageCard!['designName'] as String,
+                imageUrl:
+                    widget.order.messageCard!['imageUrl'] as String? ?? '',
+                message: widget.order.messageCard!['message'] as String,
+                senderName: widget.order.messageCard!['senderName'] as String,
+              ),
+            ],
             const SizedBox(height: 10),
             _buildDeliveryCard(),
 
@@ -461,7 +488,7 @@ class _FloristOrderDetailContentState
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Planned bouquets require 1–3 business days. Check the delivery date and restock materials before marking ready.',
+              'Check the requested delivery date and restock materials before marking ready. Future deliveries stay unavailable to riders until their scheduled date.',
               style: AppTypography.label(),
             ),
           ),
@@ -515,7 +542,11 @@ class _FloristOrderDetailContentState
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        isCustom ? 'Custom bouquet' : 'Ready-made bouquet',
+                        item['type'] == 'addon'
+                            ? 'Add-on to pack'
+                            : isCustom
+                            ? 'Custom bouquet'
+                            : 'Ready-made bouquet',
                         style: AppTypography.badge(
                           color: isCustom
                               ? AppColors.primaryDark

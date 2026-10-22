@@ -8,6 +8,7 @@ import 'package:bloom_and_bunch_kl/features/auth/screens/auth_gate.dart';
 import 'package:bloom_and_bunch_kl/features/admin/rider_history_screen.dart';
 import 'package:bloom_and_bunch_kl/core/config/app_environment.dart';
 import 'package:bloom_and_bunch_kl/core/providers/cart_provider.dart';
+import 'package:bloom_and_bunch_kl/core/services/cart_sync_service.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/bouquet_detail_screen.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/cart_screen.dart';
 import 'package:bloom_and_bunch_kl/models/order_model.dart';
@@ -48,6 +49,49 @@ void main() {
       reason:
           'Visible text: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(" | ")}',
     );
+  }
+
+  Future<void> finishBouquetOptions(
+    WidgetTester tester, {
+    bool planned = false,
+    bool addTeddy = false,
+  }) async {
+    await waitFor(tester, find.text('Make it extra special'));
+    if (addTeddy) {
+      await waitFor(tester, find.text('Teddy Bear'));
+      await tester.scrollUntilVisible(
+        find.text('Teddy Bear'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      final card = find.ancestor(
+        of: find.text('Teddy Bear'),
+        matching: find.byType(Card),
+      );
+      await tester.tap(
+        find.descendant(of: card, matching: find.byTooltip('Add one')),
+      );
+      await tester.pumpAndSettle();
+    }
+    if (planned) {
+      await tester.scrollUntilVisible(
+        find.text('Choose delivery date'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Choose delivery date'));
+      await waitFor(tester, find.byType(DatePickerDialog));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+      await tester.pumpAndSettle();
+    }
+    await tester.scrollUntilVisible(
+      find.text('Add bouquet and extras to cart'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Add bouquet and extras to cart'));
+    await tester.pumpAndSettle();
   }
 
   testWidgets('real callable checkout, rider delivery and owner feedback', (
@@ -97,6 +141,9 @@ void main() {
 
     await addressField('Label *', 'Browser created address');
     await addressField('Full address *', '12 Test Street, Kuala Lumpur');
+    await addressField('Town / City *', 'Kuala Lumpur');
+    await addressField('Postcode *', '50000');
+    await addressField('State / Federal territory *', 'Kuala Lumpur');
     await addressField('Recipient name *', 'Browser recipient');
     await addressField('Phone *', '0123456789');
     await tester.scrollUntilVisible(
@@ -144,8 +191,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add to cart'));
+    await tester.tap(find.text('Choose add-ons'));
     await tester.pumpAndSettle();
+    expect(cart.isEmpty, isTrue);
+    await finishBouquetOptions(tester);
     expect(cart.items.single.quantity, 1);
     await tester.pumpWidget(
       ChangeNotifierProvider.value(
@@ -702,8 +751,15 @@ void main() {
               .docs
               .map((d) => d.id)
               .toSet();
-      final cart = CartProvider();
+      final cart = CartProvider(syncService: CartSyncService());
       await cart.switchUser('demo_customer');
+      for (var i = 0; i < 100 && !cart.accountCartReady; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+      }
+      expect(cart.accountCartReady, isTrue);
       cart.clear();
       await cart.flush();
       await tester.pumpWidget(
@@ -727,23 +783,30 @@ void main() {
         isNotEmpty,
       );
       await tester.pump(const Duration(seconds: 5));
-      await tester.ensureVisible(find.text('Add to Cart'));
+      await tester.ensureVisible(find.text('Continue'));
       await tester.pumpAndSettle();
       ScaffoldMessenger.of(
-        tester.element(find.text('Add to Cart')),
+        tester.element(find.text('Continue')),
       ).removeCurrentSnackBar();
       await tester.pumpAndSettle();
       expect(
-        find.text('Add to Cart').hitTestable(),
+        find.text('Continue').hitTestable(),
         findsOneWidget,
         reason:
-            'Footer rect ${tester.getRect(find.text("Add to Cart"))}; view ${tester.view.physicalSize}',
+            'Footer rect ${tester.getRect(find.text("Continue"))}; view ${tester.view.physicalSize}',
       );
-      await tester.tap(find.text('Add to Cart'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
-      expect(cart.items.single.fulfillmentType, 'custom');
-      expect(cart.items.single.unitPrice, 10);
-      final selectedStemId = cart.items.single.customStems!.keys.single;
+      expect(cart.isEmpty, isTrue);
+      await finishBouquetOptions(tester, planned: true, addTeddy: true);
+      final custom = cart.items.singleWhere((item) => item.type == 'custom');
+      expect(custom.fulfillmentType, 'custom');
+      expect(custom.unitPrice, 10);
+      expect(
+        cart.items.singleWhere((item) => item.type == 'addon').unitPrice,
+        29,
+      );
+      final selectedStemId = custom.customStems!.keys.single;
       cart.addReadyMadeItem(
         bouquetId: 'demo_bouquet',
         name: 'Demo Birthday Bouquet',
@@ -761,7 +824,54 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('travel separately'), findsOneWidget);
+      expect(find.textContaining('one payment and receipt'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Add a message card (optional)').first,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Add a message card (optional)').first);
+      await waitFor(tester, find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Lots of Love · RM 5.00').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).first,
+        'Browser gift message',
+      );
+      await tester.scrollUntilVisible(
+        find.byType(TextFormField).last,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(find.byType(TextFormField).last, 'Browser sender');
+      await tester.scrollUntilVisible(
+        find.text('Save message card'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Save message card'));
+      await tester.pumpAndSettle();
+      expect(
+        cart.messageCards[custom.deliveryGroupKey]!['senderName'],
+        'Browser sender',
+      );
+      await cart.flush();
+      final mirror = CartProvider(syncService: CartSyncService());
+      await mirror.switchUser('demo_customer');
+      for (var i = 0; i < 100 && !mirror.accountCartReady; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pump();
+      }
+      expect(mirror.items.length, 3);
+      expect(
+        mirror.messageCards[custom.deliveryGroupKey]!['senderName'],
+        'Browser sender',
+      );
+      mirror.dispose();
       await tester.ensureVisible(find.text('Proceed to Checkout'));
       await tester.tap(find.text('Proceed to Checkout'));
       await waitFor(tester, find.text('Place Order'));
@@ -788,8 +898,25 @@ void main() {
         created
             .map((d) => (d.data()['totalAmount'] as num).toDouble())
             .reduce((a, b) => a + b),
-        60,
+        94,
       );
+      expect(
+        created
+            .singleWhere((doc) => doc.data()['messageCard'] != null)
+            .data()['messageCard']['message'],
+        'Browser gift message',
+      );
+      expect(
+        (await db.doc('addons/demo_teddy').get()).data()!['stockQuantity'],
+        19,
+      );
+      await tester.scrollUntilVisible(
+        find.text('View combined receipt'),
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('View combined receipt'));
+      await waitFor(tester, find.text('Total: RM 94.00'));
       final stemId = selectedStemId;
       expect(
         (await db.doc('flowers/$stemId').get()).data()!['reservedQuantity'],

@@ -141,8 +141,9 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
         if (o.paymentId !== p.id || !['Ready for Delivery', 'Awaiting Preparation'].includes(o.orderStatus)) {
           d.fail('Payment expiry needs store review.', 'failed-precondition');
         }
-        if (o.fulfillmentType === 'ready_now') for (const item of o.items) {
-          add('bouquets/' + d.id(item.bouquetId), 'readyStock', item.quantity);
+        for (const item of o.items) {
+          if (item.type === 'addon') add('addons/' + d.id(item.addonId), 'stockQuantity', item.quantity);
+          else if ((item.fulfillmentType ?? o.fulfillmentType) === 'ready_now') add('bouquets/' + d.id(item.bouquetId), 'readyStock', item.quantity);
         }
         if (o.materialState === 'reserved') for (const [id, count] of Object.entries(o.materialRequirements)) {
           add('flowers/' + d.id(id), 'reservedQuantity', -count);
@@ -155,6 +156,7 @@ function createPaymentHandlers({db, getGateway, getSecret, writeAvailableJob, no
         const record = records.get(path);
         if (!record.exists) d.fail('Inventory needs store review.', 'failed-precondition');
         const updates = {updatedAt: FieldValue.serverTimestamp()};
+        if (path.startsWith('addons/')) updates.revision = (record.data().revision ?? 0) + 1;
         for (const [field, delta] of Object.entries(change)) {
           const old = record.data()[field] ?? (field === 'readyStock' ? record.data().stockCount : 0) ?? 0;
           if (!Number.isSafeInteger(old + delta) || old + delta < 0) d.fail('Inventory needs store review.', 'failed-precondition');

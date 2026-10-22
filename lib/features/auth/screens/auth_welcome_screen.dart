@@ -14,6 +14,7 @@ class AuthWelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
+      showBackButton: false,
       child: Column(
         children: [
           const SizedBox(height: 28),

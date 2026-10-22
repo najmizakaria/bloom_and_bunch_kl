@@ -4,11 +4,11 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'bouquet_options_screen.dart';
+import '../../../models/cart_item_model.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/retry_stream_builder.dart';
-import 'package:provider/provider.dart';
 
-import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/product_components.dart';
@@ -29,7 +29,6 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
 
   final Map<String, int> _stemCounts = {};
   late final FavouritesService _favouritesService = FavouritesService();
-  final TextEditingController _cardNoteController = TextEditingController();
 
   String _selectedWrapper = 'Kraft Paper (Classic)';
   double _wrapperPrice = 5;
@@ -205,7 +204,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
     );
   }
 
-  void _addToCart(double totalPrice, List<FlowerModel> flowers) {
+  Future<void> _addToCart(double totalPrice, List<FlowerModel> flowers) async {
     final selectedStems = _selectedStemsFor(flowers);
     if (selectedStems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -222,36 +221,31 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           flower.flowerId: flower.name,
     };
 
-    final cart = context.read<CartProvider>();
-    final added = cart.addCustomItem(
-      unitPrice: totalPrice,
-      stems: selectedStems,
-      stemNames: selectedNames,
-      wrapper: _selectedWrapper,
-      ribbon: _selectedRibbon,
-      cardNote: _cardNoteController.text.trim(),
-      leadTimeBusinessDays: 2,
-    );
-    if (!added) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(cart.errorMessage ?? 'Could not add item.')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Custom bouquet added to cart'),
-        backgroundColor: AppColors.primaryDark,
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BouquetOptionsScreen(
+          bouquet: CartItemModel(
+            id: 'custom_${DateTime.now().microsecondsSinceEpoch}',
+            type: 'custom',
+            name: 'Custom Bouquet',
+            imageUrl: '',
+            fulfillmentType: 'custom',
+            unitPrice: totalPrice,
+            customStems: selectedStems,
+            customStemNames: selectedNames,
+            wrapper: _selectedWrapper,
+            ribbon: _selectedRibbon,
+            leadTimeBusinessDays: 2,
+          ),
+        ),
       ),
     );
-
-    setState(_stemCounts.clear);
+    if (mounted && added == true) setState(_stemCounts.clear);
   }
 
   @override
   void dispose() {
-    _cardNoteController.dispose();
     super.dispose();
   }
 
@@ -337,20 +331,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                       _buildRibbonField(),
                       const SizedBox(height: 20),
                       const Text(
-                        '4. Gift Message Card',
-                        style: AppTypography.sectionTitle(),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _cardNoteController,
-                        maxLines: 3,
-                        maxLength: 250,
-                        decoration: InputDecoration(
-                          hintText: 'Write your personalized message here...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
+                        'Choose add-ons and delivery date next. Add your message card in the cart.',
                       ),
                     ],
                   ),
@@ -380,7 +361,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Custom bouquets are prepared in 1–3 business days. '
+              'Choose a delivery date with one full business day for preparation. '
               'The florist will source the flowers needed for your design.',
               style: AppTypography.label(color: AppColors.textDark),
             ),

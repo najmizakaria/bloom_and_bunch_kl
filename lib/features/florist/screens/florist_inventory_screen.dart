@@ -474,7 +474,7 @@ class FloristInventoryScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               final flower = flowers[index];
 
-              return _FlowerInventoryCard(
+              return FlowerInventoryCard(
                 flower: flower,
                 onEdit: () {
                   _showEditFlowerDialog(context, flower);
@@ -525,8 +525,9 @@ class FloristInventoryScreen extends StatelessWidget {
   }
 }
 
-class _FlowerInventoryCard extends StatelessWidget {
-  const _FlowerInventoryCard({
+class FlowerInventoryCard extends StatelessWidget {
+  const FlowerInventoryCard({
+    super.key,
     required this.flower,
     required this.onEdit,
     required this.onDecreaseStock,
@@ -625,46 +626,80 @@ class _FlowerInventoryCard extends StatelessWidget {
           ),
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: 4,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Column(
               children: [
-                const Text('Stock', style: AppTypography.label()),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Decrease stock',
-                  onPressed: flower.stockQuantity > 0 ? onDecreaseStock : null,
-                  icon: const Icon(Icons.remove_circle_outline),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Stock', style: AppTypography.label()),
+                    ),
+                    const SizedBox(width: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: 'Decrease stock',
+                          onPressed: flower.stockQuantity > 0
+                              ? onDecreaseStock
+                              : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                        // Bound the value so it cannot occupy the entire footer.
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 38,
+                            maxWidth: 84,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '${flower.stockQuantity}',
+                              style: AppTypography.productTitle(
+                                color: flower.stockQuantity <= 5
+                                    ? AdminTheme.sharedColor(
+                                        context,
+                                        AppColors.primaryDark,
+                                      )
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Increase stock',
+                          onPressed: onIncreaseStock,
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                Container(
-                  constraints: const BoxConstraints(minWidth: 38),
-                  alignment: Alignment.center,
-                  child: Text(
-                    '${flower.stockQuantity}',
-                    style: AppTypography.productTitle(
-                      color: flower.stockQuantity <= 5
-                          ? AdminTheme.sharedColor(
-                              context,
-                              AppColors.primaryDark,
-                            )
-                          : Colors.black87,
+                const SizedBox(height: 4),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: MergeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Flexible(
+                          child: Text(
+                            'Custom orders',
+                            style: AppTypography.caption(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Switch.adaptive(
+                          value: flower.availableForCustomOrder,
+                          activeThumbColor: AdminTheme.sharedColor(
+                            context,
+                            AppColors.primary,
+                          ),
+                          onChanged: onAvailabilityChanged,
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                IconButton(
-                  tooltip: 'Increase stock',
-                  onPressed: onIncreaseStock,
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-                const Text('Custom orders', style: AppTypography.caption()),
-                Switch.adaptive(
-                  value: flower.availableForCustomOrder,
-                  activeThumbColor: AdminTheme.sharedColor(
-                    context,
-                    AppColors.primary,
-                  ),
-                  onChanged: onAvailabilityChanged,
                 ),
               ],
             ),

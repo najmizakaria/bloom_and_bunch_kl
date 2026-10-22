@@ -127,6 +127,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       await fill(tester, 'Full address *', '12 Test Street, Kuala Lumpur');
+      await fill(tester, 'Town / City *', 'Kuala Lumpur');
+      await fill(tester, 'Postcode *', '50000');
+      await fill(tester, 'State / Federal territory *', 'Kuala Lumpur');
       await fill(tester, 'Recipient name *', 'Test recipient');
       await fill(tester, 'Phone *', '0123456789');
       await tapSave(tester);
@@ -136,6 +139,9 @@ void main() {
       final saved = await result;
       expect(saved!.id, 'new_address');
       expect(saved.address, '12 Test Street, Kuala Lumpur');
+      expect(saved.locality, 'Kuala Lumpur');
+      expect(saved.postcode, '50000');
+      expect(saved.state, 'Kuala Lumpur');
       expect(service.ids, 1);
       expect(service.saved.map((a) => a.id).toSet(), {'new_address'});
       expect(find.text('Address list'), findsOneWidget);

@@ -4,6 +4,16 @@ Flutter application for bouquet ordering, florist preparation, rider delivery an
 
 Customers browse ready bouquets or create/pre-order an arrangement. The backend calculates current prices, delivery fees and stock reservations. Florists prepare orders; approved riders accept jobs and confirm delivery. The owning customer then confirms receipt to complete the order. Customers can track orders, report issues and submit feedback after completion. Store staff review issues, manual payments and feedback.
 
+Bouquet selection now offers separate add-on products and requires a delivery
+date for pre-order/custom arrangements. Message cards are configured in the cart,
+which syncs between signed-in devices. Same-date items share a delivery; every
+checkout has one payment and combined receipt. Staff manage Add-ons and Cards in
+Products. See [feature details and rollout](docs/addons-cards-scheduled-delivery-2026-10-21.md).
+
+Rider delivery cards show the buyer's order address, pickup and timing; accepted deliveries
+prioritise the full address and navigation/contact actions. See
+[rider destination data and rollout](docs/rider-destinations-2026-10-21.md).
+
 ## Supervisor feedback integration
 
 Order tracking provides **Call Florist** and **Call Rider**. Rider contact is available only to the owning customer during an assigned active delivery and comes from the approved rider application's validated phone number. See [rider calling and acceptance checks](docs/rider-calling.md).
@@ -83,13 +93,19 @@ The connected browser suite uses demo accounts and actual UI controls for ready 
 
 ## Store rules
 
-Edit `functions/store-policy.json`. Modes: `demo`, `manual`, or `toyyibpay_sandbox`. Current quotes charge only for items; delivery is free and the legacy `deliveryFeeSen` setting does not add a fee. Mixed ready/planned carts have two delivery groups. `serviceArea` is null when no coverage restriction is configured, or `{ "label": "approved area", "latitude": ..., "longitude": ..., "radiusKm": ... }`. Manual mode requires an area and positive daily capacity. ToyyibPay sandbox supports flower checkout with `serviceArea: null` and `dailyDeliveryCapacity: 0`, so these settings are not prerequisites for payment testing. A configured radial zone or positive capacity is still enforced.
+Edit `functions/store-policy.json`. Modes: `demo`, `manual`, or `toyyibpay_sandbox`. Quotes charge for bouquets, separate add-ons and selected cards; delivery is free and the legacy `deliveryFeeSen` setting does not add a fee. Items sharing a selected date form one delivery group, including mixed ready/planned bouquets. Different dates share one checkout/payment but remain separate deliveries. `serviceArea` is null when no coverage restriction is configured, or `{ "label": "approved area", "latitude": ..., "longitude": ..., "radiusKm": ... }`. Manual mode requires an area and positive daily capacity. ToyyibPay sandbox supports flower checkout with `serviceArea: null` and `dailyDeliveryCapacity: 0`, so these settings are not prerequisites for payment testing. A configured radial zone or positive capacity is still enforced.
 
 ToyyibPay sandbox is implemented but disabled until server credentials and public callback/return URLs are configured. It uses one bill per checkout, server-verified settlement, unpaid-order fulfillment holds, and scheduled reservation expiry. See [sandbox setup and recovery limits](docs/toyyibpay-sandbox-setup.md). Live payments and automatic refunds are not implemented.
 
 Deployment-specific `STORE_ORDER_MODE` overrides the checked-in policy mode. Set it to `toyyibpay_sandbox` together with `TOYYIBPAY_ENABLED=true` in the ignored backend environment file when activating sandbox checkout; keep the repository's default demo policy for isolated tests.
 
 Calendar fields use Kuala Lumpur time: weekday numbers 0–6 (Sunday–Saturday), `openingHour`, `cutoffHour`, and ISO holiday dates. After-cutoff orders shift to the next operating date; preparation lead days are added after that date. Displayed dates are estimates of dispatch, not arrival guarantees. Capacity counts accepted delivery groups per date transactionally, conservatively retaining cancelled bookings until staff review. There is no automatic rider allocation or arrival SLA.
+
+Pre-order/custom checkout requires a customer-selected date with at least one
+full business day for preparation (two business-date advances). The default
+booking window is 90 calendar days, editable in Admin store operations. The server
+rechecks date availability at checkout and prevents early rider collection of
+scheduled orders. Requested dates are recorded separately from dispatch estimates.
 
 `quoteCheckout` returns a server-generated quote. `placeOrder` revalidates its fingerprint, address, price, coverage and capacity. Confirmed snapshots and fees survive retries and later catalogue/policy changes. Older quote-less requests remain accepted only in demo mode for compatibility; live manual mode requires a quote.
 
@@ -110,6 +126,11 @@ flowchart LR
 `lib/core` holds configuration, shared components, services and cart state. `lib/features` separates auth/customer/florist/rider/admin/support. `lib/models` holds snapshots. `functions/domain.js` validates order/material logic; `store-policy.js` calculates coverage/calendar/fees; `index.js` coordinates trusted writes.
 
 Collections: users and private address/favourite subcollections; flowers; bouquets; orders; sanitized delivery_jobs; rider_applications; private notification records and deletion jobs. New order fields include quote/payment/fee/dispatch snapshots, bounded feedback and support maps. `orders/{id}/events` contains server-written status/timestamp activity; `orders/{id}/issues` retains report/resolution history. `delivery_capacity/{date}` is server-only. Events/issues inherit order ownership/staff/assigned-rider access and deny client writes. Customer deletion removes feedback/support and issue comments while historical status events remain without customer identifiers or free text. Deletion is blocked while delivery awaits customer receipt.
+
+Commerce adds `addons`, `card_designs`, owner-only `users/{uid}/cart/current`, and
+`users/{uid}/receipts/{checkoutId}`. Catalogue, cart and receipt writes are handled
+by callables/transactions. Order schema v3 includes message-card and scheduled-date
+snapshots. Account deletion also removes shared carts/receipts and card text.
 
 Home shows a bounded bouquet preview; Browse and staff inventory/catalogue use cursor pages with Next/Previous controls. Browse search applies to the displayed page. Category and fulfillment mode filters run before pagination, with compatibility checks for older product fields. Order/history lists use cursor pagination. Customer and florist workspace tabs initialize on demand. Florist dashboard summaries explicitly cover the latest 100 orders and a preview of 100 flowers. Profile with realistic data before adding a search service. See the [main2 smoothness fixes and validation](docs/smoothness-fixes-2026-10-05.md).
 

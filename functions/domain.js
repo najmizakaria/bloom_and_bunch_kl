@@ -23,11 +23,13 @@ function normalizeItems(items){
  return items.map(i=>{
   if(!i||typeof i!=='object'||Array.isArray(i))fail('Invalid cart item.');
   const quantity=integer(i.quantity,20),mode=i.fulfillmentType;
+  const delivery=i.requestedDeliveryDate==null?{}:{requestedDeliveryDate:require('./commerce').date(i.requestedDeliveryDate)};
+  if(i.type==='addon')return {type:'addon',quantity,fulfillmentType:'ready_now',addonId:id(i.addonId),...delivery};
   if(!['ready_now','pre_order','custom'].includes(mode))fail('Choose a fulfillment mode.');
-  if(mode!=='custom')return {quantity,fulfillmentType:mode,bouquetId:id(i.bouquetId)};
+  if(mode!=='custom')return {quantity,fulfillmentType:mode,bouquetId:id(i.bouquetId),...delivery};
   const wrapper=text(i.wrapper,'wrapper',80),ribbon=text(i.ribbon,'ribbon',80);
   if(!Object.hasOwn(wrappers,wrapper)||!Object.hasOwn(ribbons,ribbon))fail('Choose valid wrapping and ribbon.');
-  return {quantity,fulfillmentType:mode,customStems:stems(i.customStems),wrapper,ribbon,cardNote:text(i.cardNote,'card note',250,true)};
+  return {quantity,fulfillmentType:mode,customStems:stems(i.customStems),wrapper,ribbon,cardNote:text(i.cardNote,'card note',250,true),...delivery};
  });
 }
 function address(v){
@@ -41,11 +43,16 @@ function addBusinessDays(now,days){
  while(days>0){local.setUTCDate(local.getUTCDate()+1);if(![0,6].includes(local.getUTCDay()))days--;}
  return new Date(local.getTime()-8*3600000);
 }
-function buildPlan(items,bouquets,flowers){
- const ready=[],planned=[],readyRequirements={},materialRequirements={};let lead=1;
+function buildPlan(items,bouquets,flowers,addons={}){
+ const ready=[],planned=[],extras=[],addonRequirements={},readyRequirements={},materialRequirements={};let lead=1;
  for(const i of items){
   let cents,name,imageUrl='',recipe={},names={},itemLead=0;
-  if(i.fulfillmentType==='custom'){
+  if(i.type==='addon'){
+   const product=addons[i.addonId];
+   if(!product||product.isPublished!==true)fail('An add-on is no longer offered.','failed-precondition');
+   addonRequirements[i.addonId]=(addonRequirements[i.addonId]??0)+i.quantity;
+   extras.push({...i,name:product.name,imageUrl:product.imageUrl??'',unitPrice:money(product.price)/100,leadTimeBusinessDays:0});continue;
+  }else if(i.fulfillmentType==='custom'){
    name='Custom Bouquet';recipe=i.customStems;cents=wrappers[i.wrapper]+ribbons[i.ribbon];itemLead=2;
    for(const [key,count] of Object.entries(recipe)){
     const f=flowers[key];if(!f||f.availableForCustomOrder===false)fail('A selected flower is no longer offered.','failed-precondition');
@@ -60,7 +67,7 @@ function buildPlan(items,bouquets,flowers){
     readyRequirements[i.bouquetId]=(readyRequirements[i.bouquetId]??0)+i.quantity;
    }else{
     if(!b.availableForPreOrder)fail(name+' is not available for pre-order.','failed-precondition');
-    recipe=stems(b.recipeStems);itemLead=integer(b.leadTimeBusinessDays??2,3);
+    recipe=stems(b.recipeStems);itemLead=Math.max(2,integer(b.leadTimeBusinessDays??2,3));
     for(const key of Object.keys(recipe)){if(!flowers[key])fail('Recipe needs florist review.','failed-precondition');names[key]=flowers[key].name;}
    }
   }
@@ -73,6 +80,9 @@ function buildPlan(items,bouquets,flowers){
   const stock=bouquets[key].readyStock??bouquets[key].stockCount??0;
   if(!Number.isSafeInteger(stock)||stock<count)fail('A ready bouquet has insufficient quantity. Update your cart.','failed-precondition');
  }
- return {ready,planned,readyRequirements,materialRequirements,lead};
+ for(const [key,count]of Object.entries(addonRequirements)){
+  if(!Number.isSafeInteger(addons[key].stockQuantity)||addons[key].stockQuantity<count)fail('An add-on has insufficient stock. Update your cart.','failed-precondition');
+ }
+ return {ready,planned,addons:extras,addonRequirements,readyRequirements,materialRequirements,lead};
 }
 module.exports={OrderError,fail,text,id,integer,stems,money,normalizeItems,address,addBusinessDays,buildPlan};

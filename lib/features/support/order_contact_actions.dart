@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/fulfillment_constants.dart';
-import '../../core/services/order_service.dart';
 import '../../core/services/rider_contact_service.dart';
 import '../../core/widgets/app_note.dart';
 
@@ -61,9 +61,9 @@ class _OrderContactActionsState extends State<OrderContactActions> {
       await _showContact('Rider', contact);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(OrderService.message(error))));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(RiderContactService.message(error))),
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -168,6 +168,18 @@ class _ContactDialogState extends State<_ContactDialog> {
       ],
     ),
     actions: [
+      TextButton.icon(
+        onPressed: () async {
+          await Clipboard.setData(ClipboardData(text: widget.contact.phone));
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Phone number copied.')),
+            );
+          }
+        },
+        icon: const Icon(Icons.copy_outlined),
+        label: const Text('Copy number'),
+      ),
       TextButton(
         onPressed: () => Navigator.pop(context),
         child: const Text('Close'),

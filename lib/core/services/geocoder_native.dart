@@ -29,5 +29,12 @@ Future<ResolvedLocation> fromCoordinates(
     p.administrativeArea,
     p.country,
   ].whereType<String>().where((s) => s.isNotEmpty).toSet().join(', ');
-  return ResolvedLocation(latitude, longitude, label);
+  return ResolvedLocation(
+    latitude,
+    longitude,
+    label,
+    locality: p.locality ?? '',
+    postcode: p.postalCode ?? '',
+    state: p.administrativeArea ?? '',
+  );
 }
