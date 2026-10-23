@@ -1,4 +1,5 @@
 import 'package:bloom_and_bunch_kl/core/services/order_service.dart';
+import 'package:bloom_and_bunch_kl/core/utils/malaysia_time.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/address_book_screen.dart';
 import 'package:bloom_and_bunch_kl/core/services/address_service.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -14,6 +15,9 @@ import 'package:bloom_and_bunch_kl/features/customer/screens/cart_screen.dart';
 import 'package:bloom_and_bunch_kl/models/order_model.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/bouquet_builder_screen.dart';
 import 'package:bloom_and_bunch_kl/features/rider/screens/rider_order_detail_screen.dart';
+import 'package:bloom_and_bunch_kl/features/rider/screens/rider_available_job_screen.dart';
+import 'package:bloom_and_bunch_kl/features/rider/widgets/delivery_job_card.dart';
+import 'package:bloom_and_bunch_kl/features/rider/widgets/rider_delivery_details.dart';
 import 'package:bloom_and_bunch_kl/features/support/store_operations_screen.dart';
 import 'package:bloom_and_bunch_kl/models/bouquet_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -26,6 +30,7 @@ import 'package:bloom_and_bunch_kl/features/customer/screens/main_navigation_scr
 import 'package:bloom_and_bunch_kl/features/florist/screens/florist_main_navigation_screen.dart';
 import 'package:bloom_and_bunch_kl/features/florist/screens/florist_dashboard_screen.dart';
 import 'package:bloom_and_bunch_kl/features/admin/admin_main_screen.dart';
+import 'package:bloom_and_bunch_kl/features/admin/admin_settings_screen.dart';
 import 'package:bloom_and_bunch_kl/features/rider/screens/rider_home_screen.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/order_tracking_screen.dart';
 
@@ -91,6 +96,31 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.text('Add bouquet and extras to cart'));
+    await tester.pumpAndSettle();
+  }
+
+  Finder availableDelivery(String orderId) => find.byWidgetPredicate(
+    (widget) => widget is DeliveryJobCard && widget.job.orderId == orderId,
+    description: 'available delivery card for $orderId',
+  );
+
+  Future<void> openAvailableDelivery(
+    WidgetTester tester,
+    String orderId,
+  ) async {
+    await waitFor(tester, find.byType(DeliveryJobCard));
+    final view = find.descendant(
+      of: availableDelivery(orderId),
+      matching: find.text('View delivery'),
+    );
+    await tester.scrollUntilVisible(
+      view,
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(view);
+    await waitFor(tester, find.byType(RiderAvailableJobScreen));
     await tester.pumpAndSettle();
   }
 
@@ -264,9 +294,7 @@ void main() {
       password: 'DemoPass123!',
     );
     await tester.pumpWidget(const MaterialApp(home: RiderHomeScreen()));
-    await waitFor(tester, find.text('Kuala Lumpur'));
-    await tester.tap(find.widgetWithText(ListTile, 'Kuala Lumpur').first);
-    await tester.pumpAndSettle();
+    await openAvailableDelivery(tester, order.id);
     await tester.tap(find.text('Accept Delivery'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Accept delivery').last);
@@ -363,6 +391,12 @@ void main() {
       ),
     );
     await waitFor(tester, find.text('Mark as Delivered'));
+    await tester.scrollUntilVisible(
+      find.text('Mark as Delivered'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Mark as Delivered'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm delivered'));
@@ -405,7 +439,7 @@ void main() {
     cart.dispose();
   }, skip: focus.isNotEmpty && focus != 'checkout');
   testWidgets(
-    'customer Browse keeps navigation, florist cards choose filters and all roles expose More',
+    'customer Browse keeps navigation, florist cards choose filters and all roles expose logout',
     (tester) async {
       final auth = FirebaseAuth.instance;
       Future<void> login(String role) => auth.signInWithEmailAndPassword(
@@ -551,22 +585,56 @@ void main() {
       await login('admin');
       await tester.pumpWidget(const MaterialApp(home: AdminMainScreen()));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Rider history'));
-      await waitFor(tester, find.textContaining('Customer confirmed receipt:'));
-      for (
-        var i = 0;
-        i < 150 &&
-            find
-                .textContaining('Customer confirmed receipt:')
-                .evaluate()
-                .isEmpty;
-        i++
-      ) {
-        await tester.pump(const Duration(milliseconds: 200));
+      final adminMenu = find.byTooltip('Open navigation');
+      if (adminMenu.evaluate().isNotEmpty) {
+        await tester.tap(adminMenu);
+        await tester.pumpAndSettle();
       }
-      expect(find.text('Customer confirmed receipt: '), findsNothing);
-      expect(find.textContaining('Customer confirmed receipt:'), findsWidgets);
-      await tester.tap(find.text('More'));
+      final ridersNav = find.byKey(const ValueKey('admin-nav-riders'));
+      await tester.ensureVisible(ridersNav);
+      await tester.pumpAndSettle();
+      await tester.tap(ridersNav);
+      await waitFor(tester, find.text('Delivery history'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delivery history'));
+      final confirmedHistory = find.byWidgetPredicate(
+        (widget) =>
+            widget is AdminDeliveryRecords &&
+            widget.records.any(
+              (record) =>
+                  record['orderStatus'] == 'Completed' &&
+                  record['customerAcceptedAt'] is Timestamp,
+            ),
+        description: 'delivery history with a server-recorded customer receipt',
+      );
+      await waitFor(tester, confirmedHistory);
+      final confirmedOrder = tester
+          .widget<AdminDeliveryRecords>(confirmedHistory)
+          .records
+          .firstWhere((record) => record['customerAcceptedAt'] is Timestamp);
+      expect(find.text('Receipt confirmed — order completed'), findsWidgets);
+      expect(
+        find.textContaining(
+          malaysiaTime(
+            (confirmedOrder['customerAcceptedAt'] as Timestamp).toDate(),
+          ),
+        ),
+        findsWidgets,
+      );
+      await tester.tap(find.byTooltip('Admin account'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Settings & log out'));
+      await waitFor(tester, find.byType(AdminSettingsScreen));
+      await tester.scrollUntilVisible(
+        find.text('Log out'),
+        150,
+        scrollable: find
+            .descendant(
+              of: find.byType(AdminSettingsScreen),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       expect(find.text('Log out'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -943,17 +1011,12 @@ void main() {
           home: RiderHomeScreen(),
         ),
       );
-      await waitFor(tester, find.text('Queue fixture area'));
-      expect(find.text('Own purchase area'), findsNothing);
-      expect(find.text('Preparation preview area'), findsNothing);
-      await tester.scrollUntilVisible(
-        find.widgetWithText(ListTile, 'Queue fixture area'),
-        -150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Queue fixture area'));
-      await tester.pumpAndSettle();
+      await waitFor(tester, find.byType(DeliveryJobCard));
+      expect(availableDelivery('fixture_queue_own'), findsNothing);
+      expect(availableDelivery('fixture_queue_waiting'), findsNothing);
+      expect(find.textContaining('Own purchase area'), findsNothing);
+      expect(find.textContaining('Preparation preview area'), findsNothing);
+      await openAvailableDelivery(tester, 'fixture_queue_ready');
       await tester.tap(find.text('Accept Delivery'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Accept delivery').last);
@@ -964,28 +1027,42 @@ void main() {
         ),
       );
       // A tab switch alone does not prove the accepted order is reachable.
-      final acceptedTile = find.widgetWithText(
-        ListTile,
-        'Private street, Queue fixture area',
+      final acceptedDetails = find.byWidgetPredicate(
+        (widget) =>
+            widget is RiderDeliveryDetails &&
+            widget.order.orderId == 'fixture_queue_ready',
       );
-      await waitFor(tester, acceptedTile);
+      await waitFor(tester, acceptedDetails);
       expect(find.textContaining('Out for Delivery'), findsWidgets);
-      await tester.tap(acceptedTile);
-      await waitFor(tester, find.text('Drop-off Details'));
+      final openActions = find.text('Open map and delivery actions');
+      await tester.scrollUntilVisible(
+        openActions,
+        150,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(openActions);
+      await waitFor(tester, find.byType(RiderOrderDetailScreen));
+      await waitFor(
+        tester,
+        find.descendant(
+          of: find.byType(RiderOrderDetailScreen),
+          matching: find.byType(RiderDeliveryDetails),
+        ),
+      );
       expect(find.text('Queue recipient'), findsWidgets);
       expect(find.text('Private street, Queue fixture area'), findsWidgets);
       await tester.tap(find.byTooltip('Back'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Available'));
-      await waitFor(tester, find.text('Open My Delivery'));
-      await tester.scrollUntilVisible(
-        find.widgetWithText(ListTile, 'Another ready area'),
-        150,
-        scrollable: find.byType(Scrollable).first,
+      await tester.pumpAndSettle();
+      final availableScroll = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(ListTile, 'Another ready area'));
-      await tester.pumpAndSettle();
+      availableScroll.position.jumpTo(availableScroll.position.minScrollExtent);
+      await tester.pump();
+      await waitFor(tester, find.text('Open My Delivery'));
+      await openAvailableDelivery(tester, 'fixture_queue_spare');
       expect(
         tester
             .widget<FilledButton>(

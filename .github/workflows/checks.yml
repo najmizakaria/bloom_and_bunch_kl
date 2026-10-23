@@ -31,7 +31,7 @@ jobs:
       - run: npm install --global firebase-tools@15.30.0
       - run: firebase emulators:exec --project demo-bloom --only auth,firestore,storage "npm --prefix functions run test:emulators"
       - run: flutter build web --dart-define=APP_ENV=demo
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: demo-web-build
           path: build/web
@@ -86,7 +86,7 @@ jobs:
         run: |
           set -o pipefail
           firebase emulators:exec --project demo-bloom --only auth,firestore,storage,functions "node tool/run_app_journey.cjs" 2>&1 | tee app-journey.log
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: failure()
         with:
           name: journey-debug-logs
