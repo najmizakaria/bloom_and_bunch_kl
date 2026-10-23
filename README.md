@@ -123,7 +123,7 @@ flowchart LR
   UI --> Monitoring[Optional Analytics and Crashlytics]
 ```
 
-`lib/core` holds configuration, shared components, services and cart state. `lib/features` separates auth/customer/florist/rider/admin/support. `lib/models` holds snapshots. `functions/domain.js` validates order/material logic; `store-policy.js` calculates coverage/calendar/fees; `index.js` coordinates trusted writes.
+`lib/core` holds configuration, shared components, services and cart state. `lib/features` separates auth/customer/florist/rider/admin/support. `lib/models` holds snapshots. The backend now separates pure rules in `functions/src/domain`, injected service factories in `src/application`, Firebase/payment adapters in `src/infrastructure`, and endpoint registration in `src/presentation`. `functions/index.js` initializes Firebase and delegates to the composition root. Existing root module paths remain compatibility facades. See the [backend refactor, folder structure and preserved contracts](docs/backend-refactor.md).
 
 Collections: users and private address/favourite subcollections; flowers; bouquets; orders; sanitized delivery_jobs; rider_applications; private notification records and deletion jobs. New order fields include quote/payment/fee/dispatch snapshots, bounded feedback and support maps. `orders/{id}/events` contains server-written status/timestamp activity; `orders/{id}/issues` retains report/resolution history. `delivery_capacity/{date}` is server-only. Events/issues inherit order ownership/staff/assigned-rider access and deny client writes. Customer deletion removes feedback/support and issue comments while historical status events remain without customer identifiers or free text. Deletion is blocked while delivery awaits customer receipt.
 
