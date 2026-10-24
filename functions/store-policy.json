@@ -1,0 +1,18 @@
+{
+  "mode": "demo",
+  "paymentInstructions": "Submitting an order does not confirm payment. Contact the store for payment arrangements.",
+  "deliveryFeeSen": 0,
+  "serviceArea": null,
+  "operatingWeekdays": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "openingHour": 9,
+  "cutoffHour": 17,
+  "holidays": [],
+  "dailyDeliveryCapacity": 0,
+  "bookingWindowDays": 90
+}

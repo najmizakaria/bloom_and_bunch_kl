@@ -2,12 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>FirebaseCrashlyticsCollectionEnabled</key>
+	<false/>
+	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
+	<false/>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Bloom And Bunch Kl</string>
+	<string>bloombunch</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>bloom_and_bunch_kl</string>
+	<string>bloombunch</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -66,5 +70,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<key>NSCameraUsageDescription</key>
+	<string>Take a product photo for the bouquet or flower catalogue.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a product photo for the bouquet or flower catalogue.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Find your location when you choose to set a delivery pin.</string>
+	<key>MapsAPIKey</key>
+	<string>$(MAPS_API_KEY_IOS)</string>
+	<key>GIDClientID</key>
+	<string>$(GOOGLE_CLIENT_ID_IOS)</string>
+	<key>CFBundleURLTypes</key>
+	<array><dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>$(GOOGLE_REVERSED_CLIENT_ID_IOS)</string></array></dict>
+		<dict><key>CFBundleTypeRole</key><string>Editor</string><key>CFBundleURLSchemes</key><array><string>bloombunch</string></array></dict>
+	</array>
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
 </dict>
 </plist>

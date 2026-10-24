@@ -1,0 +1,26 @@
+00:00 +0: loading C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/audit/cart_regressions_test.dart
+00:00 +0: REGRESSION: cart respects backend maximum 20 per line
+00:00 +0 -1: REGRESSION: cart respects backend maximum 20 per line [E]
+  Expected: a value less than or equal to <20>
+    Actual: <21>
+     Which: is not a value less than or equal to <20>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  audit\cart_regressions_test.dart 17:5               main.<fn>
+  
+00:00 +0 -1: REGRESSION: cart respects backend maximum 20 distinct lines
+00:00 +0 -2: REGRESSION: cart respects backend maximum 20 distinct lines [E]
+  Expected: a value less than or equal to <20>
+    Actual: <21>
+     Which: is not a value less than or equal to <20>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  audit\cart_regressions_test.dart 29:5               main.<fn>
+  
+00:00 +0 -2: Some tests failed.
+
+Failing tests:
+  C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/audit/cart_regressions_test.dart: REGRESSION: cart respects backend maximum 20 distinct lines
+  C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/audit/cart_regressions_test.dart: REGRESSION: cart respects backend maximum 20 per line

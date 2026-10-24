@@ -1,0 +1,120 @@
+(node:15040) MetadataLookupWarning: received unexpected error = All promises were rejected code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ REGRESSION: reject undispatchable checkout before deducting stock (757.3435ms)
+✖ REGRESSION: do not silently use an address different from checkout confirmation (86.434ms)
+[2026-09-18T14:57:44.601Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x1a01ac30 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L102:24 for 'update' @ L102, false for 'update' @ L275, false for 'update' @ L102, false for 'update' @ L275
+✖ REGRESSION: notification preference can be saved by its owner (127.5364ms)
+✖ REGRESSION: reject a published pre-order recipe that checkout cannot accept (63.6457ms)
+TypeError: Cannot read properties of null (reading 'quantity')
+    at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\domain.js:24:28
+    at Array.map (<anonymous>)
+    at Object.normalizeItems (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\domain.js:23:15)
+    at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:37:16
+    at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:31:91
+    at Function.run (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\node_modules\firebase-functions\lib\common\onInit.js:28:10)
+    at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:81:45
+    at waitForActual (node:assert:632:21)
+    at strict.rejects (node:assert:769:31)
+    at TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:81:16)
+✖ REGRESSION: custom checkout agrees with current fractional stem prices (55.8455ms)
+✖ REGRESSION: malformed cart entry returns a validation error (1.1879ms)
+✔ CONTROL: valid address checkout creates an available rider job (75.3682ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 1
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2484.5231
+
+✖ failing tests:
+
+test at functions\test\audit\feature-regressions.cjs:29:1
+✖ REGRESSION: reject undispatchable checkout before deducting stock (757.3435ms)
+  AssertionError [ERR_ASSERTION]: Checkout succeeded as Ready for Delivery, but no rider job exists and ready stock was deducted
+  
+  false !== true
+  
+      at TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:43:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at functions\test\audit\feature-regressions.cjs:46:1
+✖ REGRESSION: do not silently use an address different from checkout confirmation (86.434ms)
+  AssertionError [ERR_ASSERTION]: Saved address changed after checkout loaded; confirmation was not validated
+  + actual - expected
+  
+  + '99 Other Street, Cyberjaya'
+  - '12 Main Street, Kuala Lumpur'
+  
+      at TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:57:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '99 Other Street, Cyberjaya',
+    expected: '12 Main Street, Kuala Lumpur',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at functions\test\audit\feature-regressions.cjs:60:1
+✖ REGRESSION: notification preference can be saved by its owner (127.5364ms)
+  [Error [FirebaseError]: 7 PERMISSION_DENIED: 
+  evaluation error at L102:24 for 'update' @ L102, false for 'update' @ L275, false for 'update' @ L102, false for 'update' @ L275] {
+    code: 'permission-denied',
+    customData: undefined
+  }
+
+test at functions\test\audit\feature-regressions.cjs:65:1
+✖ REGRESSION: reject a published pre-order recipe that checkout cannot accept (63.6457ms)
+  Error: Expected request to fail, but it succeeded.
+      at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\node_modules\@firebase\rules-unit-testing\dist\index.cjs.js:576:31
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:68:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7)
+
+test at functions\test\audit\feature-regressions.cjs:71:1
+✖ REGRESSION: custom checkout agrees with current fractional stem prices (55.8455ms)
+  Error: Prices have changed. Refresh the items in your cart before ordering.
+      at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:32:81
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:77:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    code: 'failed-precondition',
+    details: undefined,
+    httpErrorCode: { canonicalName: 'FAILED_PRECONDITION', status: 400 }
+  }
+
+test at functions\test\audit\feature-regressions.cjs:80:1
+✖ REGRESSION: malformed cart entry returns a validation error (1.1879ms)
+  AssertionError [ERR_ASSERTION]: The validation function is expected to return "true". Received false
+  
+  Caught error:
+  
+  Error: Unable to finish this action. Please retry.
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\audit\feature-regressions.cjs:81:3)
+      at async Test.run (node:internal/test_runner/test:1125:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: Unable to finish this action. Please retry.
+        at C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:32:137
+        at process.processTicksAndRejections (node:internal/process/task_queues:104:5),
+    operator: 'rejects',
+    diff: 'simple'
+  }

@@ -1,0 +1,106 @@
+{
+  "assessmentDate": "2026-09-08",
+  "overallScore": 4,
+  "scoreScale": "1 = critical exposure, 5 = production hardened",
+  "summary": "Ownership, roles, commerce writes, inventory reservations, rider assignment, and image uploads are enforced and emulator tested. App Check and a review of existing production roles remain.",
+  "findings": [
+    {
+      "id": "SEC-001",
+      "severity": "critical",
+      "status": "fixed",
+      "location": "firestore.rules; functions/index.js",
+      "issue": "Direct client order and inventory writes could permit forged totals or stock changes.",
+      "impact": "Orders and inventory could lose integrity.",
+      "attackScenario": "A modified client submits a fake price or skips stock deduction.",
+      "fix": "Deny client order writes and use transactional placeOrder with server pricing and saved-address ownership checks."
+    },
+    {
+      "id": "SEC-002",
+      "severity": "critical",
+      "status": "fixed",
+      "location": "firestore.rules; functions/index.js",
+      "issue": "Role changes and rider approval require server authorization.",
+      "impact": "Self-promotion could expose operational access.",
+      "attackScenario": "A customer changes their role or approves their own application.",
+      "fix": "Allow-list customer profile fields and approve riders only through an admin-checked callable."
+    },
+    {
+      "id": "SEC-003",
+      "severity": "high",
+      "status": "fixed",
+      "location": "functions/index.js",
+      "issue": "Stock, reservations, and rider assignment were vulnerable to concurrent requests.",
+      "impact": "A bouquet could be oversold or a delivery assigned twice.",
+      "attackScenario": "Two devices purchase or accept the same last available item simultaneously.",
+      "fix": "Use transactions and idempotency records; concurrency tests confirm one winner."
+    },
+    {
+      "id": "SEC-004",
+      "severity": "high",
+      "status": "fixed",
+      "location": "storage.rules",
+      "issue": "Product image uploads required role, path, size, and MIME restrictions.",
+      "impact": "Unauthorized or oversized files could be stored.",
+      "attackScenario": "A customer uploads non-image content to a product folder.",
+      "fix": "Restrict writes to florist/admin and to 5 MB JPEG, PNG, or WebP images."
+    },
+    {
+      "id": "SEC-005",
+      "severity": "medium",
+      "status": "open",
+      "location": "Firebase callable configuration",
+      "issue": "Firebase App Check is not enforced yet.",
+      "impact": "Authenticated scripts can call the validated backend outside the official app.",
+      "attackScenario": "Automation sends repeated valid requests using a real account.",
+      "fix": "Configure App Check in Flutter, verify metrics, then enable enforceAppCheck."
+    },
+    {
+      "id": "SEC-006",
+      "severity": "medium",
+      "status": "deployment-review",
+      "location": "Production users collection",
+      "issue": "Existing privileged role documents were not enumerated locally.",
+      "impact": "A stale privileged account would keep its access.",
+      "attackScenario": "A test account already has an admin, florist, or rider role.",
+      "fix": "Review all non-customer roles in Firebase before broad release."
+    },
+    {
+      "id": "SEC-007",
+      "severity": "low",
+      "status": "accepted-risk",
+      "location": "Firebase Storage download URLs",
+      "issue": "Tokenized product image URLs are shareable.",
+      "impact": "Product photos may be viewed outside an authenticated session.",
+      "attackScenario": "A user shares an image URL.",
+      "fix": "Keep private media out of product folders and revoke tokens if needed."
+    },
+    {
+      "id": "SEC-008",
+      "severity": "medium",
+      "status": "upstream",
+      "location": "functions/package-lock.json",
+      "issue": "npm reports seven moderate findings through the Firebase dependency tree and uuid.",
+      "impact": "The reported uuid buffer issue exists in transitive packages, although this backend does not call the affected buffer API directly.",
+      "attackScenario": "An affected dependency path processes an attacker-controlled UUID buffer.",
+      "fix": "Track updated Firebase packages. Do not apply the suggested forced downgrade to firebase-admin 10.3.0; rerun npm audit before release."
+    }
+  ],
+  "verifiedControls": [
+    "Anonymous catalogue reads are denied",
+    "Customer order and address ownership is enforced",
+    "Customers cannot change roles, products, reservations, or orders",
+    "Florists cannot forge reservedQuantity",
+    "Rider transitions are server controlled",
+    "Rider approval is administrator only",
+    "Storage uploads validate role, folder, MIME type, and size",
+    "Unknown Firestore paths are denied"
+  ],
+  "validation": {
+    "flutterAnalyze": "passed",
+    "flutterTests": "5 passed",
+    "firebaseEmulatorTests": "15 passed",
+    "androidDebugBuild": "passed",
+    "firebaseDeploymentDryRun": "passed",
+    "npmAudit": "7 moderate transitive findings; the forced fix would install a breaking Firebase Admin version"
+  }
+}

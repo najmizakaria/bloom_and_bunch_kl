@@ -23,16 +23,51 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="bloom_and_bunch_kl">
+  <meta name="apple-mobile-web-app-title" content="bloombunch">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>bloom_and_bunch_kl</title>
+  <title>bloombunch</title>
   <link rel="manifest" href="manifest.json">
   <!-- API KEY -->
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDfcdD5AOqC9Erfi-fJT3BRonEdcHmGR4Q"></script>
+  <script>
+    // Authorization errors arrive after the SDK callback, once a map is made.
+    // Notify Flutter as well as rejecting any subsequent attempt to use it.
+    window.gm_authFailure = function () {
+      window.bloomMapsFailure = 'authorization';
+      window.dispatchEvent(new Event('bloom-maps-error'));
+    };
+    window.bloomLoadMaps = function (providedKey) {
+      if (window.bloomMapsFailure) return Promise.reject(new Error('Maps authorization failed'));
+      if (window.bloomMapsPromise) return window.bloomMapsPromise;
+      if (window.google && window.google.maps && typeof window.google.maps.Map === 'function') return Promise.resolve(true);
+      const configuredKey = '%%MAPS_API_KEY_WEB%%';
+      const key = providedKey || (configuredKey.includes('%%') ? '' : configuredKey);
+      if (!key) return Promise.reject(new Error('Maps web configuration missing'));
+      window.bloomMapsPromise = new Promise(function (resolve, reject) {
+        const script = document.createElement('script');
+        script.async = true;
+        const timer = setTimeout(failed, 20000);
+        function failed() {
+          clearTimeout(timer);
+          script.remove();
+          window.bloomMapsPromise = null;
+          reject(new Error('Maps could not load'));
+        }
+        window.bloomMapsLoaded = function () {
+          if (!window.google || !window.google.maps || typeof window.google.maps.Map !== 'function') { failed(); return; }
+          clearTimeout(timer);
+          resolve(true);
+        };
+        script.onerror = failed;
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=bloomMapsLoaded&loading=async';
+        document.head.appendChild(script);
+      });
+      return window.bloomMapsPromise;
+    };
+  </script>
 </head>
 <body>
   <!--

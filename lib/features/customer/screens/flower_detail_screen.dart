@@ -1,3 +1,6 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import '../../../models/flower_model.dart';
 import 'bouquet_builder_screen.dart';
@@ -11,6 +14,8 @@ class FlowerDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: Text(flower.name),
       ),
       body: Column(
@@ -27,7 +32,11 @@ class FlowerDetailScreen extends StatelessWidget {
                     color: Colors.grey[200],
                     child: flower.imageUrl.isNotEmpty
                         ? Image.network(flower.imageUrl, fit: BoxFit.cover)
-                        : const Icon(Icons.local_florist, size: 100, color: Colors.grey),
+                        : const Icon(
+                            Icons.local_florist,
+                            size: 100,
+                            color: Colors.grey,
+                          ),
                   ),
                   Padding(
                     padding: const EdgeInsets.all(20.0),
@@ -36,35 +45,37 @@ class FlowerDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           flower.name,
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          style: const AppTypography.screenTitle(),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Category: ${flower.category}',
-                          style: TextStyle(color: Colors.grey[600], fontSize: 16),
+                          style: AppTypography.body(color: Colors.grey[600]),
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFD87093),
+                          style: const AppTypography.total(
+                            color: AppColors.primary,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Row(
                           children: [
                             Icon(
-                              flower.isAvailable ? Icons.check_circle : Icons.cancel,
-                              color: flower.isAvailable ? Colors.green : Colors.red,
+                              flower.availableForCustomOrder
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              color: flower.availableForCustomOrder
+                                  ? AppColors.primaryDark
+                                  : AppColors.primaryDark,
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              flower.isAvailable
-                                  ? 'In Stock (${flower.stockQuantity} stems available)'
-                                  : 'Out of Stock',
-                              style: const TextStyle(fontSize: 16),
+                              flower.availableForCustomOrder
+                                  ? 'Choose a delivery date after preparation'
+                                  : 'Currently not offered',
+                              style: const AppTypography.body(),
                             ),
                           ],
                         ),
@@ -84,21 +95,24 @@ class FlowerDetailScreen extends StatelessWidget {
               height: 50,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFD87093),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onPrimary,
                 ),
-                onPressed:() {
+                onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                       builder: (context) => const BouquetBuilderScreen(),
+                      builder: (context) => const BouquetBuilderScreen(),
                     ),
                   );
                 },
-                child: const Text('Use in Custom Bouquet', style: TextStyle(fontSize: 16)),
+                child: const Text(
+                  'Use in Custom Bouquet',
+                  style: AppTypography.button(),
+                ),
               ),
             ),
-          )
+          ),
         ],
       ),
     );

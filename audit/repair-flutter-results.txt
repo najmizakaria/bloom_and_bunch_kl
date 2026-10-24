@@ -1,0 +1,39 @@
+00:00 +0: loading C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart
+00:00 +0: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/cart_limits_test.dart: REGRESSION: cart respects backend maximum 20 per line
+00:00 +1: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:00 +2: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +3: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +4: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +5: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +6: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +7: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +8: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +9: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +10: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +11: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +12: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:01 +13: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +14: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +15: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +16: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +17: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +18: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +19: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +20: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +21: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:02 +22: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: email login immediately returns to the root dashboard
+00:03 +23: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/product_components_test.dart: all category labels remain reachable at large text sizes
+00:03 +24: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/product_components_test.dart: all category labels remain reachable at large text sizes
+00:03 +25: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: signup immediately returns to the root dashboard
+00:03 +26: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: signup immediately returns to the root dashboard
+00:03 +27: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/product_components_test.dart: builder footer stays compact at width 320.0 and scale 1.0
+00:04 +28: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: Google login returns home only on success
+00:04 +29: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: Google login returns home only on success
+00:04 +30: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: Google login returns home only on success
+00:04 +31: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/product_components_test.dart: builder footer stays compact at width 390.0 and scale 2.0
+00:04 +32: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: Google signup returns home only on success
+00:04 +33: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: Google signup returns home only on success
+00:04 +34: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/auth_navigation_test.dart: failed login stays on the form with a useful error
+00:04 +35: All tests passed!
+
+Final verification after account-navigation guard: flutter test --no-pub — 36 passed, exit 0.

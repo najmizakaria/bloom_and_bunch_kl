@@ -1,0 +1,14 @@
+{
+  "score": 5,
+  "summary": "Scoped review of the added order issue-history rules and delivery confirmation callables: server-only writes, parent-order ownership and trusted profile roles were retained. This score applies only to these changes, not to all deployed Firebase rules or production readiness. Emulator regressions cover unauthorized reads/writes, actor ownership, sequential confirmation and open-issue blocking.",
+  "findings": [],
+  "scope": ["orders/{orderId}/issues", "transitionOrder delivery/receipt actions", "listRiders", "reportOrderIssue", "resolveOrderIssue"],
+  "checks": {
+    "update_bypass": "Client create/update/delete of orders and issue records are denied; Admin SDK callables validate transitions.",
+    "authority_source": "Authenticated UID and existing users document roles are used, not caller-provided role/owner fields. Existing immutable-role rules remain.",
+    "business_logic": "Only assigned rider delivers; only owner confirms after delivery; open support pauses both actions; staff response does not complete an order.",
+    "resource_limits": "Issue reasons/comments/responses are bounded; at most ten new reports per order; listRiders returns at most 100 safe records per cursor page.",
+    "type_safety": "Callable input validators check IDs and strings; client issue writes are denied. Legacy timestamps are not synthesized.",
+    "identity_access": "Issue reads require customer ownership, staff role, or assigned rider identity using the parent order; unrelated authenticated users cannot read them. listRiders is admin-only and returns UID/name only."
+  }
+}

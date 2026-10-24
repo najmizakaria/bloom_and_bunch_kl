@@ -1,0 +1,366 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import '../../../core/widgets/pending_icon_button.dart';
+import '../widgets/product_components.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/favourites_service.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/services/reorder_service.dart';
+import '../../../models/bouquet_model.dart';
+import 'bouquet_detail_screen.dart';
+import 'bouquet_options_screen.dart';
+
+class FavouritesScreen extends StatefulWidget {
+  const FavouritesScreen({super.key});
+  @override
+  State<FavouritesScreen> createState() => _FavouritesScreenState();
+}
+
+class _FavouritesScreenState extends State<FavouritesScreen> {
+  final favouritesService = FavouritesService();
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _bouquets = favouritesService
+      .favouriteBouquetsStream();
+  late Stream<QuerySnapshot<Map<String, dynamic>>> _recipes = favouritesService
+      .favouriteRecipesStream();
+  Widget _retry(bool recipes) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Could not load favourites. Check your connection.'),
+        TextButton(
+          onPressed: () => setState(() {
+            if (recipes) {
+              _recipes = favouritesService.favouriteRecipesStream();
+            } else {
+              _bouquets = favouritesService.favouriteBouquetsStream();
+            }
+          }),
+          child: const Text('Retry'),
+        ),
+      ],
+    ),
+  );
+  Future<void> _add(BuildContext context, Map<String, dynamic> item) async {
+    try {
+      final draft = await ReorderService.draft(item);
+      if (context.mounted) {
+        await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BouquetOptionsScreen(bouquet: draft),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is StateError
+                  ? error.message.toString()
+                  : 'Could not add this item. Please retry.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _openBouquet(BuildContext context, String id) async {
+    try {
+      final document = await FirebaseFirestore.instance
+          .doc('bouquets/$id')
+          .get();
+      if (!document.exists ||
+          document.data()?['isPublished'] == false ||
+          document.data()?['archived'] == true) {
+        throw StateError('This bouquet is no longer offered.');
+      }
+      final bouquet = BouquetModel.fromMap(document.data()!, document.id);
+      if (context.mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BouquetDetailScreen(bouquet: bouquet),
+          ),
+        );
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Could not load this bouquet. Check the catalogue or retry.',
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _save(
+    BuildContext context,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not update favourites. Please retry.'),
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: const PageBackButton(),
+          centerTitle: false,
+          title: const Text('Favourites'),
+
+          automaticallyImplyLeading: false,
+          bottom: const TabBar(
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textMuted,
+            indicatorColor: AppColors.primary,
+            tabs: [
+              Tab(text: 'Saved Bouquets'),
+              Tab(text: 'Saved Recipes'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            // Saved ready-made bouquets
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _bouquets,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _retry(false);
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _emptyState(
+                    icon: Icons.favorite_border_rounded,
+                    title: 'No saved bouquets yet',
+                    subtitle:
+                        'Tap the heart on any bouquet in Home to save it here.',
+                  );
+                }
+
+                final docs = snapshot.data!.docs;
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data();
+                    final bouquetId = docs[index].id;
+                    final name = data['name'] ?? '';
+                    final imageUrl = data['imageUrl'] ?? '';
+                    final price = (data['price'] ?? 0).toDouble();
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: ProductImage(imageUrl: imageUrl),
+                          ),
+                        ),
+                        title: Text(name, style: const AppTypography.label()),
+                        subtitle: Text('RM ${price.toStringAsFixed(2)}'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.add_shopping_cart,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: () => _openBouquet(context, bouquetId),
+                            ),
+                            PendingIconButton(
+                              key: ValueKey(bouquetId),
+                              tooltip: 'Remove from favourites',
+                              icon: const Icon(
+                                Icons.favorite,
+                                color: AppColors.primaryDark,
+                              ),
+                              onPressed: () => _save(
+                                context,
+                                () => favouritesService.toggleBouquetFavourite(
+                                  bouquetId: bouquetId,
+                                  name: name,
+                                  imageUrl: imageUrl,
+                                  price: price,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+
+            // Saved custom recipes
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _recipes,
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _retry(true);
+                }
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return _emptyState(
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'No saved recipes yet',
+                    subtitle:
+                        'Build a custom bouquet in Customize and tap Save Recipe.',
+                  );
+                }
+
+                final docs = snapshot.data!.docs;
+                return ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final data = docs[index].data();
+                    final recipeId = docs[index].id;
+                    final wrapper = data['wrapper'] ?? '';
+                    final ribbon = data['ribbon'] ?? '';
+                    final totalPrice = (data['totalPrice'] ?? 0).toDouble();
+                    final stems = (data['stems'] as List<dynamic>? ?? []);
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Custom Recipe',
+                                  style: AppTypography.productTitle(),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: AppColors.primaryDark,
+                                    size: 20,
+                                  ),
+                                  onPressed: () => _save(
+                                    context,
+                                    () => favouritesService.deleteRecipe(
+                                      recipeId,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              '$wrapper · $ribbon',
+                              style: const AppTypography.supporting(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${stems.length} stem type(s)',
+                              style: const AppTypography.supporting(
+                                color: AppColors.textMuted,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'RM ${totalPrice.toStringAsFixed(2)}',
+                                  style: const AppTypography.price(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                  ),
+                                  onPressed: () => _add(context, {
+                                    'type': 'custom',
+                                    'customStems': {
+                                      for (final s in stems)
+                                        s['flowerId']: s['quantity'],
+                                    },
+                                    'wrapper': wrapper,
+                                    'ribbon': ribbon,
+                                    'cardNote': '',
+                                  }),
+                                  child: const Text('Re-order'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 64, color: AppColors.textMuted),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: const AppTypography.productTitle(
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

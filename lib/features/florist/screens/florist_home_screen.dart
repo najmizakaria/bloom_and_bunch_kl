@@ -1,3 +1,6 @@
+import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/services/auth_service.dart';
@@ -12,9 +15,11 @@ class FloristHomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const PageBackButton(),
+        centerTitle: false,
         title: const Text('Florist Dashboard 📋'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         actions: [
           // 👇 NEW: Inventory Button
           IconButton(
@@ -44,11 +49,16 @@ class FloristHomeScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No orders yet. Time for a coffee! ☕'));
+            return const Center(
+              child: Text('No orders yet. Time for a coffee! ☕'),
+            );
           }
 
           final orders = snapshot.data!.docs.map((doc) {
-            return OrderModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+            return OrderModel.fromMap(
+              doc.data() as Map<String, dynamic>,
+              doc.id,
+            );
           }).toList();
 
           return ListView.builder(
@@ -56,40 +66,61 @@ class FloristHomeScreen extends StatelessWidget {
             itemCount: orders.length,
             itemBuilder: (context, index) {
               final order = orders[index];
-              
+
               // Color code the status
               Color statusColor = Colors.grey;
-              if (order.orderStatus == 'Pending') statusColor = Colors.orange;
-              if (order.orderStatus == 'Processing') statusColor = Colors.blue;
-              if (order.orderStatus == 'Ready for Delivery') statusColor = Colors.green;
+              if (order.orderStatus == 'Awaiting Preparation') {
+                statusColor = AppColors.primaryDark;
+              }
+              if (order.orderStatus == 'Processing') {
+                statusColor = AppColors.primaryDark;
+              }
+              if (order.orderStatus == 'Ready for Delivery') {
+                statusColor = AppColors.primaryDark;
+              }
 
               return Card(
-                elevation: 3,
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
-                  title: Text('Order: ${order.orderId.substring(0, 8).toUpperCase()}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    'Order: ${order.orderId.substring(0, 8).toUpperCase()}',
+                    style: const AppTypography.label(),
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 6),
                       Text('Recipient: ${order.recipientName}'),
-                      Text('RM ${order.totalAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+                      Text(
+                        'RM ${order.totalAmount.toStringAsFixed(2)}',
+                        style: const AppTypography.price(
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ],
                   ),
                   trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withAlpha(40),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: statusColor),
                     ),
-                    child: Text(order.orderStatus, style: TextStyle(color: statusColor, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      order.orderStatus,
+                      style: AppTypography.label(color: statusColor),
+                    ),
                   ),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => FloristOrderDetailScreen(order: order)),
+                      MaterialPageRoute(
+                        builder: (_) => FloristOrderDetailScreen(order: order),
+                      ),
                     );
                   },
                 ),
