@@ -335,8 +335,14 @@ void main() {
     await tester.scrollUntilVisible(find.text('Report a problem'), 200);
     await tester.tap(find.text('Report a problem'));
     await tester.pumpAndSettle();
+    await waitFor(tester, find.text('Report an order problem'));
+    final issueTextField = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await waitFor(tester, issueTextField);
     await tester.enterText(
-      find.byType(TextField),
+      issueTextField,
       'Please verify the handover.',
     );
     await tester.tap(find.text('Send to store'));
@@ -1017,8 +1023,10 @@ void main() {
       expect(find.textContaining('Own purchase area'), findsNothing);
       expect(find.textContaining('Preparation preview area'), findsNothing);
       await openAvailableDelivery(tester, 'fixture_queue_ready');
+      await waitFor(tester, find.text('Accept Delivery'));
       await tester.tap(find.text('Accept Delivery'));
       await tester.pumpAndSettle();
+      await waitFor(tester, find.text('Accept delivery'));
       await tester.tap(find.text('Accept delivery').last);
       await waitFor(
         tester,
