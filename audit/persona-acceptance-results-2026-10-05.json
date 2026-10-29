@@ -1,0 +1,73 @@
+{
+  "date": "2026-10-05",
+  "branch": "main2",
+  "environment": "local demo-bloom emulators and connected headless Chrome",
+  "flutter": {
+    "passed": 69,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "backend": {
+    "passed": 52,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "exitCode": 0
+  },
+  "browser": {
+    "journeysPassedTogether": 4,
+    "filter": null,
+    "allEnabled": true,
+    "exitCode": 0,
+    "journeys": [
+      "ready checkout, customer issue, admin resolution, rider UI delivery, owner UI receipt and feedback",
+      "customer navigation and florist shortcuts/inventory paging and role More",
+      "related deliveries, concurrent favorites, small/large-text admin history and approved role switching",
+      "custom builder recipe save and mixed linked deliveries with total/material assertions"
+    ]
+  },
+  "analysis": {
+    "result": "No issues",
+    "exitCode": 0
+  },
+  "demoWebBuild": {
+    "result": "Passed",
+    "exitCode": 0
+  },
+  "publicReleaseGate": {
+    "result": "Expected rejection",
+    "reason": "Configured store policy is demo",
+    "exitCode": 1
+  },
+  "fixes": [
+    "Custom builder stable subscription and real Retry",
+    "Lazy builder favorites service",
+    "README missing implementation link"
+  ],
+  "testChanges": [
+    "Actual support/delivery/feedback UI controls",
+    "Custom builder and mixed checkout browser journey",
+    "Custom builder lookup error/retry widget regression",
+    "Explicit scroll/notice/acceptance-navigation timing in harness"
+  ],
+  "productionChanged": false,
+  "deployed": false,
+  "committed": false,
+  "pushed": false,
+  "limits": [
+    "Not exhaustive screen/state coverage",
+    "No independent participant study or company approval",
+    "No native device/OAuth/Maps/push/file-picker verification",
+    "No release performance benchmark",
+    "Emulators do not enforce deployed composite-index readiness",
+    "Local Node 24 vs CI Node 22"
+  ],
+  "report": "docs/persona-acceptance-review-2026-10-05.md",
+  "sourceLogs": {
+    "flutter": "C:\\Users\\najmi\\AppData\\Local\\Temp\\bloom-persona-flutter-final.log",
+    "backend": "C:\\Users\\najmi\\AppData\\Local\\Temp\\bloom-persona-backend.log",
+    "browser": "C:\\Users\\najmi\\AppData\\Local\\Temp\\bloom-persona-browser-final-pass.log",
+    "analysis": "C:\\Users\\najmi\\AppData\\Local\\Temp\\bloom-persona-analysis-final.log",
+    "build": "C:\\Users\\najmi\\AppData\\Local\\Temp\\bloom-persona-build-final.log"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-05",
+  "branch": "main2",
+  "scope": "All 13 smoothness audit findings implemented locally; no deployment, commit or push",
+  "fixedFindings": [
+    "F1",
+    "F2",
+    "F3",
+    "F4",
+    "F5",
+    "F6",
+    "F7",
+    "F8",
+    "F9",
+    "F10",
+    "F11",
+    "F12",
+    "F13"
+  ],
+  "analysis": {
+    "result": "No issues",
+    "exitCode": 0
+  },
+  "flutter": {
+    "passed": 68,
+    "newSmoothnessRegressions": 23,
+    "failed": 0,
+    "exitCode": 0
+  },
+  "backend": {
+    "passed": 52,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "exitCode": 0,
+    "project": "demo-bloom",
+    "emulators": [
+      "auth",
+      "firestore",
+      "storage"
+    ]
+  },
+  "browser": {
+    "journeysPassed": 3,
+    "filter": "all journeys enabled",
+    "exitCode": 0,
+    "project": "demo-bloom",
+    "checks": [
+      "real checkout and stock",
+      "rider acceptance selects Deliveries",
+      "delivery, customer receipt and feedback",
+      "Pre-Order beyond first unfiltered batch and correct card label",
+      "Low Stock selects Flowers and inventory page 2",
+      "mixed delivery links for customer and admin",
+      "simultaneous favourite transactions",
+      "admin history at 320x480 with 200% text",
+      "approved rider pushed route closes to root",
+      "switch back to customer"
+    ]
+  },
+  "webBuild": {
+    "result": "passed",
+    "environment": "demo",
+    "exitCode": 0,
+    "deployed": false
+  },
+  "limitations": [
+    "No frame-time, memory or production read-volume benchmark",
+    "Native Maps, dialer/navigation, live OAuth and push/device lifecycle not verified locally",
+    "Node 24 locally versus Node 22 in repository CI"
+  ],
+  "deferred": [
+    "production deployment including catalogue indexes",
+    "external and device-only checks"
+  ]
+}

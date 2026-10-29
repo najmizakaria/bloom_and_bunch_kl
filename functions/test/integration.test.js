@@ -1,0 +1,102 @@
+const {test,before,after}=require('node:test');
+const assert=require('node:assert/strict');
+const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
+let db,api;
+before(async()=>{
+ if(!enabled)return;
+ process.env.GCLOUD_PROJECT='demo-bloom';
+ api=require('../index');
+ db=require('firebase-admin/firestore').getFirestore();
+ await db.recursiveDelete(db.collection('users').doc('buyer_test'));
+ await db.collection('users').doc('buyer_test').set({role:'customer'});
+ await db.collection('users').doc('buyer_test').collection('addresses').doc('test').set({
+  label:'Home',recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street, Kuala Lumpur',note:'Guard house',isDefault:true,
+  latitude:3.139,longitude:101.6869
+ });
+ await db.collection('users').doc('staff_test').set({role:'florist'});
+ await db.collection('users').doc('admin_test').set({role:'admin'});
+ await db.collection('users').doc('applicant_test').set({role:'customer'});
+ for(const uid of ['rider_a_test','rider_b_test']){await db.collection('users').doc(uid).set({role:'rider'});await db.doc('rider_applications/'+uid).set({status:'approved',name:'Test rider',phone:'0123456789'});}
+});
+after(async()=>{if(db)await db.terminate();});
+const address={recipientName:'Test',recipientPhone:'0123456789',address:'12 Main Street, Kuala Lumpur',note:'Guard house',latitude:3.139,longitude:101.6869};
+function request(uid,id,items,total){return {auth:{uid},data:{checkoutId:id,items:items.map(i=>i.fulfillmentType==='ready_now'?i:{...i,requestedDeliveryDate:require('../store-policy').dateFor(new Date(),2,require('../store-policy').configured)}),addressId:'test',address,expectedTotal:total}};}
+const custom={quantity:1,fulfillmentType:'custom',customStems:{rose_test:100},wrapper:'Kraft Paper (Classic)',ribbon:'Red Satin',cardNote:''};
+test('backend: custom reservation, retry, prepare, restock and consume exactly once',{skip:!enabled},async()=>{
+ await db.collection('flowers').doc('rose_test').set({name:'Rose',stockQuantity:0,reservedQuantity:0,pricePerStem:3});
+ const req=request('buyer_test','custom_test',[custom],307);
+ const [a,b]=await Promise.all([api.placeOrder.run(req),api.placeOrder.run(req)]);
+ assert.deepEqual(a.orderIds,b.orderIds);
+ assert.equal((await db.collection('flowers').doc('rose_test').get()).data().reservedQuantity,100);
+ const orderId=a.orderIds[0];
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'prepare'}});
+ await assert.rejects(()=>api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}}),/Restock/);
+ await db.collection('flowers').doc('rose_test').update({stockQuantity:120});
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}});
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}});
+ assert.equal((await db.collection('delivery_jobs').doc(orderId).get()).exists,false);
+ await assert.rejects(()=>api.transitionOrder.run({auth:{uid:'rider_a_test'},data:{orderId,action:'accept'}}),/scheduled/);
+ // Move the trusted fixture clock to its due date to exercise delivery below.
+ await db.collection('orders').doc(orderId).update({scheduledDeliveryDate:new Date(Date.now()+8*3600000).toISOString().slice(0,10)});
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'ready'}});
+ const available=(await db.collection('delivery_jobs').doc(orderId).get()).data();
+ assert.equal(available.deliveryArea,'Kuala Lumpur');
+ assert.equal('recipientPhone' in available,false);assert.equal(available.deliveryAddress,address.address);
+ const flower=(await db.collection('flowers').doc('rose_test').get()).data();
+ assert.equal(flower.stockQuantity,20);assert.equal(flower.reservedQuantity,0);
+ await assert.rejects(()=>api.transitionOrder.run({auth:{uid:'buyer_test'},data:{orderId,action:'accept'}}),/rider/);
+ const races=await Promise.allSettled(['rider_a_test','rider_b_test'].map(uid=>api.transitionOrder.run({auth:{uid},data:{orderId,action:'accept'}})));
+ assert.equal(races.filter(r=>r.status==='fulfilled').length,1);
+ const o=(await db.collection('orders').doc(orderId).get()).data();
+ const other=o.riderId==='rider_a_test'?'rider_b_test':'rider_a_test';
+ await assert.rejects(()=>api.transitionOrder.run({auth:{uid:other},data:{orderId,action:'deliver'}}),/assigned/);
+ await api.transitionOrder.run({auth:{uid:o.riderId},data:{orderId,action:'deliver'}});
+ assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Awaiting Customer Confirmation');
+ await api.transitionOrder.run({auth:{uid:'buyer_test'},data:{orderId,action:'confirmReceived'}});
+ assert.equal((await db.collection('orders').doc(orderId).get()).data().orderStatus,'Completed');
+ assert.equal((await db.collection('delivery_jobs').doc(orderId).get()).exists,false);
+});
+test('backend: simultaneous last-bouquet checkout never oversells',{skip:!enabled},async()=>{
+ await db.collection('bouquets').doc('ready_test').set({name:'Ready',price:50,readyStock:1,availableForReadyNow:true,isPublished:true});
+ const item={quantity:1,fulfillmentType:'ready_now',bouquetId:'ready_test'};
+ const results=await Promise.allSettled(['one','two'].map(n=>api.placeOrder.run(request('buyer_test','race_'+n,[item],50))));
+ assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
+ assert.equal((await db.collection('bouquets').doc('ready_test').get()).data().readyStock,0);
+ const winner=results.find(r=>r.status==='fulfilled').value.orderIds[0];
+ assert.equal((await db.collection('orders').doc(winner).get()).data().orderStatus,'Ready for Delivery');
+});
+test('backend: cancellation releases reservation without changing on hand',{skip:!enabled},async()=>{
+ await db.collection('flowers').doc('cancel_rose_test').set({name:'Rose',stockQuantity:5,reservedQuantity:0,pricePerStem:3});
+ const item={...custom,customStems:{cancel_rose_test:100}};
+ const {orderIds:[orderId]}=await api.placeOrder.run(request('buyer_test','cancel_test',[item],307));
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'cancel'}});
+ await api.transitionOrder.run({auth:{uid:'staff_test'},data:{orderId,action:'cancel'}});
+ const f=(await db.collection('flowers').doc('cancel_rose_test').get()).data();
+ assert.equal(f.stockQuantity,5);assert.equal(f.reservedQuantity,0);
+});
+test('backend: only an administrator can approve a rider',{skip:!enabled},async()=>{
+ await db.collection('rider_applications').doc('applicant_test').set({
+  uid:'applicant_test',name:'Applicant',phone:'0123456789',vehicleType:'Motorcycle',
+  reason:'Available',status:'pending',submittedAt:new Date()
+ });
+ const data={applicantId:'applicant_test',decision:'approved'};
+ await assert.rejects(()=>api.reviewRiderApplication.run({auth:{uid:'staff_test'},data}),/Administrator/);
+ await api.reviewRiderApplication.run({auth:{uid:'admin_test'},data});
+ const applicant=(await db.collection('users').doc('applicant_test').get()).data();
+ assert.equal(applicant.role,'customer');
+ assert.deepEqual(applicant.roles,['customer','rider']);
+ assert.equal(applicant.activeRole,'customer');
+ assert.equal((await db.collection('rider_applications').doc('applicant_test').get()).data().status,'approved');
+});
+
+test('backend: rider review retries are safe and conflicting reviews fail',{skip:!enabled},async()=>{
+ const uid='review_retry_test';
+ await db.collection('users').doc(uid).set({role:'customer',roles:['customer'],activeRole:'customer'});
+ await db.collection('rider_applications').doc(uid).set({status:'pending',name:'Retry Rider',phone:'0123456789'});
+ const request={auth:{uid:'admin_test'},data:{applicantId:uid,decision:'approved'}};
+ const results=await Promise.all([api.reviewRiderApplication.run(request),api.reviewRiderApplication.run(request)]);
+ assert.deepEqual(results,[{status:'approved'},{status:'approved'}]);
+ assert.deepEqual((await db.collection('users').doc(uid).get()).data().roles,['customer','rider']);
+ await assert.rejects(()=>api.reviewRiderApplication.run({...request,data:{applicantId:uid,decision:'rejected'}}),error=>error.code==='failed-precondition');
+ await assert.rejects(()=>api.reviewRiderApplication.run({data:request.data}),error=>error.code==='unauthenticated');
+});

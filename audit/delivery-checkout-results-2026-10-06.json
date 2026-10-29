@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-06",
+  "branch": "main2",
+  "scope": "Customer checkout wording and fee removal; canonical rider availability, atomic acceptance, one active delivery and ownership exclusion; current issue UI retained; no commit, push or production release",
+  "analysis": {
+    "exitCode": 0,
+    "result": "No issues found"
+  },
+  "flutter": {
+    "passed": 82,
+    "failed": 0,
+    "exitCode": 0,
+    "finalRiderWidgetRegressionPassed": 4
+  },
+  "backend": {
+    "passed": 62,
+    "failed": 0,
+    "skipped": 0,
+    "cancelled": 0,
+    "exitCode": 0,
+    "project": "demo-bloom",
+    "firestoreEdition": "standard",
+    "emulators": [
+      "auth",
+      "firestore",
+      "storage"
+    ],
+    "checks": [
+      "Legacy fee configuration still produces zero delivery fees",
+      "Two riders racing for one order",
+      "One rider racing for two different orders",
+      "Own purchase rejected across dual roles",
+      "Preparation cannot be accepted",
+      "Receipt releases rider; open issues block receipt",
+      "Legacy active assignment prevents another claim without profile lock",
+      "Authenticated rider-only safe previews and owner exclusion",
+      "Owner-only page preserves continuation cursor",
+      "Active delivery profile edits and role switching succeed; lock forgery/removal denied"
+    ]
+  },
+  "browser": {
+    "journeysPassed": 5,
+    "failed": 0,
+    "exitCode": 0,
+    "filter": "all five enabled",
+    "project": "demo-bloom",
+    "checks": [
+      "Callable address creation, trusted checkout and stock, rider handover, store issue resolution, owner receipt and feedback",
+      "Customer/florist/rider/admin navigation and pagination",
+      "Linked mixed deliveries, narrow admin UI and approved role route reset",
+      "Custom bouquet recipe and separate linked checkout orders",
+      "Own purchases excluded, preparation preview disabled and active rider cannot accept another order"
+    ]
+  },
+  "webBuild": {
+    "exitCode": 0,
+    "result": "Optimized web compilation passed",
+    "deployed": false,
+    "configuredHostingRelease": false
+  },
+  "releaseRequired": [
+    "Firestore indexes and rules",
+    "listAvailableDeliveries, transitionOrder, quoteCheckout, placeOrder in asia-southeast1",
+    "Updated mobile client build/install or configured website build/release"
+  ],
+  "limitations": [
+    "Native location permissions and real notification delivery were not tested",
+    "No production authenticated orders were created",
+    "Existing recorded order totals and historical issues were not migrated",
+    "Emulators validate behavior but do not prove production index readiness"
+  ],
+  "notes": [
+    "Local emulator shutdown printed a rules-runtime exception after successful backend tests and a Storage stopping warning after successful browser tests; both test commands exited 0.",
+    "Pre-existing address review-pin label changes were preserved."
+  ],
+  "riderFollowUp": {
+    "date": "2026-10-06",
+    "liveCheck": "listAvailableDeliveries absent; placeOrder, quoteCheckout and transitionOrder ACTIVE in asia-southeast1",
+    "codeChanges": [
+      "Delivery-specific missing-service, access and connection error messages",
+      "12 logical pixel gaps between rider history, assigned and available delivery cards"
+    ],
+    "targetedWidgetTests": {
+      "passed": 5,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "productionDeployed": false,
+    "analysis": {
+      "exitCode": 0,
+      "result": "No issues found"
+    }
+  },
+  "readyOnlyFollowUp": {
+    "date": "2026-10-06",
+    "statusShown": "Ready for Delivery",
+    "statusesHidden": [
+      "Pending",
+      "Awaiting Preparation",
+      "Processing"
+    ],
+    "flutter": {
+      "passed": 84,
+      "failed": 0,
+      "exitCode": 0
+    },
+    "backend": {
+      "passed": 63,
+      "failed": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "analysis": {
+      "result": "No issues found",
+      "exitCode": 0
+    },
+    "browser": {
+      "journeysPassed": 1,
+      "filter": "queue",
+      "exitCode": 0,
+      "checks": [
+        "Preparation and own purchases hidden",
+        "Ready order accepted",
+        "Second ready order blocked while rider active",
+        "Customer receipt completes assignment"
+      ]
+    },
+    "deploymentPerformed": false,
+    "releaseRequired": [
+      "Updated listAvailableDeliveries callable",
+      "Updated client build/install"
+    ]
+  }
+}

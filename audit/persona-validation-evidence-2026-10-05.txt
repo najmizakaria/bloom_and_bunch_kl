@@ -1,0 +1,29 @@
+FLUTTER — C:\Users\najmi\AppData\Local\Temp\bloom-persona-flutter-final.log
+00:07 +65: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/smoothness_regressions_test.dart: florist and rider details fit Size(640.0, 320.0) at text scale 2.0
+00:07 +66: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/smoothness_regressions_test.dart: legacy completion without receipt evidence must not claim customer confirmation
+00:07 +67: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/smoothness_regressions_test.dart: an updated florist order must replace the previous preparation status
+00:08 +68: C:/Users/najmi/Documents/FYP02/FYP/bloom_and_bunch_kl/test/smoothness_regressions_test.dart: florist order detail fits width 320 at double text size
+00:08 +69: All tests passed!
+
+BACKEND — C:\Users\najmi\AppData\Local\Temp\bloom-persona-backend.log
+# tests 52
+# pass 52
+# fail 0
+# cancelled 0
+# skipped 0
+
+BROWSER — C:\Users\najmi\AppData\Local\Temp\bloom-persona-browser-final-pass.log
+All tests passed.
++  Script exited successfully (code 0)
+
+ANALYSIS — C:\Users\najmi\AppData\Local\Temp\bloom-persona-analysis-final.log
+Analyzing bloom_and_bunch_kl...                                 
+No issues found! (ran in 18.4s)
+
+BUILD — C:\Users\najmi\AppData\Local\Temp\bloom-persona-build-final.log
+Use --no-wasm-dry-run to disable these warnings.
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472 bytes (99.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 20268 bytes (98.8% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib\main.dart for the Web...                             88.5s
+√ Built build\web
+

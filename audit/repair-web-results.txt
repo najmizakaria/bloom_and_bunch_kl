@@ -1,0 +1,69 @@
+Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 99.0.0 (108.0.0 available)
+  analyzer 12.1.0 (14.4.0 available)
+  built_value 8.12.7 (8.13.0 available)
+  clock 1.1.2 (1.1.3 available)
+  cloud_firestore 6.9.0 (6.10.0 available)
+  cloud_functions 6.4.0 (6.5.0 available)
+  code_assets 1.2.1 (2.1.0 available)
+  code_builder 4.11.1 (4.12.0 available)
+  cross_file 0.3.5+4 (0.3.5+5 available)
+  dart_style 3.1.8 (3.1.13 available)
+  file_selector_linux 0.9.4 (0.9.4+1 available)
+  file_selector_macos 0.9.5 (0.9.5+1 available)
+  file_selector_windows 0.9.3+5 (0.9.3+6 available)
+  firebase_auth 6.6.1 (6.7.0 available)
+  firebase_auth_platform_interface 9.0.7 (9.1.0 available)
+  firebase_auth_web 6.2.7 (6.3.0 available)
+  firebase_core 4.14.0 (4.15.0 available)
+  firebase_core_web 3.11.0 (3.12.0 available)
+  firebase_messaging 16.6.0 (16.7.0 available)
+  firebase_storage 13.5.0 (13.6.0 available)
+  flutter_dotenv 5.2.1 (6.0.1 available)
+  geocoding_darwin 1.0.2 (1.0.3 available)
+  geolocator 13.0.4 (14.0.3 available)
+  geolocator_android 4.6.2 (5.0.3 available)
+  geolocator_platform_interface 4.2.8 (4.3.0 available)
+  glob 2.1.3 (2.2.0 available)
+  google_fonts 6.3.3 (8.2.1 available)
+  google_maps_flutter 2.18.0 (2.18.1 available)
+  google_maps_flutter_android 2.19.12 (2.19.13 available)
+  google_maps_flutter_ios 2.18.4 (2.18.6 available)
+  google_maps_flutter_platform_interface 2.16.0 (2.17.0 available)
+  google_maps_flutter_web 0.6.3 (0.6.3+1 available)
+  google_sign_in_android 7.2.16 (7.2.17 available)
+  google_sign_in_ios 6.3.0 (6.3.3 available)
+  hooks 2.0.2 (2.2.0 available)
+  html 0.15.6 (0.15.7 available)
+  image_picker_android 0.8.13+19 (0.8.13+23 available)
+  image_picker_ios 0.8.13+6 (0.8.13+7 available)
+  jni_flutter 1.0.2 (1.0.3 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  mime 2.0.0 (2.1.0 available)
+  objective_c 9.5.0 (9.6.0 available)
+  package_config 2.2.0 (3.0.0 available)
+  pigeon 26.3.4 (29.0.2 available)
+  platform 3.1.6 (3.2.0 available)
+  pub_semver 2.2.0 (2.2.1 available)
+  record_use 0.6.0 (1.1.1 available)
+  smooth_page_indicator 1.2.1 (3.0.0 available)
+  stack_trace 1.12.1 (1.12.2 available)
+  stream_transform 2.1.1 (2.1.2 available)
+  test_api 0.7.12 (0.7.14 available)
+  vm_service 15.2.0 (15.3.0 available)
+  yaml 3.1.3 (3.1.4 available)
+Got dependencies!
+53 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Compiling lib\main.dart for the Web...                          
+Wasm dry run succeeded. Consider building and testing your application with the `--wasm` flag. See docs for more info: https://docs.flutter.dev/platform-integration/web/wasm
+Use --no-wasm-dry-run to disable these warnings.
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 1472 bytes (99.4% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 19900 bytes (98.8% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Compiling lib\main.dart for the Web...                             80.4s
+√ Built build\web
+Web Maps and notification configuration generated.
+Web build validation passed.
+
+Final build including account-switch navigation guard: tool/build_web.ps1 — compiled (73.9s), Maps/notification configuration generated, validator passed, exit 0.

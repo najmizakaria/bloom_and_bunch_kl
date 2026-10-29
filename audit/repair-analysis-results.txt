@@ -1,0 +1,4 @@
+Analyzing bloom_and_bunch_kl...                                 
+No issues found! (ran in 21.2s)
+
+Final verification after account-navigation guard: flutter analyze --no-pub — No issues found, exit 0.

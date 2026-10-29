@@ -1,0 +1,151 @@
+i  emulators: Starting emulators: auth, firestore, storage
+i  emulators: Detected demo project ID "demo-bloom", emulated services will use a demo configuration and attempts to access non-emulated services for this project will fail.
+i  firestore: Firestore Emulator logging to firestore-debug.log
++  firestore: Firestore Emulator was started in standard edition.
++  firestore: Firestore Emulator UI websocket is running on 19150.
+(node:30120) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+    at urlParse (node:url:136:13)
+    at Object.urlResolve [as resolve] (node:url:725:10)
+    at $RefParser.parse (C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@apidevtools\json-schema-ref-parser\lib\index.js:103:19)
+    at $RefParser.resolve (C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@apidevtools\json-schema-ref-parser\lib\index.js:184:16)
+    at $RefParser.bundle (C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\@apidevtools\json-schema-ref-parser\lib\index.js:227:16)
+    at bundle (C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\exegesis\lib\index.js:55:22)
+    at C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\exegesis\lib\index.js:60:34
+    at Generator.next (<anonymous>)
+    at C:\Users\najmi\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\exegesis\lib\index.js:22:71
+    at new Promise (<anonymous>)
+i  Running script: npm --prefix functions test
+
+> test
+> node --test test/*.test.js
+
+✔ custom 100 stems succeeds with zero on hand and reprices (2.4168ms)
+✔ ready stock aggregates duplicate lines and rejects overselling (0.9088ms)
+✔ mixed modes split; preorder never uses ready stock (0.3721ms)
+✔ disabled products, invalid types, quantities, paths and wrapping rejected (0.51ms)
+✔ Kuala Lumpur business dates skip weekends (2.4026ms)
+✔ partial or invalid coordinates rejected, manual address accepted (1.2961ms)
+(node:29892) MetadataLookupWarning: received unexpected error = All promises were rejected code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ REGRESSION: reject undispatchable checkout before deducting stock (5507.0932ms)
+✔ REGRESSION: do not silently use an address different from checkout confirmation (72.4632ms)
+✔ REGRESSION: notification preference can be saved by its owner (99.6085ms)
+[2026-09-18T16:12:11.502Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b331 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+✔ REGRESSION: reject a published pre-order recipe that checkout cannot accept (65.7822ms)
+✔ REGRESSION: custom checkout agrees with current fractional stem prices (83.9421ms)
+✔ REGRESSION: malformed cart entry returns a validation error (1.1373ms)
+✔ CONTROL: valid address checkout creates an available rider job (104.5171ms)
+[2026-09-18T16:12:11.747Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b332 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+[2026-09-18T16:12:11.769Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b333 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+[2026-09-18T16:12:11.786Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b334 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+[2026-09-18T16:12:11.820Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b335 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+[2026-09-18T16:12:11.872Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x2dd7b336 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L242:32 for 'update' @ L242, false for 'update' @ L295, false for 'update' @ L242, false for 'update' @ L295
+✔ rules accept supported recipes and reject total/type violations (177.9227ms)
+(node:28088) MetadataLookupWarning: received unexpected error = All promises were rejected code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ address transactions preserve one default during concurrent changes (9927.2518ms)
+✔ catalogue write checks recipe limits, role and stale ready stock (133.604ms)
+✔ account deletion requires fresh identity and completed orders (1147.4028ms)
+Error: Injected Auth failure
+    at auth.deleteUser (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\feature_writes.test.js:65:79)
+    at processAccountDeletion (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:312:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:346:2
+    at async C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\index.js:31:85
+    at async waitForActual (node:assert:646:5)
+    at async strict.rejects (node:assert:769:25)
+    at async TestContext.<anonymous> (C:\Users\najmi\Documents\FYP02\FYP\bloom_and_bunch_kl\functions\test\feature_writes.test.js:66:8)
+    at async Test.run (node:internal/test_runner/test:1125:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:787:7) {
+  code: 'auth/internal-error'
+}
+✔ failed Auth deletion keeps the profile and cleanup can retry (418.2924ms)
+✔ notifications persist preferences and cannot remove another user device (203.9834ms)
+✔ status notification respects opt out, deduplicates and removes expired devices (174.0725ms)
+✔ delivery-job sync never recreates a job accepted concurrently (528.5838ms)
+✔ deletion races cannot leave a stock-consuming order without its customer (15581.2828ms)
+✔ deletion races cannot detach a rider from a newly accepted delivery (17379.8349ms)
+✔ concurrent recipe save and deletion leave no orphaned private recipe (3476.3866ms)
+✔ sync removes legacy stale jobs for assigned and missing orders (567.4947ms)
+(node:1400) MetadataLookupWarning: received unexpected error = All promises were rejected code = UNKNOWN
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ backend: custom reservation, retry, prepare, restock and consume exactly once (12297.9613ms)
+✔ backend: simultaneous last-bouquet checkout never oversells (3001.5059ms)
+✔ backend: cancellation releases reservation without changing on hand (185.425ms)
+✔ backend: only an administrator can approve a rider (93.1617ms)
+✔ backend: rider review retries are safe and conflicting reviews fail (6906.3458ms)
+[2026-09-18T16:12:08.200Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489cca8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L111:24 for 'update' @ L111, false for 'update' @ L295, false for 'update' @ L111, false for 'update' @ L295
+[2026-09-18T16:12:08.255Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489cca9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L111:24 for 'update' @ L111, false for 'update' @ L295, false for 'update' @ L111, false for 'update' @ L295
+[2026-09-18T16:12:08.279Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccaa error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L257, false for 'create' @ L295, false for 'update' @ L257, false for 'update' @ L295
+[2026-09-18T16:12:08.318Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccab error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L185:24 for 'update' @ L185, false for 'update' @ L295, false for 'update' @ L185, false for 'update' @ L295
+[2026-09-18T16:12:08.334Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccac error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L257, false for 'update' @ L295
+✔ rules: ownership, role escalation, inventory and order writes (4006.8062ms)
+[2026-09-18T16:12:08.591Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccae error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L111:24 for 'update' @ L111, false for 'update' @ L295, false for 'update' @ L111, false for 'update' @ L295
+✔ rules: active role switches only within server-approved entitlements (76.6639ms)
+✔ rules: riders browse sanitized jobs and read only their assigned full order (155.5724ms)
+[2026-09-18T16:12:08.804Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L185:24 for 'update' @ L185, false for 'update' @ L295, false for 'update' @ L185, false for 'update' @ L295
+[2026-09-18T16:12:08.825Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb2 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L185:24 for 'update' @ L185, false for 'update' @ L295, false for 'update' @ L185, false for 'update' @ L295
+✔ rules: florist cannot forge reservations; sourceability independent from stock (77.6485ms)
+[2026-09-18T16:12:08.860Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb3 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L128, false for 'create' @ L295, false for 'update' @ L128, false for 'update' @ L295
+[2026-09-18T16:12:08.878Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb4 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L128, false for 'update' @ L295
+[2026-09-18T16:12:08.895Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb5 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L128, false for 'update' @ L295
+[2026-09-18T16:12:08.911Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb6 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L128, false for 'create' @ L295, false for 'update' @ L128, false for 'update' @ L295
+✔ rules: address writes require the server-coordinated default path (86.1444ms)
+[2026-09-18T16:12:08.970Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb7 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'create' @ L285, false for 'create' @ L295, false for 'update' @ L287, false for 'update' @ L295
+[2026-09-18T16:12:08.987Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb8 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L287:24 for 'update' @ L287, false for 'update' @ L295, false for 'update' @ L287, false for 'update' @ L295
+[2026-09-18T16:12:09.024Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccb9 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'update' @ L287, false for 'update' @ L295
+✔ rider applications cannot be approved by clients (147.0142ms)
+[2026-09-18T16:12:09.189Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccbd error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L111:24 for 'update' @ L111, false for 'update' @ L295, false for 'update' @ L111, false for 'update' @ L295
+[2026-09-18T16:12:09.218Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccbe error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L138:34 for 'create' @ L138, false for 'create' @ L295, evaluation error at L138:34 for 'update' @ L138, false for 'update' @ L295, false for 'create' @ L138, false for 'create' @ L295
+[2026-09-18T16:12:09.228Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccbf error. Code: 7 Message: 7 PERMISSION_DENIED: 
+false for 'delete' @ L124, false for 'delete' @ L295
+[2026-09-18T16:12:09.275Z]  @firebase/firestore: Firestore (12.18.0): GrpcConnection RPC 'Write' stream 0x4489ccc1 error. Code: 7 Message: 7 PERMISSION_DENIED: 
+evaluation error at L103:24 for 'create' @ L103, false for 'create' @ L295, evaluation error at L111:24 for 'update' @ L111, false for 'update' @ L295, false for 'create' @ L103, false for 'create' @ L295
+✔ rules stop deleting accounts from recreating profiles or subcollections (217.1351ms)
+✔ storage: customer cannot upload; florist accepts image only (3162.3108ms)
+ℹ tests 38
+ℹ suites 0
+ℹ pass 38
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51680.2895
++  Script exited successfully (code 0)
+i  emulators: Shutting down emulators.
+i  firestore: Stopping Firestore Emulator
+!  Firestore Emulator has exited upon receiving signal: SIGINT
+i  auth: Stopping Authentication Emulator
+i  storage: Stopping Storage Emulator
+i  hub: Stopping emulator hub
+i  logging: Stopping Logging Emulator
+!  Unexpected rules runtime error: Exception in thread "main" java.lang.NullPointerException: Cannot invoke "String.length()" because "line" is null
+	at com.google.firebase.rules.tools.local.server.Server.processRequestsFromInputStream(Server.java:75)
+	at com.google.firebase.rules.tools.local.server.Server.start(Server.java:57)
+	at com.google.firebase.rules.tools.local.FirebaseRulesTooling.main(FirebaseRulesTooling.java:81)
+

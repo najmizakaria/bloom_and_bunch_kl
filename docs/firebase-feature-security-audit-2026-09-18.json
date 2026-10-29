@@ -1,0 +1,53 @@
+{
+  "score": 2,
+  "summary": "Ownership and server-controlled roles protect privileged data in the tested scenarios. No role-escalation or cross-customer access bypass was reproduced. The score reflects broken feature/rule compatibility and incomplete data validation, rather than a demonstrated external compromise.",
+  "findings": [
+    {
+      "check": "Business Logic vs. Rules",
+      "severity": "major",
+      "issue": "Profile notification settings write notificationsEnabled, which the user schema and update allowlist reject. The control shows a changed local state despite a failed backend write.",
+      "recommendation": "Define the supported notification schema, validate the preference boolean on create/update, await writes, and implement token/permission/delivery handling before advertising push updates."
+    },
+    {
+      "check": "Type Safety and Business Logic vs. Rules",
+      "severity": "moderate",
+      "issue": "Bouquet recipe validation accepts a bounded map without validating entries, referenced flowers or checkout stem limits. A florist can publish a 101-stem recipe which the order backend rejects. This was reproduced in the emulator.",
+      "recommendation": "Validate published recipes through a trusted product-management path and share the supported recipe limits with the florist form and checkout backend."
+    },
+    {
+      "check": "Business Logic vs. Rules",
+      "severity": "moderate",
+      "issue": "Saved addresses valid under the rules can have null coordinates. The order handler accepts these and deducts stock, while the dispatch feed and rider acceptance exclude them. A hidden ready order was reproduced.",
+      "recommendation": "Require a confirmed delivery pin at checkout or define a recoverable review state and location-repair workflow before stock-consuming dispatch confirmation."
+    }
+  ],
+  "auditStage": "Initial audit before remediation; see postRepair for current status.",
+  "correction": "The original favourite-field allowlist finding was incorrect: keys().hasOnly was already present. It has been removed.",
+  "postRepair": {
+    "status": "Known feature/rule defects repaired locally",
+    "rulesReview": "Prototype rules; review before broad release.",
+    "verified": [
+      "Notification preference and device ownership",
+      "Recipe count/type/total limits including 30-type boundary",
+      "Confirmed dispatchable address before stock deduction",
+      "Recent-authentication deletion and resumable recursive cleanup",
+      "Deleting accounts cannot recreate profiles or favourites",
+      "Role/ownership and Storage restrictions",
+      "Deletion serialized against concurrent checkout, acceptance and recipe save",
+      "Legacy stale delivery jobs removed"
+    ],
+    "notVerified": [
+      "Production deployment/IAM",
+      "Real push delivery/APNs",
+      "iOS device behavior"
+    ],
+    "testResults": {
+      "flutter": 36,
+      "backend": 38,
+      "backendSkipped": 0,
+      "analysis": "No issues",
+      "androidDebug": "Compiled",
+      "webRelease": "Compiled and configuration validated"
+    }
+  }
+}

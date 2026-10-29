@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Check your payment · Bloom &amp; Bunch KL</title>
+  <style>
+    body { margin: 0; padding: 24px; min-height: 85vh; display: grid; place-items: center;
+      font: 18px/1.6 system-ui, sans-serif; color: #44352d; background: #faf7f2; }
+    main { max-width: 520px; padding: 32px; border-radius: 20px; background: white; }
+    h1 { font-size: 28px; line-height: 1.25; }
+    a { display: inline-block; padding: 12px 20px; border-radius: 10px;
+      background: #70513d; color: white; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <p>Bloom &amp; Bunch KL · Sandbox payment</p>
+    <h1>Return to Bloom &amp; Bunch KL</h1>
+    <p>Your bank session has ended. Payment confirmation may take a moment.</p>
+    <p id="return-message" role="status">Opening the app to verify your payment. If it does not open automatically, tap below.</p>
+    <a id="open-app" href="bloombunch://payment-return">Open app</a>
+    <p>If you used the website, return to your original tab and check payment status,
+      or <a href="/">continue on the website</a>.</p>
+    <noscript>Open the app and check payment from your order details.</noscript>
+  </main>
+  <script src="/payment-return.js"></script>
+</body>
+</html>

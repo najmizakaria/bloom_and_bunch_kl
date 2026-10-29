@@ -1,0 +1,95 @@
+{
+  "date": "2026-10-05",
+  "branch": "main2",
+  "scope": "Customer UI, address persistence and rider acceptance navigation",
+  "verification": {
+    "flutter_analysis": "passed: no issues",
+    "flutter_tests": {
+      "passed": 77
+    },
+    "backend_emulator_tests": {
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0
+    },
+    "authenticated_browser_journeys": {
+      "passed": 4,
+      "filter": null
+    },
+    "demo_web_build": "passed"
+  },
+  "live_metadata": {
+    "project": "bloom-and-bunch-kl",
+    "read_only": true,
+    "deployed_functions": [
+      "placeOrder",
+      "reviewRiderApplication",
+      "saveRecipe",
+      "syncDeliveryJobs",
+      "transitionOrder"
+    ],
+    "local_functions": [
+      "quoteCheckout",
+      "placeOrder",
+      "transitionOrder",
+      "listRiders",
+      "saveRecipe",
+      "submitOrderFeedback",
+      "reportOrderIssue",
+      "resolveOrderIssue",
+      "confirmManualPayment",
+      "reviewRiderApplication",
+      "syncDeliveryJobs",
+      "saveBouquet",
+      "saveAddress",
+      "setDefaultAddress",
+      "deleteAddress",
+      "deleteAccount",
+      "finishAccountDeletion",
+      "updateNotificationSettings",
+      "unregisterNotificationDevice",
+      "notifyOrderStatus"
+    ],
+    "missing_functions": [
+      "confirmManualPayment",
+      "deleteAccount",
+      "deleteAddress",
+      "finishAccountDeletion",
+      "listRiders",
+      "notifyOrderStatus",
+      "quoteCheckout",
+      "reportOrderIssue",
+      "resolveOrderIssue",
+      "saveAddress",
+      "saveBouquet",
+      "setDefaultAddress",
+      "submitOrderFeedback",
+      "unregisterNotificationDevice",
+      "updateNotificationSettings"
+    ]
+  },
+  "address_fix": {
+    "stable_id_across_retries": true,
+    "fields_retained_after_failure": true,
+    "default_coordinated_by_server": true,
+    "created_address_returned_to_checkout": true
+  },
+  "requested_exclusion": "Delivery pin changes never replace the manually entered full address.",
+  "limitations": [
+    "No production deployment or production test writes performed.",
+    "Browser pin selection is controlled; real Maps, geocoding and device GPS are not verified.",
+    "Demo policy remains unchanged; this is not a public ordering release."
+  ],
+  "additional_fixes": [
+    "Cart footer remains reachable at 320x640 and 640x320 with 200% text.",
+    "Rider acceptance uses workspace mounted state after its source tile disappears."
+  ],
+  "live_index_metadata": {
+    "read_only": true,
+    "remote_composite_indexes": 5,
+    "local_composite_indexes": 14,
+    "remote_only_ignoring_implicit_document_id": 0,
+    "local_only_ignoring_implicit_document_id": 9,
+    "remote_field_overrides": []
+  }
+}

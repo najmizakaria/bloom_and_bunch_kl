@@ -1,0 +1,40 @@
+'use strict';
+const {test,before,after}=require('node:test');
+const assert=require('node:assert/strict');
+const enabled=!!process.env.FIRESTORE_EMULATOR_HOST;
+let api,db;
+const req=(uid,data)=>({auth:{uid},data});
+before(async()=>{if(!enabled)return;if(!process.env.GCLOUD_PROJECT?.startsWith('demo-'))throw Error('Use demo emulators.');api=require('../index');db=require('firebase-admin/firestore').getFirestore();for(const [uid,role] of [['ux_buyer','customer'],['ux_other','customer'],['ux_staff','florist'],['ux_rider','rider']])await db.doc('users/'+uid).set({role});});
+after(async()=>{if(db)await db.terminate();});
+test('feedback requires delivered ownership, rejects invalid ratings and deduplicates retries',{skip:!enabled},async()=>{
+ const ref=db.doc('orders/ux_feedback');await ref.set({customerId:'ux_buyer',riderId:'ux_rider',orderStatus:'Processing'});
+ const call=(uid,rating)=>api.submitOrderFeedback.run(req(uid,{orderId:ref.id,rating,comment:'Helpful'}));
+ await assert.rejects(()=>call('ux_buyer',5),e=>e.code==='failed-precondition');await ref.update({orderStatus:'Delivered'});
+ await assert.rejects(()=>call('ux_other',5),e=>e.code==='permission-denied');
+ for(const n of [0,6,2.5,'5'])await assert.rejects(()=>call('ux_buyer',n));
+ await Promise.all([call('ux_buyer',4),call('ux_buyer',4)]);assert.equal((await ref.get()).data().feedback.rating,4);
+});
+test('support only accepts owner/assigned rider; staff resolution and manual payment require staff',{skip:!enabled},async()=>{
+ const ref=db.doc('orders/ux_support');await ref.set({customerId:'ux_buyer',riderId:'ux_rider',orderStatus:'Out for Delivery',orderMode:'manual',paymentStatus:'pending'});
+ const report=uid=>api.reportOrderIssue.run(req(uid,{orderId:ref.id,reason:'recipient_unavailable',comment:'Please contact recipient'}));
+ await assert.rejects(()=>report('ux_other'),e=>e.code==='permission-denied');await report('ux_rider');await report('ux_rider');
+ assert.equal((await ref.get()).data().supportCount,1);
+ await assert.rejects(()=>api.resolveOrderIssue.run(req('ux_buyer',{orderId:ref.id,response:'Resolved'})),e=>e.code==='permission-denied');
+ await api.resolveOrderIssue.run(req('ux_staff',{orderId:ref.id,response:'Contacted recipient and arranged handover.'}));
+ assert.equal((await ref.get()).data().support.status,'resolved');
+ await assert.rejects(()=>api.confirmManualPayment.run(req('ux_buyer',{orderId:ref.id})),e=>e.code==='permission-denied');
+ await api.confirmManualPayment.run(req('ux_staff',{orderId:ref.id}));assert.equal((await ref.get()).data().paymentStatus,'paid');
+});
+test('quote is enforced at checkout and retries preserve the same group and event',{skip:!enabled},async()=>{
+ const address={recipientName:'Test',recipientPhone:'0123456789',address:'KL test address',note:'',latitude:3.139,longitude:101.687};
+ await db.doc('users/ux_buyer/addresses/test').set(address);
+ await db.doc('bouquets/ux_rose').set({name:'Rose',price:50,readyStock:10,availableForReadyNow:true,isPublished:true});
+ const items=[{bouquetId:'ux_rose',fulfillmentType:'ready_now',quantity:1}];
+ const quote=await api.quoteCheckout.run(req('ux_buyer',{items,address}));
+ const payload={checkoutId:'ux_checkout',items,address,addressId:'test',expectedTotal:quote.totalSen/100,quoteId:quote.quoteId};
+ await assert.rejects(()=>api.placeOrder.run(req('ux_buyer',{...payload,quoteId:'stale'})),e=>e.code==='failed-precondition');
+ assert.equal((await db.doc('bouquets/ux_rose').get()).data().readyStock,10);
+ const [a,b]=await Promise.all([api.placeOrder.run(req('ux_buyer',payload)),api.placeOrder.run(req('ux_buyer',payload))]);
+ assert.deepEqual(a,b);assert.equal((await db.doc('bouquets/ux_rose').get()).data().readyStock,9);
+ const order=db.doc('orders/'+a.orderIds[0]);assert.equal((await order.get()).data().paymentStatus,'not_required');assert.equal((await order.collection('events').get()).size,1);
+});

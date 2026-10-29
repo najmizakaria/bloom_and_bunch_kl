@@ -1,69 +1,123 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../core/constants/fulfillment_constants.dart';
+
 class OrderModel {
+  static String _normalizedStatus(String? s) =>
+      s == 'Pending' || s == null ? 'Awaiting Preparation' : s;
   final String orderId;
   final String customerId;
   final String? floristId;
   final String? riderId;
+  final String riderName;
   final double totalAmount;
-  final String orderStatus; // Pending, Accepted, Preparing, Out for Delivery, Delivered, Cancelled
+  final String orderStatus;
+  final String fulfillmentType;
   final String recipientName;
   final String recipientPhone;
   final String deliveryAddress;
-  final DateTime deliveryDate;
+  final String deliveryNote;
+  final String? addressId;
+  final double? latitude, longitude;
   final String deliveryTimeSlot;
-  final Map<String, dynamic> bouquetDetails; // Stores stems, wrapper, ribbon, and card note
+  final DateTime? requestedDeliveryDate;
+  final int leadTimeBusinessDays;
+  final bool requiresPrepTime;
+  final List<Map<String, dynamic>> items;
   final DateTime createdAt;
+  final int deliveryWorkflowVersion;
+  final DateTime? customerAcceptedAt;
+  final bool hasOpenIssue;
+  final String orderMode, paymentStatus;
+  final Map<String, dynamic>? messageCard;
+  final String? scheduledDeliveryDate;
+  final String? estimatedDispatchDate;
+  bool get paymentOnHold =>
+      orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
+  bool get receiptConfirmed => customerAcceptedAt != null;
 
-  OrderModel({
+  const OrderModel({
     required this.orderId,
     required this.customerId,
     this.floristId,
     this.riderId,
+    this.riderName = '',
     required this.totalAmount,
     required this.orderStatus,
+    required this.fulfillmentType,
     required this.recipientName,
     required this.recipientPhone,
     required this.deliveryAddress,
-    required this.deliveryDate,
+    required this.deliveryNote,
+    this.addressId,
+    this.latitude,
+    this.longitude,
     required this.deliveryTimeSlot,
-    required this.bouquetDetails,
+    this.requestedDeliveryDate,
+    required this.leadTimeBusinessDays,
+    required this.requiresPrepTime,
+    required this.items,
     required this.createdAt,
+    this.deliveryWorkflowVersion = 1,
+    this.customerAcceptedAt,
+    this.hasOpenIssue = false,
+    this.orderMode = '',
+    this.paymentStatus = '',
+    this.messageCard,
+    this.scheduledDeliveryDate,
+    this.estimatedDispatchDate,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'orderId': orderId,
-      'customerId': customerId,
-      'floristId': floristId,
-      'riderId': riderId,
-      'totalAmount': totalAmount,
-      'orderStatus': orderStatus,
-      'recipientName': recipientName,
-      'recipientPhone': recipientPhone,
-      'deliveryAddress': deliveryAddress,
-      'deliveryDate': Timestamp.fromDate(deliveryDate),
-      'deliveryTimeSlot': deliveryTimeSlot,
-      'bouquetDetails': bouquetDetails,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
-  }
+  factory OrderModel.fromMap(Map<String, dynamic> map, String documentId) {
+    final requiresPreparation = map['requiresPrepTime'] as bool? ?? false;
 
-  factory OrderModel.fromMap(Map<String, dynamic> map, String docId) {
+    final explicitFulfillmentType = map['fulfillmentType']?.toString();
+
+    final inferredFulfillmentType = requiresPreparation
+        ? FulfillmentTypes.custom
+        : FulfillmentTypes.readyNow;
+
     return OrderModel(
-      orderId: docId,
-      customerId: map['customerId'] ?? '',
-      floristId: map['floristId'],
-      riderId: map['riderId'],
-      totalAmount: (map['totalAmount'] ?? 0.0).toDouble(),
-      orderStatus: map['orderStatus'] ?? 'Pending',
-      recipientName: map['recipientName'] ?? '',
-      recipientPhone: map['recipientPhone'] ?? '',
-      deliveryAddress: map['deliveryAddress'] ?? '',
-      deliveryDate: (map['deliveryDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      deliveryTimeSlot: map['deliveryTimeSlot'] ?? '10:00 AM - 2:00 PM',
-      bouquetDetails: map['bouquetDetails'] ?? {},
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      orderId: documentId,
+      messageCard: map['messageCard'] is Map
+          ? Map<String, dynamic>.from(map['messageCard'] as Map)
+          : null,
+      scheduledDeliveryDate: map['scheduledDeliveryDate'] as String?,
+      estimatedDispatchDate: map['estimatedDispatchDate'] as String?,
+      orderMode: (map['orderMode'] ?? '').toString(),
+      paymentStatus: (map['paymentStatus'] ?? '').toString(),
+      hasOpenIssue: map['support'] is Map && map['support']['status'] == 'open',
+      deliveryWorkflowVersion:
+          (map['deliveryWorkflowVersion'] as num?)?.toInt() ?? 1,
+      customerAcceptedAt: (map['customerAcceptedAt'] as Timestamp?)?.toDate(),
+      customerId: (map['customerId'] ?? '').toString(),
+      floristId: map['floristId']?.toString(),
+      riderId: map['riderId']?.toString(),
+      riderName: (map['riderName'] ?? '').toString(),
+      totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0,
+      orderStatus: _normalizedStatus(map['orderStatus']?.toString()),
+      fulfillmentType: FulfillmentTypes.values.contains(explicitFulfillmentType)
+          ? explicitFulfillmentType!
+          : inferredFulfillmentType,
+      recipientName: (map['recipientName'] ?? '').toString(),
+      recipientPhone: (map['recipientPhone'] ?? '').toString(),
+      deliveryAddress: (map['deliveryAddress'] ?? '').toString(),
+      deliveryNote: (map['deliveryNote'] ?? '').toString(),
+      addressId: map['addressId']?.toString(),
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
+      deliveryTimeSlot: (map['deliveryTimeSlot'] ?? '').toString(),
+      requestedDeliveryDate: (map['requestedDeliveryDate'] as Timestamp?)
+          ?.toDate(),
+      leadTimeBusinessDays: (map['leadTimeBusinessDays'] as num?)?.toInt() ?? 0,
+      requiresPrepTime: requiresPreparation,
+      items: (map['items'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList(),
+      createdAt:
+          (map['createdAt'] as Timestamp?)?.toDate() ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 }
