@@ -547,7 +547,7 @@ class _CustomerBouquetCard extends StatelessWidget {
                   Text(
                     readyNow
                         ? 'Ready; dispatch depends on rider availability'
-                        : 'Choose a date · ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} business days minimum',
+                        : 'Choose a date · ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} preparation days minimum',
                     maxLines: 2,
                     style: const AppTypography.caption(
                       color: AppColors.textMuted,

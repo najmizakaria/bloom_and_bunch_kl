@@ -39,8 +39,12 @@ test('shared cart compare-and-set rejects racing devices and replays one mutatio
   await assert.rejects(()=>api.saveCart.run(request('commerce_staff',{cart,revision:0,mutationId:'staff'})),e=>e.code==='permission-denied');
 });
 
-test('mixed scheduled checkout reserves separate inventory once and creates one combined receipt',{skip:!enabled},async()=>{
-  const date=(await dates())[0],lines=items(date),messageCards={[date]:{designId:'commerce_love',message:'Congratulations!',senderName:'Najmi',price:0}};
+test('mixed weekend checkout reserves separate inventory once and creates one combined receipt',{skip:!enabled},async()=>{
+  const available=await dates();
+  assert.ok(available.some(date=>new Date(date).getUTCDay()===6));
+  const date=available.find(date=>new Date(date).getUTCDay()===0);
+  assert.ok(date);
+  const lines=items(date),messageCards={[date]:{designId:'commerce_love',message:'Congratulations!',senderName:'Najmi',price:0}};
   const cart={checkoutId:'commerce_order',items:lines,messageCards,pendingRequest:null};
   await api.saveCart.run(request('commerce_buyer',{cart,revision:0,mutationId:'checkout_cart'}));
   const quote=await api.quoteCheckout.run(request('commerce_buyer',{items:lines,address,messageCards}));
@@ -49,6 +53,7 @@ test('mixed scheduled checkout reserves separate inventory once and creates one 
   const [a,b]=await Promise.all([api.placeOrder.run(req),api.placeOrder.run(req)]);
   assert.deepEqual(a,b);assert.equal(a.orderIds.length,1);
   const orderId=a.orderIds[0],order=(await db.doc('orders/'+orderId).get()).data();
+  assert.equal(order.scheduledDeliveryDate,date);
   assert.equal(order.items.filter(i=>i.type==='addon').length,1);assert.equal(order.messageCard.senderName,'Najmi');
   assert.deepEqual(order.materialRequirements,{commerce_rose:3});
   assert.equal((await db.doc('addons/commerce_teddy').get()).data().stockQuantity,9);

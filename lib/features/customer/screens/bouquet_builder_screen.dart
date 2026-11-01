@@ -361,7 +361,7 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Choose a delivery date with one full business day for preparation. '
+              'Choose an available delivery date, including weekends, with one full day for preparation. '
               'The florist will source the flowers needed for your design.',
               style: AppTypography.label(color: AppColors.textDark),
             ),

@@ -25,15 +25,6 @@ class AuthWelcomeScreen extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const AppTypography.display(),
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Fresh bouquets, thoughtful details, and delivery across KL.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textMuted,
-              height: 1.5,
-            ),
-          ),
           const SizedBox(height: 44),
           PillButton(
             label: 'Get started',
@@ -50,7 +41,9 @@ class AuthWelcomeScreen extends StatelessWidget {
             isPrimary: false,
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+              MaterialPageRoute<void>(
+                builder: (_) => const LoginScreen(),
+              ),
             ),
           ),
           const SizedBox(height: 24),

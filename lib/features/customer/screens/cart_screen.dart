@@ -326,7 +326,7 @@ class CartScreen extends StatelessWidget {
                                   ),
                                   if (item.leadTimeBusinessDays > 0)
                                     Text(
-                                      '${item.leadTimeBusinessDays} business day preparation',
+                                      '${item.leadTimeBusinessDays} preparation days',
                                       style: const AppTypography.caption(
                                         color: AppColors.textMuted,
                                       ),

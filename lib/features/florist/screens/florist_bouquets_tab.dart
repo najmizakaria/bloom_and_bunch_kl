@@ -598,11 +598,11 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                         items: [
                           DropdownMenuItem(
                             value: 2,
-                            child: Text('2 business days'),
+                            child: Text('2 preparation days'),
                           ),
                           DropdownMenuItem(
                             value: 3,
-                            child: Text('3 business days'),
+                            child: Text('3 preparation days'),
                           ),
                         ],
                         onChanged: saving

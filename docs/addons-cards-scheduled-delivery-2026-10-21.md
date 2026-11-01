@@ -31,10 +31,14 @@ another delivery. Standalone add-on deliveries are rejected by the backend.
 ## Calendar
 
 The backend applies the existing store opening days, holiday list, cutoff and
-daily capacity in Asia/Kuala_Lumpur. Pre-orders have a minimum lead of two
-business-date advances: ordering on a working Monday before cutoff leaves
+daily capacity in Asia/Kuala_Lumpur. The default calendar includes all seven days,
+so Saturday and Sunday are bookable and count toward preparation. Existing saved
+Admin store operations calendars override the defaults; select all seven days
+there to enable weekends for an already-configured store.
+Pre-orders have a minimum lead of two
+operating-date advances: ordering on Monday before cutoff leaves
 Tuesday for preparation and enables Wednesday onward. Longer product lead times
-are honoured. Custom bouquets use the same two-business-day minimum. After
+are honoured. Custom bouquets use the same two-operating-day minimum. After
 cutoff, the starting date moves to the next operating date before adding lead.
 
 The default booking window is 90 calendar days and can be changed to 7–365 days

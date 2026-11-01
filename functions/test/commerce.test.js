@@ -28,6 +28,26 @@ test('planned checkout requires dates and rejects too early, closed and distant 
   assert.equal(p.quote(plan([{...item,requestedDeliveryDate:'2026-08-20'}]),address,now,policy,{requireDates:true}).groups[0].date,'2026-08-20');
 });
 
+test('default calendar accepts weekend ready, pre-order and custom checkout dates', () => {
+  const friday=new Date('2026-08-14T02:00:00Z'),weekendPolicy={...p.configured,mode:'demo'};
+  for(const date of ['2026-08-15','2026-08-16']) {
+    const ready=plan([{bouquetId:'roses',quantity:1,fulfillmentType:'ready_now',requestedDeliveryDate:date}]);
+    assert.equal(p.quote(ready,address,friday,weekendPolicy,{requireDates:true}).groups[0].date,date);
+  }
+  const lines=[
+    {bouquetId:'roses',quantity:1,fulfillmentType:'ready_now'},
+    {bouquetId:'roses',quantity:1,fulfillmentType:'pre_order'},
+    {fulfillmentType:'custom',quantity:1,customStems:{rose:3},wrapper:'Kraft Paper (Classic)',ribbon:'Red Satin'},
+  ];
+  const onDate=date=>plan(lines.map(item=>({...item,requestedDeliveryDate:date})));
+  const quote=p.quote(onDate('2026-08-16'),address,friday,weekendPolicy,{requireDates:true});
+  assert.equal(quote.groups.length,1);
+  assert.equal(quote.groups[0].date,'2026-08-16');
+  assert.equal(quote.groups[0].items.length,3);
+  assert.throws(()=>p.quote(onDate('2026-08-15'),address,friday,weekendPolicy,{requireDates:true}),/no longer available/);
+  assert.throws(()=>p.quote(onDate('2026-08-13'),address,friday,weekendPolicy,{requireDates:true}),/no longer available/);
+});
+
 test('same-date ready, planned, add-on and card share a delivery with separate prices', () => {
   const date='2026-08-12', input=plan([
     {bouquetId:'roses',quantity:1,fulfillmentType:'ready_now',requestedDeliveryDate:date},

@@ -99,10 +99,10 @@ ToyyibPay sandbox is implemented but disabled until server credentials and publi
 
 Deployment-specific `STORE_ORDER_MODE` overrides the checked-in policy mode. Set it to `toyyibpay_sandbox` together with `TOYYIBPAY_ENABLED=true` in the ignored backend environment file when activating sandbox checkout; keep the repository's default demo policy for isolated tests.
 
-Calendar fields use Kuala Lumpur time: weekday numbers 0–6 (Sunday–Saturday), `openingHour`, `cutoffHour`, and ISO holiday dates. After-cutoff orders shift to the next operating date; preparation lead days are added after that date. Displayed dates are estimates of dispatch, not arrival guarantees. Capacity counts accepted delivery groups per date transactionally, conservatively retaining cancelled bookings until staff review. There is no automatic rider allocation or arrival SLA.
+Calendar fields use Kuala Lumpur time: weekday numbers 0–6 (Sunday–Saturday), `openingHour`, `cutoffHour`, and ISO holiday dates. The default calendar opens every day, including Saturday and Sunday; weekends also count toward preparation time. Saved Admin store operations settings override these defaults: enable all seven operating days there if an existing store still has a weekday-only calendar. Explicit closed dates and configured capacity still apply. After-cutoff orders shift to the next operating date; preparation lead days are added after that date. Displayed dates are estimates of dispatch, not arrival guarantees. Capacity counts accepted delivery groups per date transactionally, conservatively retaining cancelled bookings until staff review. There is no automatic rider allocation or arrival SLA.
 
 Pre-order/custom checkout requires a customer-selected date with at least one
-full business day for preparation (two business-date advances). The default
+full operating day for preparation (two operating-date advances). The default
 booking window is 90 calendar days, editable in Admin store operations. The server
 rechecks date availability at checkout and prevents early rider collection of
 scheduled orders. Requested dates are recorded separately from dispatch estimates.
