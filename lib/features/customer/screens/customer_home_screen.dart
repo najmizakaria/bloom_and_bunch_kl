@@ -1,4 +1,3 @@
-import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/services/bouquet_query.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -48,22 +47,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
       : BouquetMode.preOrder;
   Stream<QuerySnapshot<Map<String, dynamic>>> _watchBouquets() =>
       bouquetQuery(_selectedCategory, _browseMode).limit(20).snapshots();
-  void _openBrowse() {
-    if (widget.onBrowse != null) {
-      widget.onBrowse!(_selectedCategory, _browseMode);
-    } else {
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => BouquetCatalogueScreen(
-            initialCategory: _selectedCategory,
-            initialMode: _browseMode,
-          ),
-        ),
-      );
-    }
-  }
-
   String _selectedCategory = 'All';
   DeliveryMode _deliveryMode = DeliveryMode.readyNow;
   String _address = 'Set delivery address';
@@ -160,7 +143,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        leading: const PageBackButton(),
         centerTitle: false,
         automaticallyImplyLeading: false,
         backgroundColor: AppColors.background,
@@ -216,11 +198,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Find the perfect flowers',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 12),
             TextField(
               readOnly: true,
               onTap: () {
@@ -316,18 +293,7 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                   )
                   .toList(),
             ),
-            const SizedBox(height: 24),
-            Text(
-              readyNow ? 'Ready to Send' : 'Available for Pre-Order',
-              style: const AppTypography.sectionTitle(),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: _openBrowse,
-              child: const Text(
-                'Browse all bouquets · preview shows up to 20 products',
-              ),
-            ),
+            const SizedBox(height: 16),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _bouquetsStream,
               builder: (context, snapshot) {
@@ -404,7 +370,6 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
                     final bouquet = bouquets[index];
                     return _CustomerBouquetCard(
                       bouquet: bouquet,
-                      readyNow: readyNow,
                       onOpen: () => Navigator.push(
                         context,
                         MaterialPageRoute<void>(
@@ -477,13 +442,11 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
 class _CustomerBouquetCard extends StatelessWidget {
   const _CustomerBouquetCard({
     required this.bouquet,
-    required this.readyNow,
     required this.onOpen,
     required this.onAdd,
   });
 
   final BouquetModel bouquet;
-  final bool readyNow;
   final VoidCallback onOpen;
   final VoidCallback onAdd;
 
@@ -541,16 +504,6 @@ class _CustomerBouquetCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const AppTypography.productTitle(
                       color: AppColors.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    readyNow
-                        ? 'Ready; dispatch depends on rider availability'
-                        : 'Choose a date · ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} preparation days minimum',
-                    maxLines: 2,
-                    style: const AppTypography.caption(
-                      color: AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 7),
