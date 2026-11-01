@@ -278,6 +278,7 @@ class _OrderEvents extends StatelessWidget {
           .orderBy('createdAt', descending: true),
       emptyMessage: 'No recorded events.',
       builder: (context, docs) => ListView(
+        padding: const EdgeInsets.only(bottom: 88),
         children: docs
             .map(
               (d) => ListTile(

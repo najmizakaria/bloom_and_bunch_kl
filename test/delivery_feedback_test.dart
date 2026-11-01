@@ -229,7 +229,7 @@ void main() {
     },
   );
   testWidgets(
-    'records append on scroll without page controls and reload remains centered',
+    'records append on scroll without page controls and reload floats',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -278,12 +278,14 @@ void main() {
       expect(find.text('Record 20'), findsNothing);
       expect(
         tester.getCenter(find.byTooltip('Reload')).dx,
-        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+        lessThan(
+          tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+        ),
       );
     },
   );
   testWidgets(
-    'centered reload stays clear of catalogue add buttons on a narrow screen',
+    'floating reload stays clear of catalogue add buttons on a narrow screen',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -309,10 +311,14 @@ void main() {
       expect(
         tester
             .getRect(find.byTooltip('Reload'))
-            .overlaps(tester.getRect(find.byType(FloatingActionButton))),
+            .overlaps(
+              tester.getRect(
+                find.widgetWithText(FloatingActionButton, 'Add Card Design'),
+              ),
+            ),
         isFalse,
       );
-      expect(tester.getCenter(find.byTooltip('Reload')).dx, 160);
+      expect(tester.getCenter(find.byTooltip('Reload')).dx, lessThan(160));
       expect(tester.takeException(), isNull);
     },
   );

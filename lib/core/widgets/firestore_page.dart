@@ -62,20 +62,8 @@ class _FirestorePageState extends State<FirestorePage> {
           snapshot.data?.docs.take(_limit).toList() ??
           <QueryDocumentSnapshot<Map<String, dynamic>>>[];
       final loading = snapshot.connectionState == ConnectionState.waiting;
-      final reload = Padding(
-        padding: EdgeInsets.only(
-          bottom: Scaffold.maybeOf(context)?.widget.floatingActionButton != null
-              ? 80
-              : 0,
-        ),
-        child: Center(
-          child: IconButton(
-            tooltip: 'Reload',
-            onPressed: loading ? null : _refresh,
-            icon: const Icon(Icons.refresh),
-          ),
-        ),
-      );
+      final hasAddButton =
+          Scaffold.maybeOf(context)?.widget.floatingActionButton != null;
       Widget content;
       if (snapshot.hasError) {
         content = Center(
@@ -93,7 +81,11 @@ class _FirestorePageState extends State<FirestorePage> {
       } else if (!snapshot.hasData) {
         content = const Center(child: CircularProgressIndicator());
       } else if (widget.pageBuilder != null) {
-        content = widget.pageBuilder!(context, docs, reload);
+        content = widget.pageBuilder!(
+          context,
+          docs,
+          SizedBox(height: hasAddButton ? 160 : 88),
+        );
       } else if (docs.isEmpty) {
         content = Center(
           child: Padding(
@@ -109,14 +101,29 @@ class _FirestorePageState extends State<FirestorePage> {
             (snapshot.data?.docs.length ?? 0) > _limit && !snapshot.hasError,
         busy: loading,
         onLoad: _loadMore,
-        child: Column(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            if (loading && snapshot.hasData) const LinearProgressIndicator(),
-            Expanded(child: content),
-            if (widget.pageBuilder == null ||
-                snapshot.hasError ||
-                !snapshot.hasData)
-              SafeArea(top: false, child: reload),
+            Column(
+              children: [
+                if (loading && snapshot.hasData)
+                  const LinearProgressIndicator(),
+                Expanded(child: content),
+              ],
+            ),
+            Positioned(
+              left: 16,
+              bottom: hasAddButton ? 88 : 16,
+              child: SafeArea(
+                top: false,
+                child: FloatingActionButton.small(
+                  heroTag: null,
+                  tooltip: 'Reload',
+                  onPressed: loading ? null : _refresh,
+                  child: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
           ],
         ),
       );

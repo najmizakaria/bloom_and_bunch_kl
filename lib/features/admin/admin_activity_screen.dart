@@ -29,6 +29,7 @@ class AdminActivityScreen extends StatelessWidget {
             .where((d) => audit || prefs[d.data()['kind']] != false)
             .toList();
         return ListView(
+          padding: const EdgeInsets.only(bottom: 88),
           children: [
             if (visible.isEmpty)
               const Padding(

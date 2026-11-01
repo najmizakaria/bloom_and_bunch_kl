@@ -161,7 +161,7 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                     mainAxisExtent:
-                        170 +
+                        140 +
                         (MediaQuery.textScalerOf(context).scale(140) - 140),
                     children: [
                       _DashboardStatCard(
@@ -347,26 +347,38 @@ class _DashboardStatCard extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.14),
-                  shape: BoxShape.circle,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(9),
-                  child: Icon(icon, color: color, size: 22),
-                ),
+              Row(
+                children: [
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(9),
+                      child: Icon(icon, color: color, size: 22),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const AppTypography.label(
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '${count ?? '—'}',
-                style: AppTypography.display(color: color),
-              ),
-              Text(
-                title,
-                style: const AppTypography.label(color: AppColors.textDark),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '${count ?? '—'}',
+                    style: AppTypography.display(color: color),
+                  ),
+                ),
               ),
             ],
           ),

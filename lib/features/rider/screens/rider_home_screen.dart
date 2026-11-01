@@ -81,7 +81,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       query: query,
       emptyMessage: empty,
       builder: (context, docs) => ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
         children: [
           for (final doc in docs)
             Builder(

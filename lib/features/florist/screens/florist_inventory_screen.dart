@@ -469,7 +469,7 @@ class FloristInventoryScreen extends StatelessWidget {
           }).toList();
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 160),
             itemCount: flowers.length,
             itemBuilder: (context, index) {
               final flower = flowers[index];

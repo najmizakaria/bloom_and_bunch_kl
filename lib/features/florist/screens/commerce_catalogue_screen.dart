@@ -398,7 +398,7 @@ class _CommerceCatalogueScreenState extends State<CommerceCatalogueScreen> {
           ? 'No add-ons yet. Use Add Add-on to create one.'
           : 'No card designs yet. Use Add Card Design to create one.',
       builder: (context, products) => ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 160),
         itemCount: products.length,
         itemBuilder: (context, index) {
           final document = products[index];

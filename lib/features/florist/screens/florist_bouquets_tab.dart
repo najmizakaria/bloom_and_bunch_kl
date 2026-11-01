@@ -763,66 +763,60 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       a.name.toLowerCase().compareTo(b.name.toLowerCase()),
                 );
 
-          return Column(
-            children: [
-              Container(
-                color: Colors.white,
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _showArchived
-                            ? 'Archived Bouquets'
-                            : '${bouquets.length} Bouquets',
-                        style: AppTypography.label(),
-                      ),
-                    ),
-                    FilterChip(
-                      selected: _showArchived,
-                      label: const Text('Archived'),
-                      avatar: const Icon(Icons.archive_outlined, size: 18),
-                      onSelected: (value) =>
-                          setState(() => _showArchived = value),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: bouquets.isEmpty
-                    ? Center(
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 160),
+            itemCount: bouquets.isEmpty ? 2 : bouquets.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: Text(
                           _showArchived
-                              ? 'No archived bouquets.'
-                              : 'No active bouquets.',
+                              ? 'Archived Bouquets'
+                              : '${bouquets.length} Bouquets',
+                          style: AppTypography.label(),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 90),
-                        itemCount: bouquets.length,
-                        itemBuilder: (context, index) {
-                          final bouquet = bouquets[index];
-                          return _BouquetCard(
-                            bouquet: bouquet,
-                            archived: _showArchived,
-                            onEdit: () =>
-                                _showBouquetForm(existingBouquet: bouquet),
-                            onDecreaseStock: () =>
-                                _changeReadyStock(bouquet, -1),
-                            onIncreaseStock: () =>
-                                _changeReadyStock(bouquet, 1),
-                            onPublishedChanged: (value) =>
-                                _setPublished(bouquet, value),
-                            onReadyNowChanged: (value) =>
-                                _setReadyNowAvailability(bouquet, value),
-                            onArchive: () => _archiveBouquet(bouquet),
-                            onRestore: () => _restoreBouquet(bouquet),
-                            onDelete: () => _deleteBouquet(bouquet),
-                          );
-                        },
                       ),
-              ),
-            ],
+                      FilterChip(
+                        selected: _showArchived,
+                        label: const Text('Archived'),
+                        avatar: const Icon(Icons.archive_outlined, size: 18),
+                        onSelected: (value) =>
+                            setState(() => _showArchived = value),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              if (bouquets.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Text(
+                    _showArchived
+                        ? 'No archived bouquets.'
+                        : 'No active bouquets.',
+                    textAlign: TextAlign.center,
+                  ),
+                );
+              }
+              final bouquet = bouquets[index - 1];
+              return _BouquetCard(
+                bouquet: bouquet,
+                archived: _showArchived,
+                onEdit: () => _showBouquetForm(existingBouquet: bouquet),
+                onDecreaseStock: () => _changeReadyStock(bouquet, -1),
+                onIncreaseStock: () => _changeReadyStock(bouquet, 1),
+                onPublishedChanged: (value) => _setPublished(bouquet, value),
+                onReadyNowChanged: (value) =>
+                    _setReadyNowAvailability(bouquet, value),
+                onArchive: () => _archiveBouquet(bouquet),
+                onRestore: () => _restoreBouquet(bouquet),
+                onDelete: () => _deleteBouquet(bouquet),
+              );
+            },
           );
         },
       ),

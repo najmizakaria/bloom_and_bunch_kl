@@ -243,7 +243,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   : 'No active orders match this filter.',
               builder: (context, docs) {
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
                   itemCount: docs.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {

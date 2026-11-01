@@ -101,7 +101,7 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
     final filtered = _filteredOrders(orders);
     if (filtered.isEmpty) return Center(child: Text(_emptyMessage()));
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       children: [
         for (final order in filtered)
           _OrderCard(
