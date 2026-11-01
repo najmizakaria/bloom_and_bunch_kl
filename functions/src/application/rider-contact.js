@@ -18,7 +18,7 @@ function createContactHandler({ db, hasRole }) {
       }
       if (
         !o.riderId ||
-        !['Out for Delivery', 'Awaiting Customer Confirmation'].includes(o.orderStatus)
+        !['Rider assigned', 'Out for Delivery', 'Awaiting Customer Confirmation'].includes(o.orderStatus)
       ) {
         d.fail(
           'Rider calling is available only during your assigned active delivery.',

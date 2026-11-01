@@ -38,7 +38,7 @@ test('role alone cannot accept; explicit admin contact repair enables assignment
   assert.equal((await api.listAvailableDeliveries.run(req('ready_rider'))).contactReady,true);
   await act('ready_rider',orderId,'accept');
   const assigned=(await db.doc('orders/'+orderId).get()).data();
-  assert.equal(assigned.orderStatus,'Out for Delivery');assert.equal(assigned.riderName,'Approved Delivery Name');
+  assert.equal(assigned.orderStatus,'Rider assigned');assert.equal(assigned.riderName,'Approved Delivery Name');
   assert.deepEqual(await api.getAssignedRiderContact.run(req('ready_buyer',{orderId})),{name:'Approved Delivery Name',phone:'+60123456789'});
   await assert.rejects(()=>api.getAssignedRiderContact.run(req('ready_other',{orderId})),e=>e.code==='permission-denied');
   // Existing work remains retryable even if contact later needs repair.
@@ -46,6 +46,7 @@ test('role alone cannot accept; explicit admin contact repair enables assignment
   await act('ready_rider',orderId,'accept');
   const current=await directory();
   await api.adminSaveRiderContact.run(req('ready_admin',{...payload,contactVersion:current.contactVersion}));
+  await act('ready_rider',orderId,'collect');
   await act('ready_rider',orderId,'deliver');
   assert.equal((await db.doc('orders/'+orderId).get()).data().orderStatus,'Awaiting Customer Confirmation');
   await act('ready_buyer',orderId,'confirmReceived');

@@ -1,6 +1,7 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/services/bouquet_query.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
+import '../../../core/widgets/firestore_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -41,48 +42,6 @@ class BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
     'Sympathy',
   ];
   late final TextEditingController _searchController;
-  static const _limit = 40;
-  final List<DocumentSnapshot<Map<String, dynamic>>?> _starts = [null];
-  late Stream<QuerySnapshot<Map<String, dynamic>>> _bouquetsStream =
-      _watchBouquets();
-  Stream<QuerySnapshot<Map<String, dynamic>>> _watchBouquets() {
-    var query = bouquetQuery(_category, _mode);
-    if (_starts.last != null) query = query.startAfterDocument(_starts.last!);
-    return query.limit(_limit + 1).snapshots();
-  }
-
-  Widget _pageControls(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-  ) => SliverToBoxAdapter(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        spacing: 12,
-        children: [
-          TextButton(
-            onPressed: _starts.length == 1
-                ? null
-                : () => setState(() {
-                    _starts.removeLast();
-                    _bouquetsStream = _watchBouquets();
-                  }),
-            child: const Text('Previous'),
-          ),
-          Text('Page ${_starts.length} · search applies to this page'),
-          TextButton(
-            onPressed: docs.length <= _limit
-                ? null
-                : () => setState(() {
-                    _starts.add(docs[_limit - 1]);
-                    _bouquetsStream = _watchBouquets();
-                  }),
-            child: const Text('Next'),
-          ),
-        ],
-      ),
-    ),
-  );
   String _query = '';
   String _category = 'All';
   BouquetMode _mode = BouquetMode.all;
@@ -90,9 +49,6 @@ class BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
   void selectFilters(String category, BouquetMode mode) => setState(() {
     _category = _categories.contains(category) ? category : 'All';
     _mode = mode;
-    _starts.clear();
-    _starts.add(null);
-    _bouquetsStream = _watchBouquets();
   });
   @override
   void initState() {
@@ -149,108 +105,90 @@ class BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _searchController,
-                    onChanged: (value) =>
-                        setState(() => _query = value.trim().toLowerCase()),
-                    decoration: InputDecoration(
-                      hintText: 'Search loaded bouquets or occasions',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _query = '');
-                              },
-                              icon: const Icon(Icons.close_rounded),
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  ProductFilterBar(
+      body: FirestorePage(
+        query: bouquetQuery(_category, _mode),
+        pageBuilder: (context, docs, reload) {
+          final bouquets =
+              docs
+                  .where((document) => document.data()['archived'] != true)
+                  .map(
+                    (document) =>
+                        BouquetModel.fromMap(document.data(), document.id),
+                  )
+                  .where(_matches)
+                  .toList()
+                ..sort(
+                  (a, b) =>
+                      a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+                );
+          return CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
+                  child: Column(
                     children: [
-                      ProductCategoryChip(
-                        selected: _mode == BouquetMode.readyNow,
-                        label: 'Ready now',
-                        icon: Icons.bolt_rounded,
-                        onSelected: (value) => selectFilters(
-                          _category,
-                          value ? BouquetMode.readyNow : BouquetMode.all,
+                      TextField(
+                        controller: _searchController,
+                        onChanged: (value) =>
+                            setState(() => _query = value.trim().toLowerCase()),
+                        decoration: InputDecoration(
+                          hintText: 'Search loaded bouquets or occasions',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () {
+                                    _searchController.clear();
+                                    setState(() => _query = '');
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
                         ),
                       ),
-                      ProductCategoryChip(
-                        selected: _mode == BouquetMode.preOrder,
-                        label: 'Pre-Order',
-                        onSelected: (value) => selectFilters(
-                          _category,
-                          value ? BouquetMode.preOrder : BouquetMode.all,
-                        ),
-                      ),
-                      ..._categories.map(
-                        (category) => ProductCategoryChip(
-                          selected: _category == category,
-                          label: category,
-                          onSelected: (_) => selectFilters(category, _mode),
-                        ),
+                      const SizedBox(height: 14),
+                      ProductFilterBar(
+                        children: [
+                          ProductCategoryChip(
+                            selected: _mode == BouquetMode.readyNow,
+                            label: 'Ready now',
+                            icon: Icons.bolt_rounded,
+                            onSelected: (value) => selectFilters(
+                              _category,
+                              value ? BouquetMode.readyNow : BouquetMode.all,
+                            ),
+                          ),
+                          ProductCategoryChip(
+                            selected: _mode == BouquetMode.preOrder,
+                            label: 'Pre-Order',
+                            onSelected: (value) => selectFilters(
+                              _category,
+                              value ? BouquetMode.preOrder : BouquetMode.all,
+                            ),
+                          ),
+                          ..._categories.map(
+                            (category) => ProductCategoryChip(
+                              selected: _category == category,
+                              label: category,
+                              onSelected: (_) => selectFilters(category, _mode),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _bouquetsStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SliverFillRemaining(
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              if (snapshot.hasError) {
-                return SliverFillRemaining(
-                  child: _CatalogueMessage(
-                    onRetry: () =>
-                        setState(() => _bouquetsStream = _watchBouquets()),
-                    icon: Icons.cloud_off_outlined,
-                    title: 'Bouquets could not be loaded',
-                    message: 'Check your connection and try again.',
-                  ),
-                );
-              }
 
-              final bouquets =
-                  (snapshot.data?.docs ?? const [])
-                      .take(_limit)
-                      .where((document) => document.data()['archived'] != true)
-                      .map(
-                        (document) =>
-                            BouquetModel.fromMap(document.data(), document.id),
-                      )
-                      .where(_matches)
-                      .toList()
-                    ..sort(
-                      (a, b) =>
-                          a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-                    );
-
-              return SliverMainAxisGroup(
+              SliverMainAxisGroup(
                 slivers: [
                   if (bouquets.isEmpty)
                     const SliverToBoxAdapter(
                       child: Padding(
                         padding: EdgeInsets.all(24),
                         child: Text(
-                          'No matching bouquets on this page. Check Next or change your filters.',
+                          'No matching bouquets. Try changing your filters.',
                         ),
                       ),
                     ),
@@ -272,12 +210,12 @@ class BouquetCatalogueScreenState extends State<BouquetCatalogueScreen> {
                           _BouquetTile(bouquet: bouquets[index], mode: _mode),
                     ),
                   ),
-                  _pageControls(snapshot.data?.docs ?? const []),
+                  SliverToBoxAdapter(child: reload),
                 ],
-              );
-            },
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -378,44 +316,6 @@ class _BouquetTile extends StatelessWidget {
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CatalogueMessage extends StatelessWidget {
-  const _CatalogueMessage({
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.onRetry,
-  });
-  final IconData icon;
-  final String title;
-  final String message;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (onRetry != null)
-              TextButton(onPressed: onRetry, child: const Text('Retry')),
-            Icon(icon, size: 52, color: AppColors.primary),
-            const SizedBox(height: 14),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 6),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textMuted),
             ),
           ],
         ),

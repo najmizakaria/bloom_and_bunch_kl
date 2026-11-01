@@ -23,7 +23,7 @@ function createAdminEventHandlers({ db, FieldValue }) {
       await adminAlert(
         e,
         'orders',
-        after.support?.status === 'open' ? 'Order needs support' : `Order ${after.orderStatus}`,
+        after.support?.status === 'open' ? 'Order needs support' : `Order ${after.orderStatus === 'Ready for Delivery' ? 'Ready to ship' : after.orderStatus}`,
         e.params.orderId,
       );
   };

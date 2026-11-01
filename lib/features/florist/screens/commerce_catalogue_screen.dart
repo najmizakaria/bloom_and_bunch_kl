@@ -178,7 +178,7 @@ class _CommerceCatalogueScreenState extends State<CommerceCatalogueScreen> {
                                     ),
                                 ],
                               ),
-                              const Text('JPEG, PNG or WebP · Up to 5 MB'),
+
                               if (selectedImage != null)
                                 const Text(
                                   'New image will upload when you save.',
@@ -207,7 +207,7 @@ class _CommerceCatalogueScreenState extends State<CommerceCatalogueScreen> {
                             decimal: true,
                           ),
                           decoration: const InputDecoration(
-                            labelText: 'Price (0 = free)',
+                            labelText: 'Price',
                             prefixText: 'RM ',
                             border: OutlineInputBorder(),
                           ),

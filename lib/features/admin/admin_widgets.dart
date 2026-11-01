@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../core/widgets/load_more_on_scroll.dart';
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
 import 'admin_navigation_scope.dart';
@@ -38,11 +39,15 @@ Future<bool> adminAction(
 class AdminLoad extends StatefulWidget {
   const AdminLoad({
     super.key,
-    required this.load,
+    this.load,
+    this.loadPage,
+    this.recordsKey,
     required this.builder,
     this.poll = false,
-  });
-  final Future<Map<String, dynamic>> Function() load;
+  }) : assert(load != null || (loadPage != null && recordsKey != null));
+  final Future<Map<String, dynamic>> Function()? load;
+  final Future<Map<String, dynamic>> Function(String? cursor)? loadPage;
+  final String? recordsKey;
   final Widget Function(Map<String, dynamic> data, VoidCallback refresh)
   builder;
   final bool poll;
@@ -53,6 +58,7 @@ class AdminLoad extends StatefulWidget {
 class _AdminLoadState extends State<AdminLoad> {
   Map<String, dynamic>? _data;
   Object? _error;
+  Object? _moreError;
   bool _busy = false;
   Timer? _timer;
   @override
@@ -69,12 +75,73 @@ class _AdminLoadState extends State<AdminLoad> {
     setState(() {
       _busy = true;
       _error = null;
+      _moreError = null;
     });
     try {
-      final value = await widget.load();
+      var value = widget.loadPage == null
+          ? await widget.load!()
+          : await _read(null);
+      final target = (_data?[widget.recordsKey] as List?)?.length ?? 0;
+      while (widget.loadPage != null &&
+          (value[widget.recordsKey] as List).length < target &&
+          value['next'] != null) {
+        final next = await _read(value['next'] as String);
+        value = {
+          ...next,
+          widget.recordsKey!: [
+            ...value[widget.recordsKey] as List,
+            ...next[widget.recordsKey] as List,
+          ],
+        };
+      }
       if (mounted) setState(() => _data = value);
     } catch (error) {
       if (mounted) setState(() => _error = error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<Map<String, dynamic>> _read(String? cursor) async {
+    final visited = <String?>{};
+    while (true) {
+      if (!visited.add(cursor)) {
+        throw StateError('The list could not continue. Please reload.');
+      }
+      final value = await widget.loadPage!(cursor);
+      if ((value[widget.recordsKey] as List? ?? []).isNotEmpty ||
+          value['next'] == null) {
+        return value;
+      }
+      cursor = value['next'] as String;
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_busy || _data?['next'] == null) return;
+    setState(() {
+      _busy = true;
+      _moreError = null;
+    });
+    try {
+      final cursor = _data!['next'] as String;
+      final next = await _read(cursor);
+      if (next['next'] == cursor) {
+        throw StateError('The list could not continue. Please reload.');
+      }
+      if (mounted) {
+        setState(
+          () => _data = {
+            ...next,
+            widget.recordsKey!: [
+              ..._data![widget.recordsKey] as List,
+              ...next[widget.recordsKey] as List,
+            ],
+          },
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _moreError = error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -111,11 +178,38 @@ class _AdminLoadState extends State<AdminLoad> {
         ),
       );
     }
-    return Column(
-      children: [
-        if (_busy) const LinearProgressIndicator(),
-        Expanded(child: widget.builder(_data ?? {}, _refresh)),
-      ],
+    return LoadMoreOnScroll(
+      hasMore:
+          widget.loadPage != null &&
+          _data?['next'] != null &&
+          _moreError == null,
+      busy: _busy,
+      onLoad: _loadMore,
+      child: Column(
+        children: [
+          if (_busy) const LinearProgressIndicator(),
+          Expanded(
+            key: const ValueKey('records'),
+            child: widget.builder(_data ?? {}, _refresh),
+          ),
+          if (_moreError != null)
+            TextButton(
+              onPressed: _loadMore,
+              child: const Text('Retry loading more'),
+            ),
+          if (widget.loadPage != null)
+            SafeArea(
+              top: false,
+              child: Center(
+                child: IconButton(
+                  tooltip: 'Reload',
+                  onPressed: _busy ? null : _refresh,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

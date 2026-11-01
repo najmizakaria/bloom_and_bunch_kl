@@ -65,7 +65,6 @@ function createBackend({ db }) {
     db,
     hasRole,
     ...readers,
-    writeAvailableJob,
     deliveryEligible,
     storePolicy,
     assertPaymentsEnabled,
@@ -82,7 +81,7 @@ function createBackend({ db }) {
   });
   const catalog = createCatalogHandlers({ db, hasRole, FieldValue });
   const addresses = createAddressHandlers({ db, FieldValue });
-  const support = createSupportHandlers({ db, hasRole, FieldValue });
+  const support = createSupportHandlers({ db, hasRole, FieldValue, writeAvailableJob });
   const riders = createRiderHandlers({ db, hasRole, FieldValue, FieldPath, Filter });
   const accounts = createAccountHandlers({ db, getAuth, FieldValue });
   const notifications = createNotificationHandlers({

@@ -117,12 +117,16 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
   }
 
   Future<void> _markAsDelivered() async {
+    if (_isLoading) return;
+    final collecting = widget.order.orderStatus == 'Rider assigned';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm delivered?'),
-        content: const Text(
-          'Confirm the bouquet has been handed to the recipient or left according to their instructions. The order will wait for customer receipt confirmation.',
+        title: Text(collecting ? 'Confirm collection?' : 'Confirm delivered?'),
+        content: Text(
+          collecting
+              ? 'Confirm that you have collected the packed order from the florist. The customer will see that delivery has started.'
+              : 'Confirm the bouquet has been handed to the recipient or left according to their instructions. The order will wait for customer receipt confirmation.',
         ),
         actions: [
           TextButton(
@@ -131,7 +135,9 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm delivered'),
+            child: Text(
+              collecting ? 'Confirm collection' : 'Confirm delivered',
+            ),
           ),
         ],
       ),
@@ -140,8 +146,11 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
 
     setState(() => _isLoading = true);
     try {
-      await OrderService().transition(widget.order.orderId, 'deliver');
-      if (mounted) Navigator.pop(context);
+      await OrderService().transition(
+        widget.order.orderId,
+        collecting ? 'collect' : 'deliver',
+      );
+      if (mounted && !collecting) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
@@ -155,7 +164,8 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
 
   @override
   Widget build(BuildContext context) {
-    final active = widget.order.orderStatus == 'Out for Delivery';
+    final collecting = widget.order.orderStatus == 'Rider assigned';
+    final active = collecting || widget.order.orderStatus == 'Out for Delivery';
     return Scaffold(
       appBar: AppBar(
         leading: const PageBackButton(),
@@ -176,6 +186,13 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (collecting)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 16),
+                child: Text(
+                  'Rider assigned — collect the packed order from the florist, then confirm collection. Delivery has not started yet.',
+                ),
+              ),
             if (widget.order.hasOpenIssue)
               const Padding(
                 padding: EdgeInsets.only(bottom: 16),
@@ -326,9 +343,9 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        'Mark as Delivered',
-                        style: AppTypography.button(color: Colors.white),
+                    : Text(
+                        collecting ? 'Confirm collection' : 'Mark as Delivered',
+                        style: const AppTypography.button(color: Colors.white),
                       ),
               ),
             )

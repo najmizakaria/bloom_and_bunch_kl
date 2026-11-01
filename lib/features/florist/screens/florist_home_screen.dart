@@ -111,7 +111,9 @@ class FloristHomeScreen extends StatelessWidget {
                       border: Border.all(color: statusColor),
                     ),
                     child: Text(
-                      order.orderStatus,
+                      order.orderStatus == 'Ready for Delivery'
+                          ? 'Ready to ship'
+                          : order.orderStatus,
                       style: AppTypography.label(color: statusColor),
                     ),
                   ),

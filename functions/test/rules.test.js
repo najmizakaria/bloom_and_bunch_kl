@@ -12,6 +12,21 @@ test('admin-only collections cannot be forged and profiles remain owner-only',{s
  await assertFails(setDoc(doc(admin,'rider_locations','admin'),{latitude:3,longitude:101}));
 });
 let env;
+
+test('queue revisions are rider-readable and assignment notes remain staff-only', {skip:!enabled}, async()=>{
+ const rider=env.authenticatedContext('rider').firestore(),staff=env.authenticatedContext('florist').firestore(),customer=env.authenticatedContext('customer').firestore();
+ await env.withSecurityRulesDisabled(async context=>{
+  await setDoc(doc(context.firestore(),'delivery_queue/current'),{revision:1});
+  await setDoc(doc(context.firestore(),'orders/assignment_private/assignment_events/change'),{reason:'Staff handoff note'});
+ });
+ await assertSucceeds(getDoc(doc(rider,'delivery_queue/current')));
+ await assertFails(getDoc(doc(customer,'delivery_queue/current')));
+ await assertFails(setDoc(doc(rider,'delivery_queue/current'),{revision:999}));
+ await assertSucceeds(getDoc(doc(staff,'orders/assignment_private/assignment_events/change')));
+ await assertFails(getDoc(doc(customer,'orders/assignment_private/assignment_events/change')));
+ await assertFails(getDoc(doc(rider,'orders/assignment_private/assignment_events/change')));
+ await assertFails(setDoc(doc(staff,'orders/assignment_private/assignment_events/forged'),{reason:'Forged'}));
+});
 test('commerce catalogues require authentication; carts and receipts are private server writes',{skip:!enabled},async()=>{
  const owner=env.authenticatedContext('customer').firestore(),other=env.authenticatedContext('other').firestore(),staff=env.authenticatedContext('florist').firestore(),anonymous=env.unauthenticatedContext().firestore();
  await env.withSecurityRulesDisabled(async context=>{

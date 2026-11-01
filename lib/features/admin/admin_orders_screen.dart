@@ -34,14 +34,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   late String _dateField = widget.initialDateField;
   String _fulfillment = '', _searchValue = '';
   final _search = TextEditingController();
-  final List<String?> _pages = [null];
   late DateTimeRange? _dates = widget.initialDates;
   int _revision = 0;
   void _change(VoidCallback action) => setState(() {
     action();
-    _pages
-      ..clear()
-      ..add(null);
     _revision++;
   });
   @override
@@ -69,6 +65,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             value: v,
             child: Text(switch (v) {
               'preparation' => 'Awaiting / in preparation',
+              'Ready for Delivery' => 'Ready to ship',
               'ready_now' => 'Ready to Send',
               'pre_order' => 'Pre-Order',
               'custom' => 'Custom Bouquet',
@@ -146,6 +143,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                       OrderStatuses.legacyPending,
                       OrderStatuses.processing,
                       OrderStatuses.readyForDelivery,
+                      OrderStatuses.riderAssigned,
                       OrderStatuses.outForDelivery,
                       OrderStatuses.awaitingConfirmation,
                       OrderStatuses.completed,
@@ -223,7 +221,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         Expanded(
           child: AdminLoad(
             key: ValueKey(_revision),
-            load: () =>
+            recordsKey: 'orders',
+            loadPage: (cursor) =>
                 (widget.ordersLoader ??
                 ((data) => AdminService().call('adminOrders', data)))({
                   'dateField': _dateField,
@@ -232,7 +231,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   if (_payment.isNotEmpty) 'payment': _payment,
                   if (_fulfillment.isNotEmpty) 'fulfillment': _fulfillment,
                   if (_searchValue.isNotEmpty) 'search': _searchValue,
-                  if (_pages.last != null) 'after': _pages.last,
+                  'after': ?cursor,
                   if (_dates != null)
                     'from': malaysiaDateBoundary(
                       _dates!.start,
@@ -254,14 +253,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                   openAdminPage(context, AdminOrderDetailScreen(orderId: id));
               return Column(
                 children: [
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: refresh,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Refresh'),
-                    ),
-                  ),
                   Expanded(
                     child: rows.isEmpty
                         ? const Center(
@@ -347,34 +338,6 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                               );
                             },
                           ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Wrap(
-                      spacing: 12,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text('Page ${_pages.length}'),
-                        OutlinedButton(
-                          onPressed: _pages.length > 1
-                              ? () => setState(() {
-                                  _pages.removeLast();
-                                  _revision++;
-                                })
-                              : null,
-                          child: const Text('Previous'),
-                        ),
-                        FilledButton(
-                          onPressed: data['next'] != null
-                              ? () => setState(() {
-                                  _pages.add(data['next'] as String);
-                                  _revision++;
-                                })
-                              : null,
-                          child: const Text('Next'),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               );

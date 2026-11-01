@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../../models/order_model.dart';
 import 'order_materials_panel.dart';
 import '../../customer/screens/message_card_screen.dart';
+import '../../support/order_rider_assignment.dart';
 
 class FloristOrderDetailScreen extends StatelessWidget {
   const FloristOrderDetailScreen({super.key, required this.order, this.watch});
@@ -65,7 +66,7 @@ class _FloristOrderDetailContentState
       case 'Awaiting Preparation':
         return 'Start Preparing';
       case 'Processing':
-        return 'Mark Ready for Delivery';
+        return 'Mark Ready to ship';
       default:
         return '';
     }
@@ -89,6 +90,7 @@ class _FloristOrderDetailContentState
       case 'Processing':
         return 1;
       case 'Ready for Delivery':
+      case 'Rider assigned':
       case 'Out for Delivery':
       case 'Awaiting Customer Confirmation':
       case 'Completed':
@@ -109,7 +111,9 @@ class _FloristOrderDetailContentState
       case 'Processing':
         return 'Preparing Bouquet';
       case 'Ready for Delivery':
-        return 'Bouquet Ready';
+        return 'Ready to ship';
+      case 'Rider assigned':
+        return 'Rider assigned';
       case 'Out for Delivery':
         return 'Delivering';
       case 'Awaiting Customer Confirmation':
@@ -135,7 +139,9 @@ class _FloristOrderDetailContentState
       case 'Processing':
         return 'The florist is currently preparing this order.';
       case 'Ready for Delivery':
-        return 'The order is waiting for a rider to collect it.';
+        return 'The order is packed and awaiting a rider. Check the handoff details below.';
+      case 'Rider assigned':
+        return 'A rider is assigned. Collection has not been confirmed yet.';
       case 'Out for Delivery':
         return 'A rider has collected and is delivering this order.';
       case 'Awaiting Customer Confirmation':
@@ -199,7 +205,7 @@ class _FloristOrderDetailContentState
           content: Text(
             newStatus == 'Processing'
                 ? 'Start preparing this customer order?'
-                : 'Confirm that the bouquet is finished and ready for rider collection?',
+                : 'Confirm that the bouquet, add-ons and message card are packed and ready for rider collection?',
           ),
           actions: [
             TextButton(
@@ -248,7 +254,7 @@ class _FloristOrderDetailContentState
           content: Text(
             newStatus == 'Processing'
                 ? 'Order preparation started'
-                : 'Order is ready for rider collection',
+                : 'Ready to ship. Check rider availability below.',
           ),
           backgroundColor: AppColors.primaryDark,
         ),
@@ -310,8 +316,10 @@ class _FloristOrderDetailContentState
             _buildOrderHeading(),
             const SizedBox(height: 16),
             _buildStatusCard(),
+            OrderRiderAssignment(order: widget.order),
             if (widget.order.riderId?.isNotEmpty == true &&
                 [
+                  'Rider assigned',
                   'Out for Delivery',
                   'Awaiting Customer Confirmation',
                 ].contains(_currentStatus))
@@ -435,7 +443,7 @@ class _FloristOrderDetailContentState
                 ),
                 _ProgressLine(reached: _currentStep >= 2),
                 _ProgressStep(
-                  label: 'Ready',
+                  label: 'Ready to ship',
                   icon: Icons.inventory_2_outlined,
                   reached: _currentStep >= 2,
                   active: _currentStep == 2,

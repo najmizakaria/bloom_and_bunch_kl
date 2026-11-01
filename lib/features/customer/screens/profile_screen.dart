@@ -308,6 +308,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         'Awaiting Preparation',
                         'Processing',
                         'Ready for Delivery',
+                        'Rider assigned',
                         'Out for Delivery',
                         'Awaiting Customer Confirmation',
                       ],
@@ -548,7 +549,7 @@ String _friendlyStatus(String raw) {
     case 'Processing':
       return 'Assembling';
     case 'Ready for Delivery':
-      return 'Ready for rider collection';
+      return 'Ready to ship';
     case 'Completed':
       return 'Completed';
     default:

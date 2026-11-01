@@ -111,9 +111,14 @@ class AdminOverview extends StatelessWidget {
                   () => orders(status: 'preparation'),
                 ),
                 metric(
-                  'Ready for rider collection',
+                  'Ready to ship',
                   '${data['ready'] ?? 0}',
                   () => orders(status: 'Ready for Delivery'),
+                ),
+                metric(
+                  'Rider assigned',
+                  '${data['assigned'] ?? 0}',
+                  () => orders(status: 'Rider assigned'),
                 ),
                 metric(
                   'Out for delivery',

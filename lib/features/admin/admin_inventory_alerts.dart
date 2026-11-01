@@ -12,18 +12,15 @@ class AdminInventoryAlerts extends StatefulWidget {
 }
 
 class _AdminInventoryAlertsState extends State<AdminInventoryAlerts> {
-  final List<String?> _pages = [null];
-  int _revision = 0;
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AdminSectionScope.contains(context)
         ? null
         : AppBar(title: const Text('Flower stock alerts')),
     body: AdminLoad(
-      key: ValueKey(_revision),
-      load: () => AdminService().call('adminInventoryAlerts', {
-        if (_pages.last != null) 'after': _pages.last,
-      }),
+      recordsKey: 'flowers',
+      loadPage: (cursor) =>
+          AdminService().call('adminInventoryAlerts', {'after': ?cursor}),
       builder: (data, refresh) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -35,19 +32,13 @@ class _AdminInventoryAlertsState extends State<AdminInventoryAlerts> {
             const SizedBox(height: 24),
           ],
           Text(
-            'Reviewed ${data['scanned']} flowers on page ${_pages.length}. Alerts use physical stock minus reserved stems. Negative balances require restocking; custom-order sourceability remains separate.',
+            'Alerts use physical stock minus reserved stems. Negative balances require restocking; custom-order sourceability remains separate.',
           ),
-          TextButton.icon(
-            onPressed: refresh,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh this page'),
-          ),
+
           if ((data['flowers'] as List).isEmpty)
             const Padding(
               padding: EdgeInsets.all(24),
-              child: Text(
-                'No stock alerts on this inventory page. Continue to review the next page.',
-              ),
+              child: Text('No stock alerts.'),
             ),
           for (final f in data['flowers'] as List)
             Card(
@@ -65,29 +56,6 @@ class _AdminInventoryAlertsState extends State<AdminInventoryAlerts> {
             child: const Text('Manage shared flower inventory'),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            children: [
-              OutlinedButton(
-                onPressed: _pages.length > 1
-                    ? () => setState(() {
-                        _pages.removeLast();
-                        _revision++;
-                      })
-                    : null,
-                child: const Text('Previous'),
-              ),
-              FilledButton(
-                onPressed: data['next'] != null
-                    ? () => setState(() {
-                        _pages.add(data['next'] as String);
-                        _revision++;
-                      })
-                    : null,
-                child: const Text('Next'),
-              ),
-            ],
-          ),
         ],
       ),
     ),

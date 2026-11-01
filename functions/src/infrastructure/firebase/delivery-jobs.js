@@ -7,7 +7,8 @@ const { deliveryEligible } = require('../../domain/delivery');
 function createDeliveryJobWriter({ db, FieldValue }) {
   function writeAvailableJob(tx, orderId, order) {
     const ref = db.collection('delivery_jobs').doc(orderId);
-    if (!deliveryEligible(order) || payments.requiresPayment(order) || !commerce.due(order)) {
+    tx.set(db.doc('delivery_queue/current'), { updatedAt: FieldValue.serverTimestamp(), revision: FieldValue.increment(1) });
+    if (order?.orderStatus !== 'Ready for Delivery' || !deliveryEligible(order) || payments.requiresPayment(order) || !commerce.due(order)) {
       tx.delete(ref);
       return;
     }

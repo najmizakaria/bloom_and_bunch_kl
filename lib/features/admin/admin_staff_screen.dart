@@ -15,7 +15,6 @@ class AdminStaffScreen extends StatefulWidget {
 }
 
 class _AdminStaffScreenState extends State<AdminStaffScreen> {
-  final List<String?> _pages = [null];
   int _revision = 0;
   bool _busy = false;
   Future<void> _edit(Map<String, dynamic> person, VoidCallback refresh) async {
@@ -187,11 +186,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
   @override
   Widget build(BuildContext context) => AdminLoad(
     key: ValueKey(_revision),
-    load: () =>
-        widget.peopleLoader?.call(_pages.last) ??
-        AdminService().call('adminPeople', {
-          if (_pages.last != null) 'after': _pages.last,
-        }),
+    recordsKey: 'people',
+    loadPage: (cursor) =>
+        widget.peopleLoader?.call(cursor) ??
+        AdminService().call('adminPeople', {'after': ?cursor}),
     builder: (data, refresh) {
       final people = (data['people'] as List? ?? [])
           .map((p) => Map<String, dynamic>.from(p as Map))
@@ -205,11 +203,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                 title: 'Staff directory',
                 subtitle: 'Manage staff roles and account access.',
                 actions: [
-                  TextButton.icon(
-                    onPressed: refresh,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
                   FilledButton.icon(
                     onPressed: _busy ? null : _create,
                     icon: const Icon(Icons.person_add_alt),
@@ -313,22 +306,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                     ),
                   ),
               ],
-              AdminPagination(
-                page: _pages.length,
-                count: people.length,
-                onPrevious: _pages.length > 1
-                    ? () => setState(() {
-                        _pages.removeLast();
-                        _revision++;
-                      })
-                    : null,
-                onNext: data['next'] != null
-                    ? () => setState(() {
-                        _pages.add(data['next'] as String);
-                        _revision++;
-                      })
-                    : null,
-              ),
             ],
           ),
         ),

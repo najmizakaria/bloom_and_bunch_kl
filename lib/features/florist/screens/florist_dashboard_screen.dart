@@ -100,10 +100,6 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
             return order.orderStatus == 'Ready for Delivery';
           }).toList();
 
-          final completedToday = todayOrders.where((order) {
-            return ['Delivered', 'Completed'].contains(order.orderStatus);
-          }).toList();
-
           final activeOrders =
               orders.where((order) {
                 return order.orderStatus == 'Awaiting Preparation' ||
@@ -140,17 +136,9 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Here is what needs your attention today.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
                   const SizedBox(height: 20),
 
-                  _TodaySummaryCard(
-                    totalOrders: todayOrders.length,
-                    completedOrders: completedToday.length,
-                  ),
+                  _TodaySummaryCard(totalOrders: todayOrders.length),
 
                   const SizedBox(height: 20),
 
@@ -192,11 +180,22 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
                         onTap: () => widget.onOpenOrders('Processing'),
                       ),
                       _DashboardStatCard(
-                        title: 'Ready',
+                        title: 'Ready to ship',
                         count: readyOrders.length,
                         icon: Icons.inventory_2_outlined,
                         color: AppColors.statusReady,
                         onTap: () => widget.onOpenOrders('Ready for Delivery'),
+                      ),
+                      _DashboardStatCard(
+                        title: 'Rider assigned',
+                        count: orders
+                            .where(
+                              (order) => order.orderStatus == 'Rider assigned',
+                            )
+                            .length,
+                        icon: Icons.delivery_dining,
+                        color: AppColors.statusReady,
+                        onTap: () => widget.onOpenOrders('Rider assigned'),
                       ),
                       _DashboardStatCard(
                         title: 'Low Stock (preview)',
@@ -235,9 +234,7 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
                   else if (flowerSnapshot.connectionState ==
                       ConnectionState.waiting)
                     const LinearProgressIndicator(),
-                  const Text(
-                    'Inventory summary covers the first 100 flower records. Open Flowers for all pages.',
-                  ),
+
                   if (flowerSnapshot.hasData && !flowerSnapshot.hasError)
                     _AttentionCard(
                       lowStockCount: lowStockFlowers.length,
@@ -289,13 +286,9 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
 }
 
 class _TodaySummaryCard extends StatelessWidget {
-  const _TodaySummaryCard({
-    required this.totalOrders,
-    required this.completedOrders,
-  });
+  const _TodaySummaryCard({required this.totalOrders});
 
   final int totalOrders;
-  final int completedOrders;
 
   @override
   Widget build(BuildContext context) {
@@ -314,23 +307,9 @@ class _TodaySummaryCard extends StatelessWidget {
           ),
           const SizedBox(width: 16),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  "Created today (MYT), among latest 100",
-                  style: AppTypography.supporting(color: Colors.white70),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$totalOrders orders',
-                  style: const AppTypography.display(color: Colors.white),
-                ),
-                Text(
-                  '$completedOrders of these orders are completed',
-                  style: const TextStyle(color: Colors.white70),
-                ),
-              ],
+            child: Text(
+              '$totalOrders orders',
+              style: const AppTypography.display(color: Colors.white),
             ),
           ),
         ],
@@ -578,7 +557,10 @@ class _StatusBadge extends StatelessWidget {
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(status, style: AppTypography.badge(color: color)),
+      child: Text(
+        status == 'Ready for Delivery' ? 'Ready to ship' : status,
+        style: AppTypography.badge(color: color),
+      ),
     );
   }
 }

@@ -511,9 +511,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Published'),
-                      subtitle: const Text(
-                        'Customers can see this bouquet in eligible modes.',
-                      ),
+
                       value: isPublished,
                       activeThumbColor: AdminTheme.sharedColor(
                         context,
@@ -525,21 +523,11 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                                 setDialogState(() => isPublished = value),
                     ),
                     const Divider(height: 28),
-                    Text(
-                      'READY TO SEND',
-                      style: AppTypography.label(
-                        color: AdminTheme.sharedColor(
-                          context,
-                          AppColors.primary,
-                        ),
-                      ),
-                    ),
+
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Offer as Ready to Send'),
-                      subtitle: const Text(
-                        'Only already assembled bouquets belong here.',
-                      ),
+                      title: const Text('Ready to Send'),
+
                       value: availableForReadyNow,
                       activeThumbColor: AdminTheme.sharedColor(
                         context,
@@ -562,21 +550,11 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       ),
                     ),
                     const Divider(height: 32),
-                    Text(
-                      'PRE-ORDER',
-                      style: AppTypography.label(
-                        color: AdminTheme.sharedColor(
-                          context,
-                          AppColors.primaryDark,
-                        ),
-                      ),
-                    ),
+
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Offer as Pre-Order'),
-                      subtitle: const Text(
-                        'The florist prepares this design after ordering.',
-                      ),
+                      title: const Text('Pre-Order'),
+
                       value: availableForPreOrder,
                       activeThumbColor: AdminTheme.sharedColor(
                         context,
@@ -796,7 +774,7 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                       child: Text(
                         _showArchived
                             ? 'Archived Bouquets'
-                            : '${bouquets.length} Bouquets on this page',
+                            : '${bouquets.length} Bouquets',
                         style: AppTypography.label(),
                       ),
                     ),
@@ -815,8 +793,8 @@ class _FloristBouquetsTabState extends State<FloristBouquetsTab> {
                     ? Center(
                         child: Text(
                           _showArchived
-                              ? 'No archived bouquets on this page. Check Next.'
-                              : 'No active bouquets on this page. Check Next.',
+                              ? 'No archived bouquets.'
+                              : 'No active bouquets.',
                         ),
                       )
                     : ListView.builder(
@@ -1058,7 +1036,6 @@ class _BouquetCard extends StatelessWidget {
             SwitchListTile(
               dense: true,
               title: const Text('Published'),
-              subtitle: const Text('Visible in eligible customer catalogues'),
               value: bouquet.isPublished,
               activeThumbColor: AdminTheme.sharedColor(
                 context,

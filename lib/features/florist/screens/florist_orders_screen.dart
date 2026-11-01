@@ -34,7 +34,8 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
   final Map<String, String> _filters = const {
     'New': 'Awaiting Preparation',
     'Preparing': 'Processing',
-    'Ready': 'Ready for Delivery',
+    'Ready to ship': 'Ready for Delivery',
+    'Assigned': 'Rider assigned',
     'Delivering': 'Out for Delivery',
     'Awaiting receipt': 'Awaiting Customer Confirmation',
     'Completed': 'Completed',
@@ -84,7 +85,9 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
       case 'Processing':
         return 'No orders are being prepared';
       case 'Ready for Delivery':
-        return 'No orders are ready for delivery';
+        return 'No orders are ready to ship';
+      case 'Rider assigned':
+        return 'No orders are waiting for rider collection';
       case 'Out for Delivery':
         return 'No orders are out for delivery';
       case 'Delivered':
@@ -215,7 +218,7 @@ class _OrderCard extends StatelessWidget {
       case 'Processing':
         return 'PREPARING';
       case 'Ready for Delivery':
-        return 'READY';
+        return 'READY TO SHIP';
       case 'Out for Delivery':
         return 'DELIVERING';
       case 'Completed':
@@ -339,6 +342,7 @@ class _OrderCard extends StatelessWidget {
               ),
               if (order.riderId?.isNotEmpty == true &&
                   [
+                    'Rider assigned',
                     'Out for Delivery',
                     'Awaiting Customer Confirmation',
                   ].contains(order.orderStatus)) ...[

@@ -1,7 +1,7 @@
 'use strict';
 const d = require('../domain/domain');
 
-function createSupportHandlers({ db, hasRole, FieldValue }) {
+function createSupportHandlers({ db, hasRole, FieldValue, writeAvailableJob }) {
   const submitOrderFeedback = async (req) => {
     const orderId = d.id(req.data?.orderId),
       rating = d.integer(req.data?.rating, 5),
@@ -70,6 +70,7 @@ function createSupportHandlers({ db, hasRole, FieldValue }) {
       };
       tx.create(issueRef, support);
       tx.update(ref, { supportCount: count + 1, support });
+      writeAvailableJob(tx, orderId, { ...o, support });
       return { saved: true };
     });
   };
@@ -102,6 +103,7 @@ function createSupportHandlers({ db, hasRole, FieldValue }) {
       };
       tx.set(issueRef, support);
       tx.update(ref, { support, updatedBy: req.auth.uid });
+      writeAvailableJob(tx, orderId, { ...o, support });
       return { saved: true };
     });
   };

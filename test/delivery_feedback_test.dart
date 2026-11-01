@@ -1,4 +1,5 @@
-// Firestore interfaces are mocked only to exercise UI page navigation.
+// Firestore interfaces are mocked only to exercise UI list loading.
+import 'dart:async';
 // ignore_for_file: subtype_of_sealed_class
 import 'package:bloom_and_bunch_kl/core/constants/fulfillment_constants.dart';
 import 'package:bloom_and_bunch_kl/core/utils/malaysia_time.dart';
@@ -61,6 +62,18 @@ class _Query implements Query<Map<String, dynamic>> {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _PendingQuery extends _Query {
+  _PendingQuery(this.controller) : super([]);
+  final StreamController<QuerySnapshot<Map<String, dynamic>>> controller;
+  @override
+  Query<Map<String, dynamic>> limit(int value) => this;
+  @override
+  Stream<QuerySnapshot<Map<String, dynamic>>> snapshots({
+    bool includeMetadataChanges = false,
+    ListenSource source = ListenSource.defaultSource,
+  }) => controller.stream;
+}
+
 void main() {
   test(
     'awaiting receipt stays active and Completed remains distinct from legacy Delivered',
@@ -108,7 +121,7 @@ void main() {
     },
   );
   testWidgets(
-    'ready delivery progress omits preparation and legacy history does not imply receipt',
+    'ready delivery progress includes packing and legacy history does not imply receipt',
     (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
@@ -122,7 +135,7 @@ void main() {
           ),
         ),
       );
-      expect(find.text('Bouquet being prepared'), findsNothing);
+      expect(find.text('Bouquet being prepared'), findsOneWidget);
       expect(find.text('Current status'), findsOneWidget);
       expect(
         tester
@@ -216,7 +229,7 @@ void main() {
     },
   );
   testWidgets(
-    'cursor pages expose 20 records, keep the extra record for Next, and reset on Refresh',
+    'records append on scroll without page controls and reload remains centered',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -225,7 +238,10 @@ void main() {
               query: _Query(List.generate(43, _Doc.new)),
               builder: (context, docs) => SingleChildScrollView(
                 child: Column(
-                  children: [for (final doc in docs) Text('Record ${doc.id}')],
+                  children: [
+                    for (final doc in docs)
+                      SizedBox(height: 72, child: Text('Record ${doc.id}')),
+                  ],
                 ),
               ),
             ),
@@ -235,26 +251,100 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Record 19'), findsOneWidget);
       expect(find.text('Record 20'), findsNothing);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(find.text('Record 20'), findsOneWidget);
-      expect(find.text('Record 39'), findsOneWidget);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(find.text('Record 42'), findsOneWidget);
-      expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, 'Next'))
-            .onPressed,
-        isNull,
+      expect(find.text('Previous'), findsNothing);
+      expect(find.text('Next'), findsNothing);
+      expect(find.text('Page 1'), findsNothing);
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -1600),
       );
-      await tester.tap(find.text('Previous'));
-      await tester.pumpAndSettle();
-      expect(find.text('Record 20'), findsOneWidget);
-      await tester.tap(find.byTooltip('Refresh from first page'));
       await tester.pumpAndSettle();
       expect(find.text('Record 0'), findsOneWidget);
-      expect(find.text('Page 1'), findsOneWidget);
+      expect(find.text('Record 39'), findsOneWidget);
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -3200),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Record 42'), findsOneWidget);
+      tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Reload'));
+      await tester.pumpAndSettle();
+      expect(find.text('Record 0'), findsOneWidget);
+      expect(find.text('Record 20'), findsNothing);
+      expect(
+        tester.getCenter(find.byTooltip('Reload')).dx,
+        tester.view.physicalSize.width / tester.view.devicePixelRatio / 2,
+      );
+    },
+  );
+  testWidgets(
+    'centered reload stays clear of catalogue add buttons on a narrow screen',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            floatingActionButton: FloatingActionButton.extended(
+              onPressed: () {},
+              label: const Text('Add Card Design'),
+              icon: const Icon(Icons.add),
+            ),
+            body: FirestorePage(
+              query: _Query([_Doc(0)]),
+              builder: (context, docs) =>
+                  ListView(children: const [Text('Card design')]),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getRect(find.byTooltip('Reload'))
+            .overlaps(tester.getRect(find.byType(FloatingActionButton))),
+        isFalse,
+      );
+      expect(tester.getCenter(find.byTooltip('Reload')).dx, 160);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'changing a query clears the previous records while waiting for new data',
+    (tester) async {
+      final controller =
+          StreamController<QuerySnapshot<Map<String, dynamic>>>.broadcast();
+      Widget screen(Query<Map<String, dynamic>> query) => MaterialApp(
+        home: Scaffold(
+          body: FirestorePage(
+            query: query,
+            builder: (context, docs) => ListView(
+              children: [for (final doc in docs) Text('Record ${doc.id}')],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(screen(_Query([_Doc(0)])));
+      await tester.pumpAndSettle();
+      expect(find.text('Record 0'), findsOneWidget);
+      await tester.pumpWidget(screen(_PendingQuery(controller)));
+      await tester.pump();
+      expect(find.text('Record 0'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(controller.hasListener, isTrue);
+      controller.add(_Snapshot([_Doc(999)]));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Record 999'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await controller.close();
     },
   );
 }

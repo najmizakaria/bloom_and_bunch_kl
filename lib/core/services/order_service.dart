@@ -12,10 +12,15 @@ class OrderService {
     return ids;
   }
 
-  Future<void> transition(String orderId, String action) async {
+  Future<void> transition(
+    String orderId,
+    String action, {
+    Map<String, dynamic> details = const {},
+  }) async {
     await _functions.httpsCallable('transitionOrder').call({
       'orderId': orderId,
       'action': action,
+      ...details,
     });
   }
 

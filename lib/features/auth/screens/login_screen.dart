@@ -106,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
               textInputAction: TextInputAction.next,
               autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(
-                hintText: 'you@example.com',
+                hintText: 'Enter your email',
                 prefixIcon: Icon(Icons.mail_outline_rounded),
               ),
               validator: (value) {

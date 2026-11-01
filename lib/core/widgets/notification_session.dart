@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/notification_service.dart';
 import '../../features/customer/screens/order_tracking_screen.dart';
 import '../../features/admin/admin_activity_screen.dart';
+import '../../features/rider/screens/rider_home_screen.dart';
 
 class NotificationSession extends StatefulWidget {
   final Widget child;
@@ -31,6 +32,14 @@ class _NotificationSessionState extends State<NotificationSession> {
         message.data['adminAlertId'] is String) {
       widget.navigatorKey.currentState?.push(
         MaterialPageRoute(builder: (_) => const AdminActivityScreen()),
+      );
+      return;
+    }
+    if (uid != null && message.data['riderId'] == uid) {
+      widget.navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => const RiderHomeScreen(initialIndex: 1),
+        ),
       );
       return;
     }
@@ -67,6 +76,7 @@ class _NotificationSessionState extends State<NotificationSession> {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null ||
           (message.data['customerId'] != uid &&
+              message.data['riderId'] != uid &&
               message.data['adminUid'] != uid)) {
         return;
       }

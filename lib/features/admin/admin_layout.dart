@@ -140,43 +140,6 @@ class AdminTable extends StatelessWidget {
 bool adminUsesTable(BuildContext context, double width) =>
     width >= 1000 && MediaQuery.textScalerOf(context).scale(1) <= 1.4;
 
-class AdminPagination extends StatelessWidget {
-  const AdminPagination({
-    super.key,
-    required this.page,
-    required this.count,
-    required this.onPrevious,
-    required this.onNext,
-    this.onRefresh,
-  });
-  final int page, count;
-  final VoidCallback? onPrevious, onNext, onRefresh;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16, bottom: 8),
-    child: Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text(
-          '$count ${count == 1 ? 'record' : 'records'} on this page',
-          style: const TextStyle(color: AdminTheme.muted),
-        ),
-        OutlinedButton(onPressed: onPrevious, child: const Text('Previous')),
-        Text('Page $page'),
-        OutlinedButton(onPressed: onNext, child: const Text('Next')),
-        if (onRefresh != null)
-          IconButton(
-            tooltip: 'Refresh from first page',
-            onPressed: onRefresh,
-            icon: const Icon(Icons.refresh),
-          ),
-      ],
-    ),
-  );
-}
-
 class AdminEmpty extends StatelessWidget {
   const AdminEmpty(this.message, {super.key, this.icon = Icons.inbox_outlined});
   final String message;

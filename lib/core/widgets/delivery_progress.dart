@@ -39,11 +39,10 @@ class DeliveryProgress extends StatelessWidget {
       );
     }
     final stages = [
-      if (fulfillmentType != FulfillmentTypes.readyNow) ...[
-        OrderStatuses.awaitingPreparation,
-        OrderStatuses.processing,
-      ],
+      OrderStatuses.awaitingPreparation,
+      OrderStatuses.processing,
       OrderStatuses.readyForDelivery,
+      OrderStatuses.riderAssigned,
       OrderStatuses.outForDelivery,
       OrderStatuses.awaitingConfirmation,
       OrderStatuses.completed,

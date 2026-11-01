@@ -4,6 +4,8 @@ const commerce = require('../domain/commerce');
 const payments = require('../domain/payments');
 const riderContact = require('../domain/rider-contact');
 const deliveryPreview = require('../domain/delivery-preview');
+const { createHash } = require('node:crypto');
+const { riderActiveStatuses } = require('../domain/delivery');
 
 function createFulfillmentHandlers({
   db,
@@ -13,8 +15,6 @@ function createFulfillmentHandlers({
   FieldValue,
   FieldPath,
 }) {
-  const riderActiveStatuses = ['Out for Delivery', 'Awaiting Customer Confirmation'];
-
   async function riderActiveDelivery(reader, uid) {
     const active = await reader.get(
       db
@@ -25,6 +25,27 @@ function createFulfillmentHandlers({
     );
     return active.docs[0]?.id ?? null;
   }
+
+  const listAssignableRiders = async (req) => {
+    const staff = (await db.doc('users/' + req.auth.uid).get()).data();
+    if (staff?.deletionPending || !(hasRole(staff, 'florist') || hasRole(staff, 'admin')))
+      d.fail('Store staff access required.', 'permission-denied');
+    const order = (await db.doc('orders/' + d.id(req.data?.orderId)).get()).data();
+    if (!order || !['Ready for Delivery', 'Rider assigned'].includes(order.orderStatus))
+      d.fail('Mark this order ready to ship first.', 'failed-precondition');
+    let query = db.collection('rider_applications').where('status', '==', 'approved').orderBy(FieldPath.documentId());
+    if (req.data?.cursor) query = query.startAfter(d.id(req.data.cursor));
+    const page = await query.limit(20).get(), riders = [];
+    for (const row of page.docs) {
+      const profile = (await db.doc('users/' + row.id).get()).data();
+      const contact = riderContact.approvedContact(row.data());
+      if (!hasRole(profile, 'rider') || profile.deletionPending || !contact || row.id === order.customerId || row.id === order.riderId)
+        continue;
+      if (await riderActiveDelivery({ get: (q) => q.get() }, row.id)) continue;
+      riders.push({ id: row.id, name: contact.name });
+    }
+    return { riders, nextCursor: page.size === 20 ? page.docs.at(-1).id : null };
+  };
 
   const listAvailableDeliveries = async (req) => {
     const uid = req.auth.uid,
@@ -124,7 +145,7 @@ function createFulfillmentHandlers({
         updates = { updatedAt: FieldValue.serverTimestamp(), updatedBy: uid };
       const florist = hasRole(user.data(), 'florist') || hasRole(user.data(), 'admin');
       const jobRef = db.collection('delivery_jobs').doc(orderId);
-      if (payments.requiresPayment(o) && ['accept', 'prepare', 'ready', 'deliver'].includes(action))
+      if (payments.requiresPayment(o) && ['accept', 'assign', 'collect', 'prepare', 'ready', 'deliver'].includes(action))
         d.fail(
           'Payment must be verified before this order can be prepared or delivered.',
           'failed-precondition',
@@ -134,7 +155,50 @@ function createFulfillmentHandlers({
           'Unpaid online orders expire through payment verification. Please wait or contact support.',
           'failed-precondition',
         );
-      if (action === 'accept') {
+      if (o.support?.status === 'open' && ['prepare', 'ready', 'accept', 'assign', 'collect'].includes(action))
+        d.fail('Resolve the open order issue before preparation or rider handoff.', 'failed-precondition');
+      let assignmentEvent = null;
+      if (['assign', 'unassign'].includes(action)) {
+        if (!florist) d.fail('Store staff access required.', 'permission-denied');
+        const expectedRiderId = req.data?.expectedRiderId == null ? null : d.id(req.data.expectedRiderId);
+        const expectedRevision = d.integer(req.data?.expectedAssignmentRevision ?? 0, 1000000000, 0);
+        const riderId = action === 'assign' ? d.id(req.data?.riderId) : null;
+        const requestId = d.id(req.data?.requestId);
+        const reason = d.text(req.data?.reason ?? '', 'assignment reason', 240, !expectedRiderId);
+        const fingerprint = createHash('sha256').update(JSON.stringify([uid, action, expectedRiderId, expectedRevision, riderId, requestId, reason])).digest('hex');
+        if (o.lastAssignmentMutation === fingerprint) return { status };
+        if (!['Ready for Delivery', 'Rider assigned'].includes(status) || (o.riderId ?? null) !== expectedRiderId || (o.assignmentRevision ?? 0) !== expectedRevision)
+          d.fail('The assignment changed. Reload this order before trying again.', 'failed-precondition');
+        if (action === 'unassign' && !o.riderId)
+          d.fail('This order has no assigned rider.', 'failed-precondition');
+        if (action === 'assign' && riderId === o.riderId)
+          d.fail('This rider is already assigned.', 'failed-precondition');
+        const previousProfile = o.riderId ? await tx.get(db.doc('users/' + o.riderId)) : null;
+        let targetProfile, contact;
+        if (action === 'assign') {
+          if (!commerce.due(o)) d.fail('This delivery is scheduled for ' + o.scheduledDeliveryDate + '.', 'failed-precondition');
+          if (!deliveryEligible({ ...o, riderId: null })) d.fail('This delivery location or open issue needs store review.', 'failed-precondition');
+          targetProfile = await tx.get(db.doc('users/' + riderId));
+          const application = await tx.get(db.doc('rider_applications/' + riderId));
+          contact = riderContact.approvedContact(application.data());
+          if (!hasRole(targetProfile.data(), 'rider') || targetProfile.data()?.deletionPending || !contact || riderId === o.customerId)
+            d.fail('Choose an approved, active rider who is not the buyer.', 'failed-precondition');
+          if (await riderActiveDelivery(tx, riderId)) d.fail('This rider already has an active delivery. Choose another rider.', 'failed-precondition');
+        }
+        if (previousProfile?.exists && previousProfile.data().activeDeliveryId === orderId)
+          tx.update(previousProfile.ref, { activeDeliveryId: FieldValue.delete(), updatedAt: FieldValue.serverTimestamp() });
+        if (targetProfile)
+          tx.update(targetProfile.ref, { activeDeliveryId: orderId, updatedAt: FieldValue.serverTimestamp() });
+        Object.assign(updates, {
+          orderStatus: action === 'assign' ? 'Rider assigned' : 'Ready for Delivery',
+          riderId, riderName: contact?.name ?? '', deliveryWorkflowVersion: 3,
+          assignedAt: action === 'assign' ? FieldValue.serverTimestamp() : FieldValue.delete(),
+          assignedBy: action === 'assign' ? uid : FieldValue.delete(),
+          acceptedAt: FieldValue.delete(), lastAssignmentMutation: fingerprint,
+          assignmentRevision: expectedRevision + 1,
+        });
+        assignmentEvent = { action, actorId: uid, previousRiderId: o.riderId ?? null, riderId, reason };
+      } else if (action === 'accept') {
         if (!commerce.due(o))
           d.fail(
             'This delivery is scheduled for ' + o.scheduledDeliveryDate + '.',
@@ -143,7 +207,7 @@ function createFulfillmentHandlers({
         if (!hasRole(user.data(), 'rider'))
           d.fail('An approved rider account is required.', 'permission-denied');
         if (o.customerId === uid) d.fail('You cannot deliver your own order.', 'permission-denied');
-        if (status === 'Out for Delivery' && o.riderId === uid) {
+        if (['Rider assigned', 'Out for Delivery'].includes(status) && o.riderId === uid) {
           tx.delete(jobRef);
           return { status };
         }
@@ -170,13 +234,24 @@ function createFulfillmentHandlers({
         // The shared rider-profile write serializes acceptance of different orders.
         tx.update(user.ref, { activeDeliveryId: orderId, updatedAt: FieldValue.serverTimestamp() });
         Object.assign(updates, {
-          orderStatus: 'Out for Delivery',
-          deliveryWorkflowVersion: 2,
+          orderStatus: 'Rider assigned',
+          deliveryWorkflowVersion: 3,
           riderId: uid,
           riderName: contact.name,
           acceptedAt: FieldValue.serverTimestamp(),
+          assignedAt: FieldValue.serverTimestamp(),
+          assignedBy: uid,
+          assignmentRevision: (o.assignmentRevision ?? 0) + 1,
         });
+        assignmentEvent = { action, actorId: uid, previousRiderId: null, riderId: uid, reason: '' };
         tx.delete(jobRef);
+      } else if (action === 'collect') {
+        if (!hasRole(user.data(), 'rider') || o.riderId !== uid)
+          d.fail('Only the assigned rider can confirm collection.', 'permission-denied');
+        if (status === 'Out for Delivery') return { status };
+        if (status !== 'Rider assigned' || !commerce.due(o))
+          d.fail('This order is not available for collection.', 'failed-precondition');
+        Object.assign(updates, { orderStatus: 'Out for Delivery', collectedAt: FieldValue.serverTimestamp() });
       } else if (action === 'deliver') {
         if (!hasRole(user.data(), 'rider') || o.riderId !== uid)
           d.fail('Only the assigned rider can complete delivery.', 'permission-denied');
@@ -191,7 +266,7 @@ function createFulfillmentHandlers({
           );
         Object.assign(updates, {
           orderStatus: 'Awaiting Customer Confirmation',
-          deliveryWorkflowVersion: 2,
+          deliveryWorkflowVersion: Math.max(2, o.deliveryWorkflowVersion ?? 1),
           deliveredAt: FieldValue.serverTimestamp(),
         });
         tx.delete(db.doc('rider_locations/' + uid));
@@ -320,11 +395,13 @@ function createFulfillmentHandlers({
               : (o.materialState ?? 'legacy'),
           [action === 'ready' ? 'readyAt' : 'cancelledAt']: FieldValue.serverTimestamp(),
         });
-        if (action === 'ready') writeAvailableJob(tx, orderId, { ...o, orderStatus: target });
-        else tx.delete(jobRef);
+
       } else d.fail('Unknown action.');
       tx.update(db.doc(`users/${uid}`), { updatedAt: FieldValue.serverTimestamp() });
       tx.update(ref, updates);
+      writeAvailableJob(tx, orderId, { ...o, ...updates });
+      if (assignmentEvent)
+        tx.create(ref.collection('assignment_events').doc(), { ...assignmentEvent, createdAt: FieldValue.serverTimestamp() });
       tx.create(ref.collection('events').doc(), {
         status: updates.orderStatus,
         createdAt: FieldValue.serverTimestamp(),
@@ -406,7 +483,7 @@ function createFulfillmentHandlers({
     }
   };
 
-  return { listAvailableDeliveries, transitionOrder, syncDeliveryJobs, releaseScheduledDeliveries };
+  return { listAssignableRiders, listAvailableDeliveries, transitionOrder, syncDeliveryJobs, releaseScheduledDeliveries };
 }
 
 module.exports = { createFulfillmentHandlers };

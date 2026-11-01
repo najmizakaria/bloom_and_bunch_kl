@@ -86,11 +86,6 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               'Order #${id.substring(0, id.length < 8 ? id.length : 8).toUpperCase()}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            if (s.data!.metadata.isFromCache)
-              const AppNote(
-                'Showing saved information. Reconnecting for updates…',
-                liveRegion: true,
-              ),
             if (updated != null)
               AppNote('Last updated ${malaysiaTime(updated)}'),
             const SizedBox(height: 16),

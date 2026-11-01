@@ -34,6 +34,7 @@ class _RiderHistoryScreenState extends State<RiderHistoryScreen> {
   DateTimeRange? _dates;
   int _revision = 0;
   static const _statuses = [
+    'Rider assigned',
     'Out for Delivery',
     'Awaiting Customer Confirmation',
     'Completed',

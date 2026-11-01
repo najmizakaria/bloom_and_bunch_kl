@@ -30,6 +30,7 @@ function registerFunctions({ callable, options, paymentEnabled, paymentSecret, h
     ...support,
     ...riders,
     listAvailableDeliveries: fulfillment.listAvailableDeliveries,
+    listAssignableRiders: fulfillment.listAssignableRiders,
     transitionOrder: fulfillment.transitionOrder,
     syncDeliveryJobs: fulfillment.syncDeliveryJobs,
     deleteAccount: accounts.deleteAccount,

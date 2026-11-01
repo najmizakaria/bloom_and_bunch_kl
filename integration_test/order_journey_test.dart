@@ -1,3 +1,4 @@
+import 'package:bloom_and_bunch_kl/features/florist/screens/florist_order_detail_screen.dart';
 import 'package:bloom_and_bunch_kl/core/services/order_service.dart';
 import 'package:bloom_and_bunch_kl/core/utils/malaysia_time.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/address_book_screen.dart';
@@ -290,6 +291,33 @@ void main() {
     await tester.pumpAndSettle();
     await FirebaseAuth.instance.signOut();
     await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: 'florist@demo.bloom.test',
+      password: 'DemoPass123!',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FloristOrderDetailScreen(
+          order: OrderModel.fromMap(order.data(), order.id),
+        ),
+      ),
+    );
+    await waitFor(tester, find.text('Start Preparing'));
+    await tester.tap(find.text('Start Preparing'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await waitFor(tester, find.text('Mark Ready to ship'));
+    await tester.tap(find.text('Mark Ready to ship'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm'));
+    await waitFor(tester, find.text('Assign rider'));
+    expect(
+      (await order.reference.get()).data()!['orderStatus'],
+      'Ready for Delivery',
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await FirebaseAuth.instance.signOut();
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
       email: 'rider@demo.bloom.test',
       password: 'DemoPass123!',
     );
@@ -317,6 +345,22 @@ void main() {
       1,
     );
     expect((await order.reference.get()).data()!['riderId'], 'demo_rider');
+    expect(
+      (await order.reference.get()).data()!['orderStatus'],
+      'Rider assigned',
+    );
+    await tester.scrollUntilVisible(
+      find.text('Open map and delivery actions'),
+      150,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Open map and delivery actions'));
+    await waitFor(tester, find.text('Confirm collection'));
+    await tester.tap(find.text('Confirm collection'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Confirm collection').last);
+    await waitFor(tester, find.text('Mark as Delivered'));
+
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     // Exercise operational exceptions through the actual customer/staff UI.
@@ -575,10 +619,14 @@ void main() {
       await tester.pumpAndSettle();
       await waitFor(tester, find.text('Inventory fixture 0'));
       expect(tester.widget<TabBar>(find.byType(TabBar)).controller!.index, 1);
-      expect(find.text('Page 1'), findsWidgets);
-      await tester.tap(find.text('Next').hitTestable());
+      expect(find.text('Next'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Inventory fixture 40'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
-      await waitFor(tester, find.text('Page 2'));
+      expect(find.text('Inventory fixture 40'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       await auth.signOut();
@@ -756,7 +804,7 @@ void main() {
           home: const RiderHistoryScreen(),
         ),
       );
-      await waitFor(tester, find.text('Page 1'));
+      await waitFor(tester, find.byTooltip('Reload'));
       await tester.pumpAndSettle();
       FlutterError.onError = previousErrorHandler;
       expect(tester.takeException(), isNull, reason: layoutErrors.join('\n'));
@@ -1033,7 +1081,7 @@ void main() {
             widget.order.orderId == 'fixture_queue_ready',
       );
       await waitFor(tester, acceptedDetails);
-      expect(find.textContaining('Out for Delivery'), findsWidgets);
+      expect(find.textContaining('Rider assigned'), findsWidgets);
       final openActions = find.text('Open map and delivery actions');
       await tester.scrollUntilVisible(
         openActions,
@@ -1076,6 +1124,7 @@ void main() {
       );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
+      await OrderService().transition('fixture_queue_ready', 'collect');
       await OrderService().transition('fixture_queue_ready', 'deliver');
       await auth.signOut();
       await auth.signInWithEmailAndPassword(

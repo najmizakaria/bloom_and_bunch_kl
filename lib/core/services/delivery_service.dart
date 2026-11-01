@@ -1,4 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/delivery_job_model.dart';
 import 'order_service.dart';
 
@@ -16,6 +17,22 @@ class AvailableDeliveryPage {
 }
 
 class DeliveryService {
+  static Stream<void> queueChanges() => FirebaseFirestore.instance
+      .doc('delivery_queue/current')
+      .snapshots()
+      .map((_) {});
+
+  Future<Map<String, dynamic>> assignableRiders(
+    String orderId,
+    String? cursor,
+  ) async {
+    final response =
+        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
+            .httpsCallable('listAssignableRiders')
+            .call({'orderId': orderId, 'cursor': cursor});
+    return Map<String, dynamic>.from(response.data as Map);
+  }
+
   static String message(Object error) {
     if (error is FirebaseFunctionsException) {
       return switch (error.code) {
