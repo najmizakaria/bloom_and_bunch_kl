@@ -4,11 +4,13 @@
   "deliveryFeeSen": 0,
   "serviceArea": null,
   "operatingWeekdays": [
+    0,
     1,
     2,
     3,
     4,
-    5
+    5,
+    6
   ],
   "openingHour": 9,
   "cutoffHour": 17,

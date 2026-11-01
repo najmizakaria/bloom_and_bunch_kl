@@ -168,11 +168,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.byTooltip('Refresh from first page'));
-      expect(
-        find.byTooltip('Refresh from first page').hitTestable(),
-        findsOneWidget,
-      );
+      await tester.ensureVisible(find.byTooltip('Reload'));
+      expect(find.byTooltip('Reload').hitTestable(), findsOneWidget);
     },
   );
 
@@ -229,11 +226,11 @@ void main() {
       );
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
-        find.text('Page 1'),
+        find.byTooltip('Reload'),
         180,
         scrollable: find.byType(Scrollable).first,
       );
-      expect(find.text('Page 1'), findsOneWidget);
+      expect(find.byTooltip('Reload'), findsOneWidget);
     });
   }
 
@@ -307,12 +304,12 @@ void main() {
       changes.add(order('Processing'));
       await tester.pump();
       await tester.pump();
-      expect(find.text('Mark Ready for Delivery'), findsNWidgets(2));
+      expect(find.text('Mark Ready to ship'), findsNWidgets(2));
       changes.add(order('Ready for Delivery'));
       await tester.pump();
       await tester.pump();
-      expect(find.text('Mark Ready for Delivery'), findsNothing);
-      expect(find.text('Bouquet Ready'), findsNWidgets(4));
+      expect(find.text('Mark Ready to ship'), findsNothing);
+      expect(find.text('Ready to ship'), findsWidgets);
       changes.add(null);
       await tester.pump();
       await tester.pump();
@@ -343,7 +340,7 @@ void main() {
     await tester.tap(find.text('Retry'));
     await tester.pump();
     await tester.pump();
-    expect(find.text('Bouquet Ready'), findsWidgets);
+    expect(find.text('Ready to ship'), findsWidgets);
     expect(calls, 2);
   });
   testWidgets(
@@ -490,8 +487,8 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('Mark Ready for Delivery'), findsNothing);
-      expect(find.text('Bouquet Ready'), findsWidgets);
+      expect(find.text('Mark Ready to ship'), findsNothing);
+      expect(find.text('Ready to ship'), findsWidgets);
     },
   );
 

@@ -92,7 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _send(),
                 decoration: const InputDecoration(
-                  hintText: 'you@example.com',
+                  hintText: 'Enter your email',
                   prefixIcon: Icon(Icons.mail_outline_rounded),
                 ),
                 validator: (value) {

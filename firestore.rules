@@ -283,6 +283,10 @@ service cloud.firestore {
       // Server-calculated prices, stock reservations, rider assignment, and
       // status transitions are written only by authenticated callables.
       allow write: if false;
+      match /assignment_events/{eventId} {
+        allow read: if isStaff();
+        allow write: if false;
+      }
       match /events/{eventId} {
         // Status and timestamp only; never client-supplied messages or identities.
         allow read: if isAuthenticated() && (
@@ -305,6 +309,10 @@ service cloud.firestore {
     // Rider dispatch feed includes the order's delivery address. Coordinates,
     // recipient contact, customer identity, item details and totals stay in the assigned order.
     match /delivery_jobs/{orderId} {
+      allow read: if isAuthenticated() && hasRole('rider');
+      allow write: if false;
+    }
+    match /delivery_queue/{id} {
       allow read: if isAuthenticated() && hasRole('rider');
       allow write: if false;
     }

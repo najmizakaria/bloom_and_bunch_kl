@@ -12,9 +12,23 @@ test('quote charges only items even when a legacy policy contains a delivery fee
  assert.notEqual(q.quoteId,p.quote(plan,address,new Date('2026-09-21T02:00:00Z'),{...base,deliveryFeeSen:900}).quoteId);
 });
 test('store calendar excludes closures and moves after-cutoff orders forward',()=>{
- const policy={...base,holidays:['2026-09-21']};
+ const policy={...base,operatingWeekdays:[1,2,3,4,5],holidays:['2026-09-21']};
  assert.equal(p.dateFor(new Date('2026-09-18T10:00:00Z'),0,policy),'2026-09-22');
  assert.equal(p.dateFor(new Date('2026-09-18T10:00:00Z'),2,policy),'2026-09-24');
+});
+
+test('default calendar includes every day and counts weekends toward preparation',()=>{
+ const policy=p.configured,friday=new Date('2026-08-14T02:00:00Z');
+ assert.deepEqual(policy.operatingWeekdays,[0,1,2,3,4,5,6]);
+ assert.deepEqual(p.availableDates(friday,0).slice(0,4),['2026-08-14','2026-08-15','2026-08-16','2026-08-17']);
+ assert.equal(p.dateFor(new Date('2026-08-15T02:00:00Z'),0,policy),'2026-08-15');
+ assert.equal(p.dateFor(new Date('2026-08-16T02:00:00Z'),0,policy),'2026-08-16');
+ assert.equal(p.availableDates(friday,2)[0],'2026-08-16');
+ assert.equal(p.availableDates(friday,3)[0],'2026-08-17');
+ assert.equal(p.dateFor(new Date('2026-08-14T08:59:59Z'),0,policy),'2026-08-14');
+ assert.equal(p.dateFor(new Date('2026-08-14T09:00:00Z'),0,policy),'2026-08-15');
+ assert.equal(p.dateFor(new Date('2026-08-14T09:00:00Z'),2,policy),'2026-08-17');
+ assert.ok(!p.availableDates(friday,0,{...policy,holidays:['2026-08-16']}).includes('2026-08-16'));
 });
 
 test('sandbox flower checkout supports free delivery without coverage or capacity setup',()=>{

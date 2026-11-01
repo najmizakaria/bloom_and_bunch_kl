@@ -598,16 +598,7 @@ class FlowerInventoryCard extends StatelessWidget {
                       Text(
                         'Reserved: ${flower.reservedQuantity} · Balance: ${flower.projectedBalance}',
                       ),
-                      if (flower.shortageQuantity > 0)
-                        Text(
-                          'Restock ${flower.shortageQuantity} stems',
-                          style: TextStyle(
-                            color: AdminTheme.sharedColor(
-                              context,
-                              AppColors.primaryDark,
-                            ),
-                          ),
-                        ),
+
                       const SizedBox(height: 8),
                       _FlowerStockBadge(
                         stock: flower.stockQuantity,

@@ -250,7 +250,7 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
         ),
         if (_planned)
           const Text(
-            'One full business day is needed for preparation. Closed days and unavailable dates cannot be selected.',
+            'Allow one full day for preparation. Weekends are available too; choose an available date from the calendar.',
           ),
         OutlinedButton.icon(
           onPressed: _choosing ? null : _choose,

@@ -82,10 +82,11 @@ test('REGRESSION: malformed cart entry returns a validation error', {skip: !enab
   await assert.rejects(() => api.placeOrder.run(request('audit_null', 'rounding', [null], 50)), error => error.code === 'invalid-argument');
 });
 
-test('CONTROL: valid address checkout creates an available rider job', {skip: !enabled}, async () => {
+test('CONTROL: valid address checkout waits for florist packing', {skip: !enabled}, async () => {
   await db.doc(`users/${uid}/addresses/control`).set(address);
   const result = await api.placeOrder.run(request('audit_control', 'control', [readyItem], 50));
-  assert.equal((await db.doc(`delivery_jobs/${result.orderIds[0]}`).get()).exists, true);
+  assert.equal((await db.doc(`delivery_jobs/${result.orderIds[0]}`).get()).exists, false);
+  assert.equal((await db.doc(`orders/${result.orderIds[0]}`).get()).data().orderStatus, 'Awaiting Preparation');
 });
 
 

@@ -191,7 +191,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.textContaining('Ready for pickup'), findsOneWidget);
-      await tester.tap(find.text('Next'));
+      await tester.drag(find.byType(ListView).first, const Offset(0, -1600));
       await tester.pumpAndSettle();
       expect(selected, {'phase': 0, 'orderId': 'test'});
       await tester.scrollUntilVisible(

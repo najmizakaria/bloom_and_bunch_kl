@@ -33,9 +33,7 @@ class AdminActivityScreen extends StatelessWidget {
             if (visible.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Text(
-                  'No alerts match your saved preferences on this page.',
-                ),
+                child: Text('No alerts match your saved preferences.'),
               ),
             for (final doc in visible)
               ListTile(

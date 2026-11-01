@@ -82,7 +82,7 @@ Widget _app(Widget child, {double scale = 1}) => MaterialApp(
 
 void main() {
   testWidgets(
-    'overview groups all eleven metrics into payments and operations',
+    'overview groups all twelve metrics into payments and operations',
     (tester) async {
       _size(tester, const Size(1920, 1200));
       await tester.pumpWidget(
@@ -93,16 +93,18 @@ void main() {
         of: find.byType(AdminMetricGrid),
         matching: find.byType(Card),
       );
-      expect(cards, findsNWidgets(11));
-      final sizes = List.generate(11, (i) => tester.getSize(cards.at(i)));
+      expect(cards, findsNWidgets(12));
+      final sizes = List.generate(12, (i) => tester.getSize(cards.at(i)));
       expect(sizes.take(3).every((size) => size == sizes.first), isTrue);
       expect(sizes.skip(3).every((size) => size == sizes[3]), isTrue);
-      final tops = List.generate(11, (i) => tester.getTopLeft(cards.at(i)).dy);
+      final tops = List.generate(12, (i) => tester.getTopLeft(cards.at(i)).dy);
       expect(tops.take(3).toSet().length, 1);
       expect(tops.skip(3).take(4).toSet().length, 1);
       expect(tops.skip(7).take(4).toSet().length, 1);
       expect(tops[3], greaterThan(tops[0]));
       expect(tops[7], greaterThan(tops[3]));
+      expect(tops[11], greaterThan(tops[7]));
+      expect(find.text('Rider assigned'), findsOneWidget);
       expect(
         tester.getTopLeft(cards.at(7)).dx,
         tester.getTopLeft(cards.first).dx,
@@ -111,7 +113,7 @@ void main() {
     },
   );
   testWidgets(
-    'rider directory offers contact review for every rider and paginates using its cursor',
+    'rider directory offers contact review for every rider and loads more riders automatically',
     (tester) async {
       _size(tester, const Size(1440, 1000));
       final requests = <String?>[];
@@ -121,7 +123,9 @@ void main() {
             ridersLoader: (after) async {
               requests.add(after);
               return {
-                'riders': _riders,
+                'riders': after == null
+                    ? _riders.take(1).toList()
+                    : _riders.skip(1).toList(),
                 'next': after == null ? 'next-rider' : null,
               };
             },
@@ -132,14 +136,13 @@ void main() {
       expect(find.byType(DataTable), findsOneWidget);
       expect(find.byType(PopupMenuButton<String>), findsNWidgets(2));
       expect(find.textContaining('No recent shared locations'), findsOneWidget);
-      await tester.ensureVisible(find.text('Next'));
-      await tester.tap(find.text('Next'));
+      expect(requests, [null, 'next-rider']);
+      expect(find.text('Next'), findsNothing);
+      expect(find.text('Previous'), findsNothing);
+      final beforeReload = requests.length;
+      await tester.tap(find.byTooltip('Reload'));
       await tester.pumpAndSettle();
-      expect(requests.last, 'next-rider');
-      expect(find.text('Page 2'), findsOneWidget);
-      await tester.tap(find.text('Previous'));
-      await tester.pumpAndSettle();
-      expect(requests.last, isNull);
+      expect(requests[beforeReload], isNull);
       expect(tester.takeException(), isNull);
     },
   );
@@ -207,7 +210,7 @@ void main() {
     expect(find.byType(AppBar), findsNothing);
     expect(find.text('Delivery history'), findsOneWidget);
     expect(find.text('No deliveries match these filters.'), findsOneWidget);
-    expect(find.text('Page 1'), findsOneWidget);
+    expect(find.byTooltip('Reload'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final width in [320.0, 768.0]) {
@@ -245,7 +248,7 @@ void main() {
               screen is AdminStaffScreen ||
               screen is RiderHistoryScreen) {
             await tester.scrollUntilVisible(
-              find.text('Page 1'),
+              find.byTooltip('Reload'),
               200,
               scrollable: find.byType(Scrollable).first,
             );

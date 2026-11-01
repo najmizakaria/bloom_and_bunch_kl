@@ -144,7 +144,8 @@ void main() {
         MaterialApp(home: FloristOrdersScreen(watchOrders: watch)),
       );
       for (final entry in {
-        'Ready': 'Ready for Delivery',
+        'Ready to ship': 'Ready for Delivery',
+        'Assigned': 'Rider assigned',
         'Delivering': 'Out for Delivery',
         'Awaiting receipt': 'Awaiting Customer Confirmation',
         'Completed': 'Completed',

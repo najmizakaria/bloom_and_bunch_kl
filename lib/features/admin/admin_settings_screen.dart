@@ -382,7 +382,7 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
                     'Current order mode: ${p['mode']}. Payment mode and gateway credentials remain deployment settings.',
                   ),
                   const SizedBox(height: 16),
-                  const Text('Operating weekdays · Malaysia time'),
+                  const Text('Operating days · Malaysia time'),
                   Wrap(
                     spacing: 8,
                     children: List.generate(

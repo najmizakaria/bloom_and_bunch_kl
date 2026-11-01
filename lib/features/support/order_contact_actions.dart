@@ -31,6 +31,7 @@ class _OrderContactActionsState extends State<OrderContactActions> {
   bool get _active =>
       _assigned &&
       const [
+        OrderStatuses.riderAssigned,
         OrderStatuses.outForDelivery,
         OrderStatuses.awaitingConfirmation,
       ].contains(widget.order['orderStatus']);

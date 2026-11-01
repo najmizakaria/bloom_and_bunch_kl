@@ -7,13 +7,15 @@ import '../../../core/widgets/firestore_page.dart';
 import '../../../core/widgets/logout_tile.dart';
 import '../../../models/order_model.dart';
 import '../../../models/user_model.dart';
+import '../../../core/services/delivery_service.dart';
 import '../widgets/available_deliveries_list.dart';
 import '../widgets/rider_location_sharing.dart';
 import 'rider_order_detail_screen.dart';
 import '../widgets/rider_delivery_details.dart';
 
 class RiderHomeScreen extends StatefulWidget {
-  const RiderHomeScreen({super.key});
+  const RiderHomeScreen({super.key, this.initialIndex = 0});
+  final int initialIndex;
   @override
   State<RiderHomeScreen> createState() => _RiderHomeScreenState();
 }
@@ -24,6 +26,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
   String? _queryUid;
   final Map<String, Query<Map<String, dynamic>>> _queries = {};
   Stream<UserModel?>? _userStream;
+  Stream<void>? _queueChanges;
   final Set<int> _visited = {0};
   void _select(int index) => setState(() {
     _index = index;
@@ -40,10 +43,12 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
       _queryUid = uid;
       _queries.clear();
       _userStream = FirestoreService().streamUserData(uid);
-      _index = 0;
+      _queueChanges = DeliveryService.queueChanges();
+      _index = widget.initialIndex;
       _visited
         ..clear()
-        ..add(0);
+        ..add(0)
+        ..add(_index);
     }
     final assigned = _queries.putIfAbsent(
       'assigned',
@@ -52,7 +57,11 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
           .where('riderId', isEqualTo: uid)
           .where(
             'orderStatus',
-            whereIn: ['Out for Delivery', 'Awaiting Customer Confirmation'],
+            whereIn: [
+              'Rider assigned',
+              'Out for Delivery',
+              'Awaiting Customer Confirmation',
+            ],
           )
           .orderBy('createdAt', descending: true),
     );
@@ -151,6 +160,7 @@ class _RiderHomeScreenState extends State<RiderHomeScreen> {
                           AvailableDeliveriesList(
                             key: ValueKey(uid),
                             active: _index == 0,
+                            changes: _queueChanges,
                             onMyDelivery: () => _select(1),
                           ),
                           orders(

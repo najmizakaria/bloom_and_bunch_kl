@@ -116,7 +116,7 @@ test('delivery-job sync never recreates a job accepted concurrently',{skip:!enab
   const orderId='repair_sync_'+i,rider='repair_sync_rider_'+i;await profile(rider,'rider');
   await db.doc('orders/'+orderId).set({customerId:'repair_buyer',orderStatus:'Ready for Delivery',riderId:null,deliveryAddress:address.address,latitude:address.latitude,longitude:address.longitude});
   await Promise.all([api.syncDeliveryJobs.run(request('repair_sync_admin')),api.transitionOrder.run(request(rider,{orderId,action:'accept'}))]);
-  assert.equal((await db.doc('orders/'+orderId).get()).data().orderStatus,'Out for Delivery');
+  assert.equal((await db.doc('orders/'+orderId).get()).data().orderStatus,'Rider assigned');
   assert.equal((await db.doc('delivery_jobs/'+orderId).get()).exists,false);
  }
 });
@@ -148,7 +148,7 @@ test('deletion races cannot detach a rider from a newly accepted delivery',{skip
   const order=(await db.doc('orders/'+orderId).get()).data();
   if(accepted.status==='fulfilled'){
    assert.equal(deleted.status,'rejected');assert.equal(deleted.reason.code,'failed-precondition');
-   assert.equal(order.riderId,uid);assert.equal(order.orderStatus,'Out for Delivery');assert.equal((await db.doc('users/'+uid).get()).exists,true);
+   assert.equal(order.riderId,uid);assert.equal(order.orderStatus,'Rider assigned');assert.equal((await db.doc('users/'+uid).get()).exists,true);
   }else{
    assert.equal(deleted.status,'fulfilled');assert.equal(order.riderId,null);assert.equal(order.orderStatus,'Ready for Delivery');
   }

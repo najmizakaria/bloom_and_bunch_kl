@@ -117,30 +117,17 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
     return { removed: true };
   };
 
-  const notifyOrderStatus = async (event) => {
-    if (
-      process.env.FUNCTIONS_EMULATOR === 'true' &&
-      process.env.GCLOUD_PROJECT?.startsWith('demo-')
-    )
-      return;
-    const before = event.data?.before.data(),
-      order = event.data?.after.data();
-    if (
-      !order ||
-      before?.orderStatus === order.orderStatus ||
-      !order.customerId ||
-      order.customerId.startsWith('deleted_')
-    )
-      return;
-    const profile = await db.doc(`users/${order.customerId}`).get();
-    if (profile.data()?.notificationsEnabled !== true || profile.data()?.deletionPending) return;
+  async function notifyRecipient(event, recipientId, body, routing) {
+    if (!recipientId || recipientId.startsWith('deleted_')) return;
+    const profile = await db.doc(`users/${recipientId}`).get();
+    if (profile.data()?.notificationsEnabled !== true || profile.data()?.deletionPending || profile.data()?.accountSuspended) return;
     const devices = await db
       .collection('notification_devices')
-      .where('uid', '==', order.customerId)
+      .where('uid', '==', recipientId)
       .get();
     if (devices.empty) return;
     const marker = db.doc(
-      `notification_events/${createHash('sha256').update(event.id).digest('hex')}`,
+      `notification_events/${createHash('sha256').update(routing.customerId ? event.id : event.id + ':' + recipientId).digest('hex')}`,
     );
     const acquired = await db.runTransaction(async (tx) => {
       const current = await tx.get(marker),
@@ -157,9 +144,9 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
         tokens: devices.docs.map((doc) => doc.data().token),
         notification: {
           title: 'Bloom & Bunch order update',
-          body: `Your order is now ${order.orderStatus}.`,
+          body,
         },
-        data: { orderId: event.params.orderId, customerId: order.customerId },
+        data: { orderId: event.params.orderId, ...routing },
         android: { collapseKey: event.params.orderId },
         webpush: { notification: { tag: event.params.orderId } },
         apns: { headers: { 'apns-collapse-id': event.params.orderId } },
@@ -182,6 +169,20 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
       await marker.set({ status: 'pending' });
       throw error;
     }
+  }
+
+  const notifyOrderStatus = async (event) => {
+    if (process.env.FUNCTIONS_EMULATOR === 'true' && process.env.GCLOUD_PROJECT?.startsWith('demo-')) return;
+    const before = event.data?.before.data(), order = event.data?.after.data();
+    if (!order) return;
+    if (before?.orderStatus !== order.orderStatus)
+      await notifyRecipient(event, order.customerId,
+        'Your order is now ' + (order.orderStatus === 'Ready for Delivery' ? 'Ready to ship' : order.orderStatus) + '.',
+        {customerId: order.customerId});
+    if (order.riderId && before?.riderId !== order.riderId && order.orderStatus === 'Rider assigned')
+      await notifyRecipient(event, order.riderId, 'A ready-to-ship order is assigned to you. Collect it from the florist.', {riderId: order.riderId});
+    if (before?.riderId && before.riderId !== order.riderId)
+      await notifyRecipient(event, before.riderId, 'Your order assignment has changed. Check My Delivery before collecting.', {riderId: before.riderId});
   };
 
   return {

@@ -27,6 +27,7 @@ class OrderStatuses {
   static const String awaitingPreparation = 'Awaiting Preparation';
   static const String processing = 'Processing';
   static const String readyForDelivery = 'Ready for Delivery';
+  static const String riderAssigned = 'Rider assigned';
   static const String outForDelivery = 'Out for Delivery';
   static const String awaitingConfirmation = 'Awaiting Customer Confirmation';
   static const String completed = 'Completed';
@@ -48,7 +49,8 @@ class OrderStatuses {
       switch (normalize(value)) {
         awaitingPreparation => 'Order received',
         processing => 'Bouquet being prepared',
-        readyForDelivery => 'Ready for rider collection',
+        readyForDelivery => 'Ready to ship',
+        riderAssigned => 'Rider assigned — awaiting collection',
         outForDelivery => 'Rider is delivering your order',
         awaitingConfirmation => 'Delivered — awaiting your confirmation',
         completed =>

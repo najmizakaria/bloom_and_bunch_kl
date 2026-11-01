@@ -10,6 +10,7 @@ class OrderModel {
   final String? floristId;
   final String? riderId;
   final String riderName;
+  final int assignmentRevision;
   final double totalAmount;
   final String orderStatus;
   final String fulfillmentType;
@@ -35,6 +36,31 @@ class OrderModel {
   bool get paymentOnHold =>
       orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
   bool get receiptConfirmed => customerAcceptedAt != null;
+  String? get handoffBlockReason {
+    if (paymentOnHold) return 'Waiting for verified payment.';
+    if (hasOpenIssue) {
+      return 'Resolve the open order issue before rider handoff.';
+    }
+    final today = DateTime.now()
+        .toUtc()
+        .add(const Duration(hours: 8))
+        .toIso8601String()
+        .substring(0, 10);
+    if (scheduledDeliveryDate != null &&
+        scheduledDeliveryDate!.compareTo(today) > 0) {
+      return 'Scheduled for $scheduledDeliveryDate. Rider assignment opens on that date (Malaysia time).';
+    }
+    if (deliveryAddress.trim().isEmpty ||
+        latitude == null ||
+        longitude == null ||
+        !latitude!.isFinite ||
+        !longitude!.isFinite ||
+        latitude!.abs() > 90 ||
+        longitude!.abs() > 180) {
+      return 'The delivery address or map pin needs store review.';
+    }
+    return null;
+  }
 
   const OrderModel({
     required this.orderId,
@@ -42,6 +68,7 @@ class OrderModel {
     this.floristId,
     this.riderId,
     this.riderName = '',
+    this.assignmentRevision = 0,
     required this.totalAmount,
     required this.orderStatus,
     required this.fulfillmentType,
@@ -94,6 +121,7 @@ class OrderModel {
       floristId: map['floristId']?.toString(),
       riderId: map['riderId']?.toString(),
       riderName: (map['riderName'] ?? '').toString(),
+      assignmentRevision: (map['assignmentRevision'] as num?)?.toInt() ?? 0,
       totalAmount: (map['totalAmount'] as num?)?.toDouble() ?? 0,
       orderStatus: _normalizedStatus(map['orderStatus']?.toString()),
       fulfillmentType: FulfillmentTypes.values.contains(explicitFulfillmentType)

@@ -63,7 +63,6 @@ class AdminRiderDirectory extends StatefulWidget {
 }
 
 class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
-  final List<String?> _pages = [null];
   int _revision = 0;
   bool _showMap = false;
   bool _fresh(Map<String, dynamic> p) {
@@ -217,11 +216,10 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
   Widget build(BuildContext context) => AdminLoad(
     key: ValueKey(_revision),
     poll: true,
-    load: () =>
-        widget.ridersLoader?.call(_pages.last) ??
-        AdminService().call('adminRiders', {
-          if (_pages.last != null) 'after': _pages.last,
-        }),
+    recordsKey: 'riders',
+    loadPage: (cursor) =>
+        widget.ridersLoader?.call(cursor) ??
+        AdminService().call('adminRiders', {'after': ?cursor}),
     builder: (data, refresh) {
       final riders = (data['riders'] as List? ?? [])
           .map((p) => Map<String, dynamic>.from(p as Map))
@@ -237,11 +235,6 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                 subtitle:
                     'Monitor active deliveries and rider-shared locations.',
                 actions: [
-                  TextButton.icon(
-                    onPressed: refresh,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh'),
-                  ),
                   OutlinedButton.icon(
                     onPressed: located.isEmpty
                         ? null
@@ -255,7 +248,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
               Text(
                 located.isEmpty
                     ? 'No recent shared locations. Riders can share their location during an active delivery.'
-                    : '${located.length} recent shared ${located.length == 1 ? 'location' : 'locations'} on this page.',
+                    : '${located.length} recent shared ${located.length == 1 ? 'location' : 'locations'}.',
                 style: const TextStyle(color: AdminTheme.muted),
               ),
               const SizedBox(height: 6),
@@ -354,22 +347,6 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
                     ),
                   ),
               ],
-              AdminPagination(
-                page: _pages.length,
-                count: riders.length,
-                onPrevious: _pages.length > 1
-                    ? () => setState(() {
-                        _pages.removeLast();
-                        _revision++;
-                      })
-                    : null,
-                onNext: data['next'] != null
-                    ? () => setState(() {
-                        _pages.add(data['next'] as String);
-                        _revision++;
-                      })
-                    : null,
-              ),
             ],
           ),
         ),

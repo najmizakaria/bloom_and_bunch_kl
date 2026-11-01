@@ -7,6 +7,7 @@ function createAccountHandlers({ db, getAuth, FieldValue }) {
     'Awaiting Preparation',
     'Processing',
     'Ready for Delivery',
+    'Rider assigned',
     'Out for Delivery',
     'Awaiting Customer Confirmation',
   ];
@@ -50,8 +51,10 @@ function createAccountHandlers({ db, getAuth, FieldValue }) {
         // Remove private issue text before anonymizing the lookup field, so a retry
         // can still find the order if recursive deletion fails partway through.
         if (field === 'customerId')
-          for (const order of orders.docs.slice(i, i + 400))
+          for (const order of orders.docs.slice(i, i + 400)) {
             await db.recursiveDelete(order.ref.collection('issues'));
+            await db.recursiveDelete(order.ref.collection('assignment_events'));
+          }
         await batch.commit();
       }
     }
@@ -104,7 +107,7 @@ function createAccountHandlers({ db, getAuth, FieldValue }) {
         db
           .collection('orders')
           .where('riderId', '==', uid)
-          .where('orderStatus', 'in', ['Out for Delivery', 'Awaiting Customer Confirmation'])
+          .where('orderStatus', 'in', ['Rider assigned', 'Out for Delivery', 'Awaiting Customer Confirmation'])
           .limit(1),
       );
       if (!customerOrders.empty || !riderOrders.empty)

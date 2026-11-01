@@ -34,7 +34,7 @@ test('preparation orders cannot be accepted',{skip:!enabled},async()=>{
 });
 test('customer receipt unlocks the next delivery; open issues keep it locked',{skip:!enabled},async()=>{
  await profile('queue_receipt');const first=await order('queue_receipt_a'),next=await order('queue_receipt_b');
- await act('queue_receipt',first);await act('queue_receipt',first,'deliver');
+ await act('queue_receipt',first);await act('queue_receipt',first,'collect');await act('queue_receipt',first,'deliver');
  await assert.rejects(()=>act('queue_receipt',next),e=>e.code==='failed-precondition');
  await db.doc('orders/'+first).update({support:{status:'open'}});
  await assert.rejects(()=>act('queue_buyer',first,'confirmReceived'),e=>e.code==='failed-precondition');

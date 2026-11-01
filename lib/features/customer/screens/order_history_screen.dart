@@ -20,7 +20,7 @@ String _friendlyStatus(String raw) {
   return switch (raw) {
     'Awaiting Preparation' || 'Pending' => 'Received',
     'Processing' => 'Assembling',
-    'Ready for Delivery' => 'Ready for collection',
+    'Ready for Delivery' => 'Ready to ship',
     'Completed' => 'Completed',
     _ => raw,
   };
@@ -42,6 +42,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
             'Pending',
             'Processing',
             'Ready for Delivery',
+            'Rider assigned',
             'Out for Delivery',
             'Awaiting Customer Confirmation',
           ];
@@ -209,7 +210,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                   'All',
                                   'Received',
                                   'Assembling',
-                                  'Ready for collection',
+                                  'Ready to ship',
+                                  'Rider assigned',
                                   'Out for Delivery',
                                   'Awaiting Customer Confirmation',
                                   'Completed',

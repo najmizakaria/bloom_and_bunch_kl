@@ -2,6 +2,7 @@
 
 function deliveryEligible(order) {
   return (
+    order?.support?.status !== 'open' &&
     order?.riderId == null &&
     typeof order?.deliveryAddress === 'string' &&
     order.deliveryAddress.trim().length > 0 &&
@@ -12,4 +13,6 @@ function deliveryEligible(order) {
   );
 }
 
-module.exports = { deliveryEligible };
+const riderActiveStatuses = ['Rider assigned', 'Out for Delivery', 'Awaiting Customer Confirmation'];
+
+module.exports = { deliveryEligible, riderActiveStatuses };

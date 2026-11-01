@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../support/order_rider_assignment.dart';
 import '../../core/constants/fulfillment_constants.dart';
 import '../../core/services/admin_service.dart';
 import '../../core/services/order_service.dart';
@@ -118,6 +119,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
             ),
             const Divider(),
             Text('Recipient: ${order.recipientName} · ${order.recipientPhone}'),
+            OrderRiderAssignment(order: order),
             Text(order.deliveryAddress),
             if (order.deliveryNote.isNotEmpty)
               Text('Note: ${order.deliveryNote}'),
@@ -175,7 +177,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                 if (!order.paymentOnHold &&
                     order.orderStatus == OrderStatuses.processing)
                   button(
-                    'Mark ready for collection',
+                    'Mark Ready to ship',
                     () => OrderService().transition(widget.orderId, 'ready'),
                   ),
                 if ([
@@ -220,7 +222,9 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
               'createdAt': 'Order placed',
               'paidAt': 'Payment received',
               'preparationStartedAt': 'Preparation started',
-              'readyAt': 'Ready for collection',
+              'readyAt': 'Ready to ship',
+              'assignedAt': 'Rider assigned',
+              'collectedAt': 'Collected by rider',
               'acceptedAt': 'Rider accepted',
               'deliveredAt': 'Rider marked delivered',
               'customerAcceptedAt': 'Customer confirmed receipt',

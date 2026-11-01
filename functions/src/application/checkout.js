@@ -12,7 +12,6 @@ function createCheckoutHandlers({
   readStorePolicy,
   readPlan,
   readCards,
-  writeAvailableJob,
   deliveryEligible,
   storePolicy,
   assertPaymentsEnabled,
@@ -217,7 +216,7 @@ function createCheckoutHandlers({
             groupMaterials[key] = (groupMaterials[key] ?? 0) + count * item.quantity;
         const order = {
           schemaVersion: 3,
-          deliveryWorkflowVersion: 2,
+          deliveryWorkflowVersion: 3,
           customerId: uid,
           checkoutGroupId: checkoutId,
           riderId: null,
@@ -248,7 +247,7 @@ function createCheckoutHandlers({
             (lead, item) => Math.max(lead, item.leadTimeBusinessDays),
             0,
           ),
-          orderStatus: isReady ? 'Ready for Delivery' : 'Awaiting Preparation',
+          orderStatus: 'Awaiting Preparation',
           requestedDeliveryDate: Timestamp.fromDate(new Date(pricing.date + 'T00:00:00+08:00')),
           deliveryTimeSlot: quote.timingNotice,
           materialRequirements: groupMaterials,
@@ -261,7 +260,6 @@ function createCheckoutHandlers({
           status: order.orderStatus,
           createdAt: FieldValue.serverTimestamp(),
         });
-        if (isReady) writeAvailableJob(tx, ref.id, order);
         orderIds.push(ref.id);
       }
       tx.create(requestRef, { fingerprint, orderIds, createdAt: FieldValue.serverTimestamp() });

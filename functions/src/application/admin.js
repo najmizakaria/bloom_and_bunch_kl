@@ -7,7 +7,7 @@ const active = [
   'Pending',
   'Processing',
   'Ready for Delivery',
-  'Out for Delivery',
+  'Rider assigned', 'Out for Delivery',
   'Awaiting Customer Confirmation',
 ];
 const statusValues = [...active, 'Completed', 'Delivered', 'Cancelled'];
@@ -96,6 +96,7 @@ function createAdminHandlers({
         count(o.where('createdAt', '>=', b.month)),
         count(o.where('orderStatus', '==', 'Completed')),
         count(db.collection('products')),
+        count(o.where('orderStatus', '==', 'Rider assigned')),
       ]);
       return Object.fromEntries(
         [
@@ -112,6 +113,7 @@ function createAdminHandlers({
           'monthOrders',
           'completed',
           'legacyProducts',
+          'assigned',
         ]
           .map((key, i) => [key, results[i]])
           .concat([['generatedAt', Date.now()]]),

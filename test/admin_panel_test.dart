@@ -161,12 +161,13 @@ void main() {
         requests.last['to'],
         DateTime.utc(2026, 10, 20, 16).millisecondsSinceEpoch,
       );
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
       expect(requests.last['after'], 'next-order');
-      await tester.tap(find.text('Previous'));
+      expect(find.text('Next'), findsNothing);
+      expect(find.text('Previous'), findsNothing);
+      final beforeReload = requests.length;
+      await tester.tap(find.byTooltip('Reload'));
       await tester.pumpAndSettle();
-      expect(requests.last.containsKey('after'), false);
+      expect(requests[beforeReload].containsKey('after'), false);
       await tester.ensureVisible(find.text('Clear filters'));
       await tester.tap(find.text('Clear filters'));
       await tester.pumpAndSettle();
@@ -208,7 +209,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Next'), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
+      expect(find.byTooltip('Reload'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

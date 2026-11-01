@@ -207,7 +207,7 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
                     icon: Icons.calendar_today_outlined,
                     title: 'Pre-order',
                     subtitle:
-                        'Choose a date after ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} business days',
+                        'Choose a date after ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} preparation days',
                     onTap: () => setState(() => _readyNow = false),
                   ),
                 const SizedBox(height: 24),
