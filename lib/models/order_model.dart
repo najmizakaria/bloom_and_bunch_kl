@@ -32,7 +32,18 @@ class OrderModel {
   final String orderMode, paymentStatus;
   final Map<String, dynamic>? messageCard;
   final String? scheduledDeliveryDate;
+  final String? earlyDispatchDate;
   final String? estimatedDispatchDate;
+  bool get isFutureDelivery =>
+      scheduledDeliveryDate != null &&
+      scheduledDeliveryDate!.compareTo(
+            DateTime.now()
+                .toUtc()
+                .add(const Duration(hours: 8))
+                .toIso8601String()
+                .substring(0, 10),
+          ) >
+          0;
   bool get paymentOnHold =>
       orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
   bool get receiptConfirmed => customerAcceptedAt != null;
@@ -40,15 +51,6 @@ class OrderModel {
     if (paymentOnHold) return 'Waiting for verified payment.';
     if (hasOpenIssue) {
       return 'Resolve the open order issue before rider handoff.';
-    }
-    final today = DateTime.now()
-        .toUtc()
-        .add(const Duration(hours: 8))
-        .toIso8601String()
-        .substring(0, 10);
-    if (scheduledDeliveryDate != null &&
-        scheduledDeliveryDate!.compareTo(today) > 0) {
-      return 'Scheduled for $scheduledDeliveryDate. Rider assignment opens on that date (Malaysia time).';
     }
     if (deliveryAddress.trim().isEmpty ||
         latitude == null ||
@@ -92,6 +94,7 @@ class OrderModel {
     this.paymentStatus = '',
     this.messageCard,
     this.scheduledDeliveryDate,
+    this.earlyDispatchDate,
     this.estimatedDispatchDate,
   });
 
@@ -110,6 +113,7 @@ class OrderModel {
           ? Map<String, dynamic>.from(map['messageCard'] as Map)
           : null,
       scheduledDeliveryDate: map['scheduledDeliveryDate'] as String?,
+      earlyDispatchDate: map['earlyDispatchDate'] as String?,
       estimatedDispatchDate: map['estimatedDispatchDate'] as String?,
       orderMode: (map['orderMode'] ?? '').toString(),
       paymentStatus: (map['paymentStatus'] ?? '').toString(),

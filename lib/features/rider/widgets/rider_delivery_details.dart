@@ -93,6 +93,11 @@ class RiderDeliveryDetails extends StatelessWidget {
               SelectableText(order.recipientPhone),
             const SizedBox(height: 12),
             Text(timing.timingLabel(), style: const AppTypography.supporting()),
+            if (order.earlyDispatchDate != null)
+              Text(
+                'Early delivery arranged for ${order.earlyDispatchDate}',
+                style: const AppTypography.label(color: AppColors.primaryDark),
+              ),
             if (timing.dateWarning() != null)
               Text(
                 timing.dateWarning()!,

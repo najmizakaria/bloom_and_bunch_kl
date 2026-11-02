@@ -129,6 +129,62 @@ test('assignment enforces scheduling, payment, issues, contact approval and ride
   assert.equal(result.filter(r => r.status === 'fulfilled').length, 1);
 });
 
+test('staff can assign a ready future order early after customer confirmation and the rider can finish it', { skip: !enabled }, async () => {
+  await rider('handoff_early'); await rider('handoff_early_other');
+  const id=await order('handoff_early_order',{orderStatus:'Processing',scheduledDeliveryDate:'2099-01-01'});
+  const request={...assignment('handoff_early','early_assign'),earlyDispatchConfirmed:true};
+  await assert.rejects(()=>act('handoff_florist',id,'assign',request),/assignment changed/);
+  await act('handoff_florist',id,'ready');
+  const feed=await api.listAvailableDeliveries.run(req('handoff_early'));
+  assert.ok(!feed.deliveries.some(job=>job.orderId===id));
+  await assert.rejects(()=>act('handoff_early',id,'accept',{earlyDispatchConfirmed:true}),/scheduled/);
+  await assert.rejects(()=>act('handoff_buyer',id,'assign',request),e=>e.code==='permission-denied');
+  await assert.rejects(()=>act('handoff_florist',id,'assign',{...request,earlyDispatchConfirmed:'true'}),/Confirm the customer/);
+  for(const patch of [{orderMode:'toyyibpay_sandbox',paymentStatus:'pending'},{support:{status:'open'}},{latitude:null,longitude:null}]) {
+    await order(id,{scheduledDeliveryDate:'2099-01-01',...patch});
+    await assert.rejects(()=>act('handoff_florist',id,'assign',request),e=>e.code==='failed-precondition');
+  }
+  await order(id,{scheduledDeliveryDate:'2099-01-01'});
+  await act('handoff_florist',id,'assign',request);
+  await act('handoff_florist',id,'assign',request);
+  const assigned=(await db.doc('orders/'+id).get()).data();
+  assert.equal(assigned.scheduledDeliveryDate,'2099-01-01');
+  assert.equal(assigned.earlyDispatchDate,new Date(Date.now()+8*3600000).toISOString().slice(0,10));
+  assert.equal(assigned.earlyDispatchApprovedBy,'handoff_florist');
+  assert.ok(assigned.earlyDispatchApprovedAt);
+  assert.equal(assigned.riderId,'handoff_early');
+  assert.equal((await db.doc('delivery_jobs/'+id).get()).exists,false);
+  const events=await db.collection('orders/'+id+'/assignment_events').get();
+  assert.equal(events.size,1);assert.equal(events.docs[0].data().earlyDispatchConfirmed,true);
+  await assert.rejects(()=>act('handoff_early_other',id,'collect'),e=>e.code==='permission-denied');
+  await act('handoff_early',id,'accept');
+  await act('handoff_early',id,'collect');
+  await act('handoff_early',id,'deliver');
+  await act('handoff_buyer',id,'confirmReceived');
+  assert.equal((await db.doc('orders/'+id).get()).data().orderStatus,'Completed');
+});
+
+test('unassigning early delivery removes the override and keeps the future order hidden', { skip: !enabled }, async () => {
+  await rider('handoff_early_cancel');await rider('handoff_early_replacement');
+  const id=await order('handoff_early_cancel_order',{scheduledDeliveryDate:'2099-01-01'});
+  const first={...assignment('handoff_early_cancel','early_cancel_assign'),earlyDispatchConfirmed:true};
+  await act('handoff_florist',id,'assign',first);
+  const replacement=assignment('handoff_early_replacement','early_replace','handoff_early_cancel');
+  await assert.rejects(()=>act('handoff_florist',id,'assign',replacement),/Confirm the customer/);
+  const unassign={...assignment(null,'early_unassign','handoff_early_cancel')};
+  await act('handoff_florist',id,'unassign',unassign);
+  await assert.rejects(()=>act('handoff_florist',id,'assign',first),/assignment changed/);
+  const restored=(await db.doc('orders/'+id).get()).data();
+  assert.equal(restored.orderStatus,'Ready for Delivery');assert.equal(restored.scheduledDeliveryDate,'2099-01-01');
+  for(const field of ['earlyDispatchDate','earlyDispatchApprovedBy','earlyDispatchApprovedAt'])assert.equal(restored[field],undefined);
+  assert.equal((await db.doc('users/handoff_early_cancel').get()).data().activeDeliveryId,undefined);
+  assert.equal((await db.doc('delivery_jobs/'+id).get()).exists,false);
+  const feed=await api.listAvailableDeliveries.run(req('handoff_early_cancel'));
+  assert.ok(!feed.deliveries.some(job=>job.orderId===id));
+  await assert.rejects(()=>act('handoff_early_cancel',id,'accept'),/scheduled/);
+  await assert.rejects(()=>act('handoff_florist',id,'assign',{...assignment('handoff_early_cancel','early_again'),expectedAssignmentRevision:2}),/Confirm the customer/);
+});
+
 test('staff rider directory excludes busy, suspended, deleting, unapproved and buying riders', { skip: !enabled }, async () => {
   for (const uid of ['handoff_z_free', 'handoff_z_busy', 'handoff_z_suspended', 'handoff_z_deleting', 'handoff_z_unapproved', 'handoff_z_buyer']) await rider(uid);
   await db.doc('users/handoff_z_suspended').update({ accountSuspended: true });

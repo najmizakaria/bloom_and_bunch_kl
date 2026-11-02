@@ -60,7 +60,11 @@ class OrderRiderAssignment extends StatelessWidget {
             Text(
               blocked ??
                   (assigned
-                      ? 'Waiting for the rider to confirm collection.'
+                      ? order.earlyDispatchDate != null
+                            ? 'Early delivery arranged for ${order.earlyDispatchDate}. Waiting for the rider to confirm collection.'
+                            : 'Waiting for the rider to confirm collection.'
+                      : order.isFutureDelivery
+                      ? 'Scheduled for ${order.scheduledDeliveryDate}. You can assign early if the customer requests delivery today.'
                       : 'Available to riders now — awaiting a rider.'),
             ),
             const SizedBox(height: 12),
@@ -110,6 +114,9 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
   List<Map<String, dynamic>> _riders = [];
   String? _cursor, _selected, _selectedName, _error;
   bool _loading = false, _saving = false;
+  bool _earlyConfirmed = false;
+  bool get _requiresEarlyConfirmation =>
+      !widget.unassign && widget.order.isFutureDelivery;
   @override
   void initState() {
     super.initState();
@@ -155,6 +162,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
 
   Future<void> _save() async {
     if (!_form.currentState!.validate() || _saving || _loading) return;
+    if (_requiresEarlyConfirmation && !_earlyConfirmed) return;
     if (!widget.unassign && _selected == null) {
       setState(() => _error = 'Choose a rider first.');
       return;
@@ -169,6 +177,7 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         'expectedAssignmentRevision': widget.order.assignmentRevision,
         'requestId': _requestId,
         if (!widget.unassign) 'riderId': _selected,
+        if (_requiresEarlyConfirmation) 'earlyDispatchConfirmed': true,
         'reason': _reason.text.trim(),
       });
       if (mounted) Navigator.pop(context);
@@ -206,6 +215,23 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                     'The order will return to the rider queue if eligible. Collection must not have started.',
                   )
                 else ...[
+                  if (_requiresEarlyConfirmation) ...[
+                    Text(
+                      'This order is scheduled for ${widget.order.scheduledDeliveryDate}. Assign a rider for delivery today (Malaysia time)?',
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'The customer requested delivery today.',
+                      ),
+                      value: _earlyConfirmed,
+                      onChanged: _saving
+                          ? null
+                          : (value) =>
+                                setState(() => _earlyConfirmed = value == true),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const Text(
                     'Approved riders without an active delivery. This does not confirm they are online; contact the rider before assigning.',
                   ),
@@ -279,7 +305,12 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: _saving || _loading ? null : _save,
+        onPressed:
+            _saving ||
+                _loading ||
+                (_requiresEarlyConfirmation && !_earlyConfirmed)
+            ? null
+            : _save,
         child: Text(
           _saving
               ? 'Saving…'

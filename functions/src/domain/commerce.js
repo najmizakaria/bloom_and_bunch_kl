@@ -66,10 +66,12 @@ function snapshotCards(selected, designs) {
   );
 }
 function due(order, now = new Date()) {
+  const today = new Date(now.getTime() + 8 * 3600000).toISOString().slice(0, 10);
   // Legacy orders retain their existing dispatch behaviour.
   return (
     !order.scheduledDeliveryDate ||
-    order.scheduledDeliveryDate <= new Date(now.getTime() + 8 * 3600000).toISOString().slice(0, 10)
+    order.scheduledDeliveryDate <= today ||
+    !!(order.riderId && order.earlyDispatchApprovedBy && order.earlyDispatchDate && order.earlyDispatchDate <= today)
   );
 }
 function catalogue(raw, kind) {

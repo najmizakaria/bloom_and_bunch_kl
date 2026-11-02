@@ -165,7 +165,8 @@ function createFulfillmentHandlers({
         const riderId = action === 'assign' ? d.id(req.data?.riderId) : null;
         const requestId = d.id(req.data?.requestId);
         const reason = d.text(req.data?.reason ?? '', 'assignment reason', 240, !expectedRiderId);
-        const fingerprint = createHash('sha256').update(JSON.stringify([uid, action, expectedRiderId, expectedRevision, riderId, requestId, reason])).digest('hex');
+        const earlyDispatchConfirmed = req.data?.earlyDispatchConfirmed === true;
+        const fingerprint = createHash('sha256').update(JSON.stringify([uid, action, expectedRiderId, expectedRevision, riderId, requestId, reason, ...(earlyDispatchConfirmed ? [true] : [])])).digest('hex');
         if (o.lastAssignmentMutation === fingerprint) return { status };
         if (!['Ready for Delivery', 'Rider assigned'].includes(status) || (o.riderId ?? null) !== expectedRiderId || (o.assignmentRevision ?? 0) !== expectedRevision)
           d.fail('The assignment changed. Reload this order before trying again.', 'failed-precondition');
@@ -174,9 +175,12 @@ function createFulfillmentHandlers({
         if (action === 'assign' && riderId === o.riderId)
           d.fail('This rider is already assigned.', 'failed-precondition');
         const previousProfile = o.riderId ? await tx.get(db.doc('users/' + o.riderId)) : null;
+        const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+        const earlyDispatch = action === 'assign' && o.scheduledDeliveryDate > today;
         let targetProfile, contact;
         if (action === 'assign') {
-          if (!commerce.due(o)) d.fail('This delivery is scheduled for ' + o.scheduledDeliveryDate + '.', 'failed-precondition');
+          if (earlyDispatch && !earlyDispatchConfirmed)
+            d.fail('This delivery is scheduled for ' + o.scheduledDeliveryDate + '. Confirm the customer requested delivery today before assigning a rider.', 'failed-precondition');
           if (!deliveryEligible({ ...o, riderId: null })) d.fail('This delivery location or open issue needs store review.', 'failed-precondition');
           targetProfile = await tx.get(db.doc('users/' + riderId));
           const application = await tx.get(db.doc('rider_applications/' + riderId));
@@ -196,8 +200,11 @@ function createFulfillmentHandlers({
           assignedBy: action === 'assign' ? uid : FieldValue.delete(),
           acceptedAt: FieldValue.delete(), lastAssignmentMutation: fingerprint,
           assignmentRevision: expectedRevision + 1,
+          earlyDispatchDate: earlyDispatch ? today : FieldValue.delete(),
+          earlyDispatchApprovedBy: earlyDispatch ? uid : FieldValue.delete(),
+          earlyDispatchApprovedAt: earlyDispatch ? FieldValue.serverTimestamp() : FieldValue.delete(),
         });
-        assignmentEvent = { action, actorId: uid, previousRiderId: o.riderId ?? null, riderId, reason };
+        assignmentEvent = { action, actorId: uid, previousRiderId: o.riderId ?? null, riderId, reason, earlyDispatchConfirmed: earlyDispatch, scheduledDeliveryDate: o.scheduledDeliveryDate ?? null };
       } else if (action === 'accept') {
         if (!commerce.due(o))
           d.fail(

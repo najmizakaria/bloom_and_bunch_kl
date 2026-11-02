@@ -81,6 +81,17 @@ test('future scheduled orders remain unavailable to riders in Malaysia time', ()
   assert.equal(c.due({scheduledDeliveryDate:'2026-08-12'},new Date('2026-08-11T16:00:00Z')),true);
   assert.equal(c.due({}),true);
 });
+
+test('early dispatch only opens a staff-approved assignment on or after its Malaysia date', () => {
+  const order={scheduledDeliveryDate:'2026-08-20',riderId:'rider',earlyDispatchDate:'2026-08-12',earlyDispatchApprovedBy:'florist'};
+  const before=new Date('2026-08-11T15:59:59Z'),today=new Date('2026-08-11T16:00:00Z');
+  assert.equal(c.due(order,before),false);
+  assert.equal(c.due(order,today),true);
+  assert.equal(c.due({...order,riderId:null},today),false);
+  assert.equal(c.due({...order,earlyDispatchApprovedBy:null},today),false);
+  assert.equal(c.due({...order,earlyDispatchDate:null},today),false);
+  assert.equal(order.scheduledDeliveryDate,'2026-08-20');
+});
 test('map ordering from Firestore does not change quotes or checkout fingerprints',()=>{
   assert.equal(c.stableStringify({z:{b:2,a:1},a:[{z:1,a:2}]}),c.stableStringify({a:[{a:2,z:1}],z:{a:1,b:2}}));
   const item={bouquetId:'roses',quantity:1,fulfillmentType:'pre_order',requestedDeliveryDate:'2026-08-12'};

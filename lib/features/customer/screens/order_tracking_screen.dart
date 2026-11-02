@@ -122,6 +122,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               ),
             if (d['scheduledDeliveryDate'] != null)
               Text('Requested delivery: ${d['scheduledDeliveryDate']}'),
+            if (d['earlyDispatchDate'] != null)
+              Text('Early delivery arranged for ${d['earlyDispatchDate']}'),
             if (d['schemaVersion'] == 3 && d['checkoutGroupId'] != null)
               OutlinedButton.icon(
                 onPressed: () => Navigator.push(

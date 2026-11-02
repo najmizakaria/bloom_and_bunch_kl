@@ -137,28 +137,107 @@ void main() {
     },
   );
 
-  testWidgets('future bookings explain why assignment is disabled', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: OrderRiderAssignment(
-            order: order(extra: {'scheduledDeliveryDate': '2099-01-01'}),
+  testWidgets(
+    'future bookings require customer confirmation before early assignment',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 640);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      Map<String, dynamic>? submitted;
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(2)),
+            child: child!,
+          ),
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: OrderRiderAssignment(
+                order: order(extra: {'scheduledDeliveryDate': '2099-01-01'}),
+                load: (_) async => {
+                  'riders': [
+                    {'id': 'early_rider', 'name': 'Early rider'},
+                  ],
+                  'nextCursor': null,
+                },
+                submit: (request) async => submitted = request,
+              ),
+            ),
           ),
         ),
-      ),
-    );
-    expect(find.textContaining('Scheduled for 2099-01-01'), findsOneWidget);
-    expect(
-      tester
-          .widget<FilledButton>(
-            find.widgetWithText(FilledButton, 'Assign rider'),
-          )
-          .onPressed,
-      isNull,
-    );
-  });
+      );
+      expect(find.textContaining('Scheduled for 2099-01-01'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Assign rider'),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.text('Assign rider'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Assign a rider for delivery today'),
+        findsOneWidget,
+      );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('Early rider')),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Early rider'));
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.widgetWithText(FilledButton, 'Confirm assignment'),
+            )
+            .onPressed,
+        isNull,
+      );
+      expect(submitted, isNull);
+      await Scrollable.ensureVisible(
+        tester.element(find.byType(CheckboxListTile)),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pump();
+      await tester.tap(find.text('Confirm assignment'));
+      await tester.pumpAndSettle();
+      expect(submitted?['earlyDispatchConfirmed'], true);
+      expect(submitted?['riderId'], 'early_rider');
+      expect(submitted!.containsKey('scheduledDeliveryDate'), isFalse);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'future-date assignment still blocks unpaid, open-issue and invalid-address orders',
+    () {
+      for (final extra in [
+        {'orderMode': 'toyyibpay_sandbox', 'paymentStatus': 'pending'},
+        {
+          'support': {'status': 'open'},
+        },
+        {'latitude': null, 'longitude': null},
+      ]) {
+        final future = order(
+          extra: {'scheduledDeliveryDate': '2099-01-01', ...extra},
+        );
+        expect(future.isFutureDelivery, isTrue);
+        expect(future.handoffBlockReason, isNotNull);
+      }
+      expect(
+        order(extra: {'earlyDispatchDate': '2026-11-03'}).earlyDispatchDate,
+        '2026-11-03',
+      );
+    },
+  );
 
   testWidgets('assigned orders show collection pending in customer tracking', (
     tester,
