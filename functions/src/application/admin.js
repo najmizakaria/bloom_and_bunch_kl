@@ -540,7 +540,14 @@ function createAdminHandlers({
     async policy(req) {
       await authorize(req);
       const saved = await db.doc(policyPath).get();
-      return { policy: { ...defaultPolicy, ...saved.data() }, editable: true };
+      return {
+        policy: {
+          ...defaultPolicy,
+          ...saved.data(),
+          operatingWeekdays: defaultPolicy.operatingWeekdays,
+        },
+        editable: true,
+      };
     },
     async savePolicy(req) {
       await authorize(req);
@@ -560,7 +567,12 @@ function createAdminHandlers({
       const ref = db.doc(policyPath);
       await db.runTransaction(async (tx) => {
         const old = await tx.get(ref);
-        const next = { ...defaultPolicy, ...old.data(), ...updates };
+        const next = {
+          ...defaultPolicy,
+          ...old.data(),
+          ...updates,
+          operatingWeekdays: defaultPolicy.operatingWeekdays,
+        };
         try {
           validatePolicy(next);
         } catch (e) {

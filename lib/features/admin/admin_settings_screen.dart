@@ -304,7 +304,6 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
       _longitude = TextEditingController(),
       _radius = TextEditingController(),
       _area = TextEditingController();
-  final Set<int> _days = {};
   bool _loaded = false, _busy = false, _limitArea = false;
   @override
   void dispose() {
@@ -339,7 +338,6 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
           _booking.text = '${p['bookingWindowDays'] ?? 90}';
           _instructions.text = p['paymentInstructions'] ?? '';
           _holidays.text = (p['holidays'] as List? ?? []).join(', ');
-          _days.addAll((p['operatingWeekdays'] as List? ?? []).cast<int>());
           final a = p['serviceArea'];
           _limitArea = a is Map;
           if (a is Map) {
@@ -382,36 +380,7 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
                     'Current order mode: ${p['mode']}. Payment mode and gateway credentials remain deployment settings.',
                   ),
                   const SizedBox(height: 16),
-                  const Text('Operating days · Malaysia time'),
-                  Wrap(
-                    spacing: 8,
-                    children: List.generate(
-                      7,
-                      (i) => FilterChip(
-                        label: Text(
-                          const [
-                            'Sun',
-                            'Mon',
-                            'Tue',
-                            'Wed',
-                            'Thu',
-                            'Fri',
-                            'Sat',
-                          ][i],
-                        ),
-                        selected: _days.contains(i),
-                        onSelected: _busy
-                            ? null
-                            : (selected) => setState(() {
-                                if (selected) {
-                                  _days.add(i);
-                                } else {
-                                  _days.remove(i);
-                                }
-                              }),
-                      ),
-                    ),
-                  ),
+                  const Text('Delivery is available every day · Malaysia time'),
                   const SizedBox(height: 16),
                   field(_open, 'Opening hour (0–23)', number: true),
                   field(_cutoff, 'Order cutoff hour (1–24)', number: true),
@@ -466,7 +435,6 @@ class AdminStorePolicyScreenState extends State<AdminStorePolicyScreen> {
                                     'dailyDeliveryCapacity': int.tryParse(
                                       _capacity.text,
                                     ),
-                                    'operatingWeekdays': _days.toList()..sort(),
                                     'holidays': _holidays.text
                                         .split(',')
                                         .map((s) => s.trim())

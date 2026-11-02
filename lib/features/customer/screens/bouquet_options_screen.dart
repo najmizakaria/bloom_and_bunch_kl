@@ -248,10 +248,6 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
           _planned ? '2. Choose your delivery date' : '2. Delivery',
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        if (_planned)
-          const Text(
-            'Allow one full day for preparation. Weekends are available too; choose an available date from the calendar.',
-          ),
         OutlinedButton.icon(
           onPressed: _choosing ? null : _choose,
           icon: const Icon(Icons.calendar_month),

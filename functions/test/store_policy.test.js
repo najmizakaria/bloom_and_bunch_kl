@@ -31,6 +31,50 @@ test('default calendar includes every day and counts weekends toward preparation
  assert.ok(!p.availableDates(friday,0,{...policy,holidays:['2026-08-16']}).includes('2026-08-16'));
 });
 
+test('availability ignores legacy weekday restrictions while preserving closures and capacity',async(t)=>{
+ const {createCheckoutReader}=require('../src/infrastructure/firebase/checkout-reader');
+ const {createHandlers}=require('../src/application/commerce');
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-08-14T02:00:00Z')});
+ const saved={operatingWeekdays:[1,2,3,4,5],dailyDeliveryCapacity:2,holidays:['2026-08-17']};
+ let full=false;
+ const db={
+  doc:path=>({path,get:async()=>({data:()=>path==='store_settings/operations'?saved:{availableForPreOrder:true,leadTimeBusinessDays:2}})}),
+  runTransaction:async callback=>callback({get:ref=>ref.get()}),
+  getAll:async(...refs)=>refs.map(ref=>({data:()=>({acceptedGroups:full&&ref.path==='delivery_capacity/2026-08-16'?2:0})})),
+ };
+ const {readStorePolicy}=createCheckoutReader({db,storePolicy:p});
+ const api=createHandlers({db,readStorePolicy,policyApi:p});
+ for(const fulfillmentType of ['ready_now','pre_order','custom']){
+  const request={data:{fulfillmentType,bouquetId:'roses'}};
+  const available=await api.deliveryAvailability(request);
+  assert.ok(available.dates.includes('2026-08-16'));
+  assert.ok(!available.dates.includes('2026-08-17'));
+  assert.equal(available.dates.includes('2026-08-15'),fulfillmentType==='ready_now');
+  full=true;
+  assert.ok(!(await api.deliveryAvailability(request)).dates.includes('2026-08-16'));
+  full=false;
+ }
+});
+
+test('admin settings show and save all seven days even for an older client',async()=>{
+ const {createAdminHandlers}=require('../src/application/admin');
+ let saved={operatingWeekdays:[1,2,3,4,5],dailyDeliveryCapacity:10,holidays:['2026-08-17']};
+ const db={
+  doc:path=>({path,get:async()=>({data:()=>path==='users/admin'?{role:'admin'}:saved})}),
+  collection:()=>({doc:()=>({})}),
+  runTransaction:async callback=>callback({get:ref=>ref.get(),set:(_,value)=>{saved=value;},create:()=>{}}),
+ };
+ const api=createAdminHandlers({db,defaultPolicy:p.configured,validatePolicy:p.validate,FieldValue:{serverTimestamp:()=>null}});
+ const request={auth:{uid:'admin'},data:{policy:{operatingWeekdays:[1,2,3,4,5],cutoffHour:18}}};
+ assert.deepEqual((await api.policy(request)).policy.operatingWeekdays,[0,1,2,3,4,5,6]);
+ await api.savePolicy(request);
+ assert.deepEqual(saved.operatingWeekdays,[0,1,2,3,4,5,6]);
+ assert.equal(saved.cutoffHour,18);
+ assert.equal(saved.dailyDeliveryCapacity,10);
+ assert.deepEqual(saved.holidays,['2026-08-17']);
+ await assert.rejects(()=>api.savePolicy({...request,auth:{uid:'customer'}}),e=>e.code==='permission-denied');
+});
+
 test('sandbox flower checkout supports free delivery without coverage or capacity setup',()=>{
  const policy={...base,mode:'toyyibpay_sandbox',deliveryFeeSen:0,serviceArea:null,dailyDeliveryCapacity:0};
  const q=p.quote(plan,address,new Date('2026-09-21T02:00:00Z'),policy);

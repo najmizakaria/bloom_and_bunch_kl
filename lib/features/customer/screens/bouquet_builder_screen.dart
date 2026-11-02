@@ -302,8 +302,6 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildPlanningNotice(),
-                      const SizedBox(height: 20),
                       const Text(
                         '1. Choose Flower Stems',
                         style: AppTypography.sectionTitle(),
@@ -341,32 +339,6 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildPlanningNotice() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.softBlushStart,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-      ),
-      child: const Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.calendar_month, color: AppColors.primary),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Choose an available delivery date, including weekends, with one full day for preparation. '
-              'The florist will source the flowers needed for your design.',
-              style: AppTypography.label(color: AppColors.textDark),
-            ),
-          ),
-        ],
       ),
     );
   }

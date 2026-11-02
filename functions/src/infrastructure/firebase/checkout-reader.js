@@ -5,7 +5,11 @@ const commerce = require('../../domain/commerce');
 function createCheckoutReader({ db, storePolicy }) {
   async function readStorePolicy(tx) {
     const s = await tx.get(db.doc('store_settings/operations'));
-    return { ...storePolicy.configured, ...s.data() };
+    return {
+      ...storePolicy.configured,
+      ...s.data(),
+      operatingWeekdays: storePolicy.configured.operatingWeekdays,
+    };
   }
   async function readPlan(tx, items) {
     const bouquets = {},

@@ -28,8 +28,12 @@ test('planned checkout requires dates and rejects too early, closed and distant 
   assert.equal(p.quote(plan([{...item,requestedDeliveryDate:'2026-08-20'}]),address,now,policy,{requireDates:true}).groups[0].date,'2026-08-20');
 });
 
-test('default calendar accepts weekend ready, pre-order and custom checkout dates', () => {
-  const friday=new Date('2026-08-14T02:00:00Z'),weekendPolicy={...p.configured,mode:'demo'};
+test('saved weekday-only settings still accept weekend ready, pre-order and custom checkout dates', async () => {
+  const {createCheckoutReader}=require('../src/infrastructure/firebase/checkout-reader');
+  const reader=createCheckoutReader({db:{doc:path=>({path})},storePolicy:p});
+  const weekendPolicy=await reader.readStorePolicy({get:async()=>({data:()=>policy})});
+  assert.deepEqual(weekendPolicy.operatingWeekdays,[0,1,2,3,4,5,6]);
+  const friday=new Date('2026-08-14T02:00:00Z');
   for(const date of ['2026-08-15','2026-08-16']) {
     const ready=plan([{bouquetId:'roses',quantity:1,fulfillmentType:'ready_now',requestedDeliveryDate:date}]);
     assert.equal(p.quote(ready,address,friday,weekendPolicy,{requireDates:true}).groups[0].date,date);
