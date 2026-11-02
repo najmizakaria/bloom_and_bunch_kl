@@ -559,10 +559,14 @@ class _AdminRouterDelegate extends RouterDelegate<AdminLocation>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.local_florist,
-                    color: Colors.white,
-                    size: 30,
+                  ClipOval(
+                    child: Image.asset(
+                      'assets/branding/bloombunch_icon.png',
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.contain,
+                      semanticLabel: 'Bloom & Bunch logo',
+                    ),
                   ),
                   if (!collapsed) ...[
                     const SizedBox(width: 10),
