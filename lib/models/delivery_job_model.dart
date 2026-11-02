@@ -13,7 +13,7 @@ class DeliveryJobModel {
   final DateTime? requestedDeliveryDate;
   final DateTime createdAt;
   final String locality, postcode, state, pickupName, pickupAddress;
-  final String? estimatedDispatchDate, scheduledDeliveryDate;
+  final String? estimatedDispatchDate, scheduledDeliveryDate, earlyDispatchDate;
   final int itemCount;
 
   const DeliveryJobModel({
@@ -31,6 +31,7 @@ class DeliveryJobModel {
     this.pickupAddress = StoreDetails.pickupAddress,
     this.estimatedDispatchDate,
     this.scheduledDeliveryDate,
+    this.earlyDispatchDate,
     this.itemCount = 0,
   });
 
@@ -111,6 +112,7 @@ class DeliveryJobModel {
       itemCount: (map['itemCount'] as num?)?.toInt() ?? 0,
       estimatedDispatchDate: map['estimatedDispatchDate'] as String?,
       scheduledDeliveryDate: map['scheduledDeliveryDate'] as String?,
+      earlyDispatchDate: map['earlyDispatchDate'] as String?,
     );
   }
 }

@@ -145,7 +145,7 @@ function createFulfillmentHandlers({
         updates = { updatedAt: FieldValue.serverTimestamp(), updatedBy: uid };
       const florist = hasRole(user.data(), 'florist') || hasRole(user.data(), 'admin');
       const jobRef = db.collection('delivery_jobs').doc(orderId);
-      if (payments.requiresPayment(o) && ['accept', 'assign', 'collect', 'prepare', 'ready', 'deliver'].includes(action))
+      if (payments.requiresPayment(o) && ['release', 'accept', 'assign', 'collect', 'prepare', 'ready', 'deliver'].includes(action))
         d.fail(
           'Payment must be verified before this order can be prepared or delivered.',
           'failed-precondition',
@@ -155,10 +155,30 @@ function createFulfillmentHandlers({
           'Unpaid online orders expire through payment verification. Please wait or contact support.',
           'failed-precondition',
         );
-      if (o.support?.status === 'open' && ['prepare', 'ready', 'accept', 'assign', 'collect'].includes(action))
+      if (o.support?.status === 'open' && ['release', 'prepare', 'ready', 'accept', 'assign', 'collect'].includes(action))
         d.fail('Resolve the open order issue before preparation or rider handoff.', 'failed-precondition');
       let assignmentEvent = null;
-      if (['assign', 'unassign'].includes(action)) {
+      if (action === 'release') {
+        if (!florist) d.fail('Store staff access required.', 'permission-denied');
+        const revision = d.integer(req.data?.expectedAssignmentRevision ?? 0, 1000000000, 0);
+        if (status !== 'Ready for Delivery' || o.riderId || (o.assignmentRevision ?? 0) !== revision)
+          d.fail('This order changed. Refresh it before releasing to riders.', 'failed-precondition');
+        if (!deliveryEligible(o))
+          d.fail('This delivery location or open issue needs store review.', 'failed-precondition');
+        if (o.deliveryReleasedAt) return { status };
+        const today = new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+        Object.assign(updates, {
+          orderStatus: 'Ready for Delivery',
+          deliveryReleasedAt: FieldValue.serverTimestamp(),
+          deliveryReleasedBy: uid,
+          ...(o.scheduledDeliveryDate > today ? {
+            earlyDispatchDate: today,
+            earlyDispatchApprovedBy: uid,
+            earlyDispatchApprovedAt: FieldValue.serverTimestamp(),
+          } : {}),
+        });
+        assignmentEvent = { action, actorId: uid, riderId: null, scheduledDeliveryDate: o.scheduledDeliveryDate ?? null };
+      } else if (['assign', 'unassign'].includes(action)) {
         if (!florist) d.fail('Store staff access required.', 'permission-denied');
         const expectedRiderId = req.data?.expectedRiderId == null ? null : d.id(req.data.expectedRiderId);
         const expectedRevision = d.integer(req.data?.expectedAssignmentRevision ?? 0, 1000000000, 0);
@@ -203,6 +223,8 @@ function createFulfillmentHandlers({
           earlyDispatchDate: earlyDispatch ? today : FieldValue.delete(),
           earlyDispatchApprovedBy: earlyDispatch ? uid : FieldValue.delete(),
           earlyDispatchApprovedAt: earlyDispatch ? FieldValue.serverTimestamp() : FieldValue.delete(),
+          deliveryReleasedAt: FieldValue.delete(),
+          deliveryReleasedBy: FieldValue.delete(),
         });
         assignmentEvent = { action, actorId: uid, previousRiderId: o.riderId ?? null, riderId, reason, earlyDispatchConfirmed: earlyDispatch, scheduledDeliveryDate: o.scheduledDeliveryDate ?? null };
       } else if (action === 'accept') {

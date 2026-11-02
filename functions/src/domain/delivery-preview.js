@@ -96,6 +96,8 @@ function preview(order) {
       typeof order.estimatedDispatchDate === 'string' ? order.estimatedDispatchDate : null,
     scheduledDeliveryDate:
       typeof order.scheduledDeliveryDate === 'string' ? order.scheduledDeliveryDate : null,
+    earlyDispatchDate:
+      typeof order.earlyDispatchDate === 'string' ? order.earlyDispatchDate : null,
   };
 }
 module.exports = { addressArea, preview, safeLocality, stateName };

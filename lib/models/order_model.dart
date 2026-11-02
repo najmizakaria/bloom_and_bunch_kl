@@ -28,6 +28,7 @@ class OrderModel {
   final DateTime createdAt;
   final int deliveryWorkflowVersion;
   final DateTime? customerAcceptedAt;
+  final DateTime? deliveryReleasedAt;
   final bool hasOpenIssue;
   final String orderMode, paymentStatus;
   final Map<String, dynamic>? messageCard;
@@ -89,6 +90,7 @@ class OrderModel {
     required this.createdAt,
     this.deliveryWorkflowVersion = 1,
     this.customerAcceptedAt,
+    this.deliveryReleasedAt,
     this.hasOpenIssue = false,
     this.orderMode = '',
     this.paymentStatus = '',
@@ -121,6 +123,7 @@ class OrderModel {
       deliveryWorkflowVersion:
           (map['deliveryWorkflowVersion'] as num?)?.toInt() ?? 1,
       customerAcceptedAt: (map['customerAcceptedAt'] as Timestamp?)?.toDate(),
+      deliveryReleasedAt: (map['deliveryReleasedAt'] as Timestamp?)?.toDate(),
       customerId: (map['customerId'] ?? '').toString(),
       floristId: map['floristId']?.toString(),
       riderId: map['riderId']?.toString(),

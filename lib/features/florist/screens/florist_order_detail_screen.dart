@@ -496,7 +496,7 @@ class _FloristOrderDetailContentState
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Check the requested delivery date and restock materials before marking ready. Future deliveries stay unavailable to riders until their scheduled date.',
+              'Check the requested delivery date and restock materials before marking ready. Future deliveries stay unavailable to riders until their scheduled date unless the florist releases them early using Assign rider.',
               style: AppTypography.label(),
             ),
           ),

@@ -71,7 +71,7 @@ function due(order, now = new Date()) {
   return (
     !order.scheduledDeliveryDate ||
     order.scheduledDeliveryDate <= today ||
-    !!(order.riderId && order.earlyDispatchApprovedBy && order.earlyDispatchDate && order.earlyDispatchDate <= today)
+    !!(order.earlyDispatchApprovedBy && order.earlyDispatchDate && order.earlyDispatchDate <= today)
   );
 }
 function catalogue(raw, kind) {

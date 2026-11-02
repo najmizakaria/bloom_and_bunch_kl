@@ -82,12 +82,12 @@ test('future scheduled orders remain unavailable to riders in Malaysia time', ()
   assert.equal(c.due({}),true);
 });
 
-test('early dispatch only opens a staff-approved assignment on or after its Malaysia date', () => {
+test('early dispatch opens the shared queue on or after its staff-approved Malaysia date', () => {
   const order={scheduledDeliveryDate:'2026-08-20',riderId:'rider',earlyDispatchDate:'2026-08-12',earlyDispatchApprovedBy:'florist'};
   const before=new Date('2026-08-11T15:59:59Z'),today=new Date('2026-08-11T16:00:00Z');
   assert.equal(c.due(order,before),false);
   assert.equal(c.due(order,today),true);
-  assert.equal(c.due({...order,riderId:null},today),false);
+  assert.equal(c.due({...order,riderId:null},today),true);
   assert.equal(c.due({...order,earlyDispatchApprovedBy:null},today),false);
   assert.equal(c.due({...order,earlyDispatchDate:null},today),false);
   assert.equal(order.scheduledDeliveryDate,'2026-08-20');

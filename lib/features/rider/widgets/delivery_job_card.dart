@@ -75,6 +75,13 @@ class DeliveryJobCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _Detail(icon: Icons.schedule_outlined, value: job.timingLabel()),
+          if (job.earlyDispatchDate != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Released for early delivery: ${job.earlyDispatchDate}',
+              style: const AppTypography.label(color: AppColors.primaryDark),
+            ),
+          ],
           if (job.itemCount > 0) ...[
             const SizedBox(height: 12),
             _Detail(

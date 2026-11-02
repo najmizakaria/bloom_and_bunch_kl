@@ -22,50 +22,47 @@ OrderModel order({
 }, 'handoff_order');
 
 void main() {
-  testWidgets(
-    'assignment retries preserve the same request and selected rider',
-    (tester) async {
-      final requests = <Map<String, dynamic>>[];
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: OrderRiderAssignment(
-              order: order(),
-              load: (_) async => {
-                'riders': [
-                  {'id': 'rider_a', 'name': 'Amina'},
-                ],
-                'nextCursor': null,
-              },
-              submit: (request) async {
-                requests.add(request);
-                if (requests.length == 1) {
-                  throw StateError('Connection interrupted');
-                }
-              },
-            ),
+  testWidgets('one tap releases to the shared queue and errors can retry', (
+    tester,
+  ) async {
+    final requests = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OrderRiderAssignment(
+            order: order(),
+            submit: (request) async {
+              requests.add(request);
+              if (requests.length == 1) {
+                throw StateError('Connection interrupted');
+              }
+            },
           ),
         ),
-      );
-      await tester.tap(find.text('Assign rider'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Confirm assignment'));
-      await tester.pump();
-      expect(find.text('Choose a rider first.'), findsOneWidget);
-      await tester.tap(find.text('Amina'));
-      await tester.pump();
-      await tester.tap(find.text('Confirm assignment'));
-      await tester.pumpAndSettle();
-      expect(find.text('Connection interrupted'), findsOneWidget);
-      await tester.tap(find.text('Confirm assignment'));
-      await tester.pumpAndSettle();
-      expect(requests.length, 2);
-      expect(requests[0], requests[1]);
-      expect(requests[0]['riderId'], 'rider_a');
-      expect(requests[0]['expectedRiderId'], isNull);
-      expect(find.byType(AlertDialog), findsNothing);
-    },
-  );
+      ),
+    );
+    await tester.tap(find.text('Assign rider'));
+    await tester.pumpAndSettle();
+    expect(find.text('Connection interrupted'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    await tester.tap(find.text('Assign rider'));
+    await tester.pumpAndSettle();
+    expect(requests.length, 2);
+    expect(requests[0], requests[1]);
+    expect(requests[0], {'action': 'release', 'expectedAssignmentRevision': 0});
+    expect(
+      find.text('Available to riders — waiting for acceptance.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.widgetWithText(FilledButton, 'Available to riders'),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
 
   testWidgets(
     'unassignment requires a reason and sends the current rider as a precondition',
@@ -99,46 +96,36 @@ void main() {
   );
 
   testWidgets(
-    'empty eligible-rider pages can advance without losing the order',
+    'releasing waits for the pending call and prevents duplicate taps',
     (tester) async {
-      final cursors = <String?>[];
+      var calls = 0;
+      final pending = Completer<void>();
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: OrderRiderAssignment(
               order: order(),
-              load: (cursor) async {
-                cursors.add(cursor);
-                return cursor == null
-                    ? {'riders': [], 'nextCursor': 'next_page'}
-                    : {
-                        'riders': [
-                          {'id': 'next_rider', 'name': 'Next rider'},
-                        ],
-                        'nextCursor': null,
-                      };
+              submit: (_) {
+                calls++;
+                return pending.future;
               },
-              submit: (_) async {},
             ),
           ),
         ),
       );
       await tester.tap(find.text('Assign rider'));
+      await tester.tap(find.text('Assign rider'));
+      await tester.pump();
+      expect(calls, 1);
+      expect(find.text('Releasing…'), findsOneWidget);
+      pending.complete();
       await tester.pumpAndSettle();
-      expect(find.text('Next riders'), findsNothing);
-      expect(find.text('Next rider'), findsOneWidget);
-      expect(cursors, [null, 'next_page']);
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Available to riders now — awaiting a rider.'),
-        findsOneWidget,
-      );
+      expect(find.text('Available to riders'), findsOneWidget);
     },
   );
 
   testWidgets(
-    'future bookings require customer confirmation before early assignment',
+    'future orders release immediately without a rider picker or confirmation',
     (tester) async {
       tester.view.physicalSize = const Size(320, 640);
       tester.view.devicePixelRatio = 1;
@@ -157,12 +144,6 @@ void main() {
             body: SingleChildScrollView(
               child: OrderRiderAssignment(
                 order: order(extra: {'scheduledDeliveryDate': '2099-01-01'}),
-                load: (_) async => {
-                  'riders': [
-                    {'id': 'early_rider', 'name': 'Early rider'},
-                  ],
-                  'nextCursor': null,
-                },
                 submit: (request) async => submitted = request,
               ),
             ),
@@ -170,51 +151,64 @@ void main() {
         ),
       );
       expect(find.textContaining('Scheduled for 2099-01-01'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Assign rider'),
-            )
-            .onPressed,
-        isNotNull,
-      );
+      await tester.ensureVisible(find.text('Assign rider'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Assign rider'));
       await tester.pumpAndSettle();
+      expect(submitted, {'action': 'release', 'expectedAssignmentRevision': 0});
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(CheckboxListTile), findsNothing);
       expect(
-        find.textContaining('Assign a rider for delivery today'),
+        find.text('Available to riders — waiting for acceptance.'),
         findsOneWidget,
       );
-      await Scrollable.ensureVisible(
-        tester.element(find.text('Early rider')),
-        alignment: 0.5,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Early rider'));
-      await tester.pump();
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Confirm assignment'),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(submitted, isNull);
-      await Scrollable.ensureVisible(
-        tester.element(find.byType(CheckboxListTile)),
-        alignment: 0.5,
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(CheckboxListTile));
-      await tester.pump();
-      await tester.tap(find.text('Confirm assignment'));
-      await tester.pumpAndSettle();
-      expect(submitted?['earlyDispatchConfirmed'], true);
-      expect(submitted?['riderId'], 'early_rider');
-      expect(submitted!.containsKey('scheduledDeliveryDate'), isFalse);
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('a new assignment revision clears the released state', (
+    tester,
+  ) async {
+    var current = order(extra: {'scheduledDeliveryDate': '2099-01-01'});
+    late StateSetter update;
+    final requests = <Map<String, dynamic>>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return OrderRiderAssignment(
+                order: current,
+                submit: (request) async => requests.add(request),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Assign rider'));
+    await tester.pumpAndSettle();
+    expect(find.text('Available to riders'), findsOneWidget);
+    update(
+      () => current = order(
+        status: 'Rider assigned',
+        riderId: 'rider',
+        extra: {'assignmentRevision': 1},
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Unassign rider'), findsOneWidget);
+    update(
+      () => current = order(
+        extra: {'scheduledDeliveryDate': '2099-01-01', 'assignmentRevision': 2},
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.text('Assign rider'));
+    await tester.pumpAndSettle();
+    expect(requests.last['expectedAssignmentRevision'], 2);
+  });
 
   test(
     'future-date assignment still blocks unpaid, open-issue and invalid-address orders',

@@ -22,17 +22,6 @@ class DeliveryService {
       .snapshots()
       .map((_) {});
 
-  Future<Map<String, dynamic>> assignableRiders(
-    String orderId,
-    String? cursor,
-  ) async {
-    final response =
-        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
-            .httpsCallable('listAssignableRiders')
-            .call({'orderId': orderId, 'cursor': cursor});
-    return Map<String, dynamic>.from(response.data as Map);
-  }
-
   static String message(Object error) {
     if (error is FirebaseFunctionsException) {
       return switch (error.code) {
