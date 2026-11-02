@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:bloom_and_bunch_kl/core/services/rider_contact_service.dart';
-import 'package:bloom_and_bunch_kl/core/utils/malaysian_phone.dart';
+import 'package:bloom_and_bunch_kl/core/utils/rider_phone.dart';
 import 'package:bloom_and_bunch_kl/features/support/order_contact_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +16,7 @@ class Contacts extends RiderContactService {
         'Rider contact is unavailable. Please call the florist.',
       );
     }
-    return const RiderContact(name: 'Assigned Rider', phone: '+60123456789');
+    return const RiderContact(name: 'Assigned Rider', phone: '676766767');
   }
 }
 
@@ -65,17 +65,23 @@ void main() {
       expect(find.textContaining('assignment changed'), findsOneWidget);
     },
   );
-  test('application phone formats normalize to safe dialer numbers', () {
+  test('rider numbers retain their format without country or length rules', () {
     for (final number in [
       '0123456789',
       '+60 12-345 6789',
       '60123456789',
       '0060123456789',
+      '676766767',
+      '123',
+      '0000000000',
+      '+44 (20) 1234-5678',
+      '1' * 30,
     ]) {
-      expect(MalaysianPhone.normalize(number), '+60123456789');
+      expect(RiderPhone.normalize(number), number);
     }
-    for (final number in ['', 'abc', '123', '0123456789?body=bad']) {
-      expect(() => MalaysianPhone.normalize(number), throwsFormatException);
+    expect(RiderPhone.normalize(' 676766767 '), '676766767');
+    for (final number in ['', 'abc', '+---', '0123456789?body=bad', '1' * 31]) {
+      expect(() => RiderPhone.normalize(number), throwsFormatException);
     }
   });
   testWidgets(
@@ -130,10 +136,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(service.requested, 'specific-order');
       expect(find.text('Assigned Rider'), findsOneWidget);
-      expect(find.text('+60123456789'), findsOneWidget);
+      expect(find.text('676766767'), findsOneWidget);
       await tester.tap(find.widgetWithText(FilledButton, 'Call Rider'));
       await tester.pumpAndSettle();
-      expect(opened, Uri(scheme: 'tel', path: '+60123456789'));
+      expect(opened, Uri(scheme: 'tel', path: '676766767'));
     },
   );
   testWidgets('completed orders keep florist contact without rider calling', (

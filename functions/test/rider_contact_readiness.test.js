@@ -15,21 +15,20 @@ before(async()=>{
 after(async()=>{if(db)await db.terminate();});
 const directory=async()=> (await api.adminRiders.run(req('ready_admin'))).riders.find(r=>r.uid==='ready_rider');
 
-test('role alone cannot accept; explicit admin contact repair enables assignment, calling and completion',{skip:!enabled},async()=>{
+test('rider approval and contact data guard acceptance; saving a number needs no separate approval',{skip:!enabled},async()=>{
   const orderId='ready_contact_order';
   await db.doc('orders/'+orderId).set({customerId:'ready_buyer',orderStatus:'Ready for Delivery',createdAt:new Date(),deliveryAddress:'12 Main Street, Kuala Lumpur',latitude:3.139,longitude:101.687});
   for(const application of [null,{status:'pending',name:'Pending',phone:'0123456789'},{status:'rejected',name:'Rejected',phone:'0123456789'},{status:'approved',name:'Invalid',phone:'bad'}]){
     if(application)await db.doc('rider_applications/ready_rider').set(application);
     else await db.doc('rider_applications/ready_rider').delete();
     assert.equal((await api.listAvailableDeliveries.run(req('ready_rider'))).contactReady,false);
-    await assert.rejects(()=>act('ready_rider',orderId,'accept'),e=>e.code==='failed-precondition'&&/contact needs administrator review/.test(e.message));
+    await assert.rejects(()=>act('ready_rider',orderId,'accept'),e=>e.code==='failed-precondition'&&/rider application must be approved/.test(e.message));
     assert.equal((await db.doc('orders/'+orderId).get()).data().riderId,undefined);
     assert.equal((await db.doc('users/ready_rider').get()).data().activeDeliveryId,undefined);
   }
   const old=await directory();assert.equal(old.contactReady,false);
-  const payload={uid:'ready_rider',name:'Approved Delivery Name',phone:'0123456789',confirmed:true,contactVersion:old.contactVersion};
+  const payload={uid:'ready_rider',name:'Approved Delivery Name',phone:'676766767',contactVersion:old.contactVersion};
   for(const uid of ['ready_buyer','ready_rider'])await assert.rejects(()=>api.adminSaveRiderContact.run(req(uid,payload)),e=>e.code==='permission-denied');
-  await assert.rejects(()=>api.adminSaveRiderContact.run(req('ready_admin',{...payload,confirmed:false})),e=>e.code==='invalid-argument');
   await assert.rejects(()=>api.adminSaveRiderContact.run(req('ready_admin',{...payload,phone:'bad'})),e=>e.code==='invalid-argument');
   await api.adminSaveRiderContact.run(req('ready_admin',payload));
   await assert.rejects(()=>api.adminSaveRiderContact.run(req('ready_admin',{...payload,phone:'0133333333'})),e=>e.code==='failed-precondition');
@@ -39,7 +38,7 @@ test('role alone cannot accept; explicit admin contact repair enables assignment
   await act('ready_rider',orderId,'accept');
   const assigned=(await db.doc('orders/'+orderId).get()).data();
   assert.equal(assigned.orderStatus,'Rider assigned');assert.equal(assigned.riderName,'Approved Delivery Name');
-  assert.deepEqual(await api.getAssignedRiderContact.run(req('ready_buyer',{orderId})),{name:'Approved Delivery Name',phone:'+60123456789'});
+  assert.deepEqual(await api.getAssignedRiderContact.run(req('ready_buyer',{orderId})),{name:'Approved Delivery Name',phone:'676766767'});
   await assert.rejects(()=>api.getAssignedRiderContact.run(req('ready_other',{orderId})),e=>e.code==='permission-denied');
   // Existing work remains retryable even if contact later needs repair.
   await db.doc('rider_applications/ready_rider').update({phone:'bad'});
@@ -56,13 +55,15 @@ test('role alone cannot accept; explicit admin contact repair enables assignment
   assert.equal(audit.size,2);assert.ok(audit.docs.every(s=>s.data().phone===undefined));
 });
 
-test('admin-created riders have approved normalized contact; invalid phone creates no account',{skip:!enabled},async()=>{
-  const p={requestId:'ready_new_staff',name:'Created Rider',email:'ready-rider@example.test',phone:'0123456789',password:'temporary-12345',role:'rider'};
-  await assert.rejects(()=>api.adminCreateStaff.run(req('ready_admin',{...p,phone:'+441234567890'})),e=>e.code==='invalid-argument');
+test('admin-created riders accept arbitrary and international contact numbers; unsafe input creates no account',{skip:!enabled},async()=>{
+  const p={requestId:'ready_new_staff',name:'Created Rider',email:'ready-rider@example.test',phone:'676766767',password:'temporary-12345',role:'rider'};
+  await assert.rejects(()=>api.adminCreateStaff.run(req('ready_admin',{...p,phone:'676766767?body=bad'})),e=>e.code==='invalid-argument');
   const created=await api.adminCreateStaff.run(req('ready_admin',p));
   const app=(await db.doc('rider_applications/'+created.uid).get()).data();
-  assert.equal(app.status,'approved');assert.equal(app.phone,'+60123456789');assert.equal(app.reviewedBy,'ready_admin');
+  assert.equal(app.status,'approved');assert.equal(app.phone,'676766767');assert.equal(app.reviewedBy,'ready_admin');
   assert.equal((await api.listAvailableDeliveries.run(req(created.uid))).contactReady,true);
   const again=await api.adminCreateStaff.run(req('ready_admin',p));assert.equal(again.uid,created.uid);
   assert.equal((await db.doc('rider_applications/'+created.uid).get()).data().contactRevision,1);
+  const international=await api.adminCreateStaff.run(req('ready_admin',{...p,requestId:'ready_international_staff',email:'ready-international@example.test',phone:'+44 (20) 1234-5678'}));
+  assert.equal((await db.doc('rider_applications/'+international.uid).get()).data().phone,'+44 (20) 1234-5678');
 });

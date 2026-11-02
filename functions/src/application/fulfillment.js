@@ -228,7 +228,7 @@ function createFulfillmentHandlers({
         const contact = riderContact.approvedContact(application.data());
         if (!contact)
           d.fail(
-            'Your delivery contact needs administrator review. Ask the store to approve your name and Malaysian phone number before accepting a delivery.',
+            'Your rider application must be approved and include a delivery name and phone number before accepting a delivery.',
             'failed-precondition',
           );
         // The shared rider-profile write serializes acceptance of different orders.

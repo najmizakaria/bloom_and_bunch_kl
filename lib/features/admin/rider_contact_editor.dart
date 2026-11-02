@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
-import '../../core/utils/malaysian_phone.dart';
+import '../../core/utils/rider_phone.dart';
 
 class RiderContactEditor extends StatefulWidget {
   const RiderContactEditor({
@@ -22,7 +22,7 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
   late final _phone = TextEditingController(
     text: '${widget.rider['contactPhone'] ?? ''}',
   );
-  bool _confirmed = false, _busy = false;
+  bool _busy = false;
   String? _error;
   @override
   void dispose() {
@@ -32,7 +32,7 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
   }
 
   Future<void> _save() async {
-    if (_busy || !_confirmed || !_form.currentState!.validate()) return;
+    if (_busy || !_form.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -41,9 +41,8 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
       await widget.save({
         'uid': widget.rider['uid'],
         'name': _name.text.trim(),
-        'phone': MalaysianPhone.normalize(_phone.text.trim()),
+        'phone': RiderPhone.normalize(_phone.text.trim()),
         'contactVersion': widget.rider['contactVersion'],
-        'confirmed': true,
       });
       if (mounted) Navigator.pop(context, true);
     } catch (error) {
@@ -58,14 +57,14 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
     canPop: !_busy,
     child: AlertDialog(
       scrollable: true,
-      title: const Text('Review rider contact'),
+      title: const Text('Rider delivery contact'),
       content: Form(
         key: _form,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text(
-              'Customers can call this approved contact during an assigned active delivery. Confirm these details with the rider before saving.',
+              'Customers can call this number during an assigned active delivery.',
             ),
             const SizedBox(height: 16),
             TextFormField(
@@ -83,24 +82,16 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 labelText: 'Delivery phone number',
-                hintText: '+60123456789',
+                hintText: 'e.g. 676766767',
               ),
               validator: (v) {
                 try {
-                  MalaysianPhone.normalize(v?.trim() ?? '');
+                  RiderPhone.normalize(v?.trim() ?? '');
                   return null;
                 } on FormatException catch (e) {
                   return e.message;
                 }
               },
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('I reviewed and approve this delivery contact'),
-              value: _confirmed,
-              onChanged: _busy
-                  ? null
-                  : (v) => setState(() => _confirmed = v == true),
             ),
             if (_error != null)
               Text(
@@ -116,8 +107,8 @@ class _RiderContactEditorState extends State<RiderContactEditor> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: _busy || !_confirmed ? null : _save,
-          child: Text(_busy ? 'Saving…' : 'Approve contact'),
+          onPressed: _busy ? null : _save,
+          child: Text(_busy ? 'Saving…' : 'Save contact'),
         ),
       ],
     ),

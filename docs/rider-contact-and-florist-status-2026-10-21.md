@@ -6,30 +6,32 @@ Ready to Delivering to Awaiting receipt to Completed through the existing
 server transitions. Preparation warnings on list cards stop once preparation
 has finished.
 
-## Review existing rider contacts
+## Edit existing rider contacts
 
-Open **Admin → Riders → Directory & locations → rider actions → Review delivery
-contact**. Confirm the name and Malaysian phone number with the rider, tick the
-review checkbox, and approve. Riders without an active delivery also have this
-action. A contact can be repaired while a delivery is active.
+Open **Admin → Riders → Directory & locations → rider actions → Edit delivery
+contact**. Enter the rider name and phone number, then select **Save contact**.
+No separate phone approval or review checkbox is required. Riders without an
+active delivery also have this action. A contact can be edited during a delivery.
 
-The directory shows whether the approved contact is usable. A profile phone can
-prefill the review form, but it is never silently treated as an approved contact.
-The server stores the reviewed contact in `rider_applications/{uid}` with the
-reviewing admin, timestamp, source and revision. Existing application fields are
-preserved. Audit events do not include phone numbers. Stale reviews are rejected
-and require refreshing the directory.
+The directory shows whether contact details are available. A profile phone can
+prefill the edit form. The server stores the contact in `rider_applications/{uid}`
+with the editing admin, timestamp, source and revision. Existing application
+fields are preserved. Audit events do not include phone numbers. Stale saves
+are rejected and require refreshing the directory.
 
 ## Acceptance and calling
 
-New acceptance requires an approved application with a nonempty rider name and
-valid Malaysian phone. This is checked in the assignment transaction. The rider
-feed reports contact readiness and explains why acceptance is disabled. An
+New acceptance requires an approved rider application with a nonempty rider name
+and phone number. Numbers such as `676766767` and international formats are
+accepted as entered, without a Malaysian prefix or fixed digit count. Numbers
+are limited to 30 characters and safe dialer characters. This is checked in the
+assignment transaction. The feed explains when contact details are missing. An
 already accepted job remains usable and retryable while its contact is repaired.
 
-Admin-created rider accounts receive an approved normalized contact. Changing a
-managed florist to a rider requires explicit contact review in the role dialog.
-Normal application approval also validates and normalizes the contact.
+Admin-created rider accounts and managed staff changed to riders receive their
+entered delivery contact without separate phone approval. Normal rider
+application approval remains required and preserves the entered number. Phone
+ownership and reachability are not verified.
 
 The owning customer can fetch only the currently assigned rider contact, during
 Out for Delivery or Awaiting Customer Confirmation. Reassignment changes the
@@ -41,7 +43,7 @@ phone dialer and Copy number. Unavailable-contact errors omit transport codes.
 Deploy the updated functions before distributing the updated app:
 
 ```powershell
-firebase deploy --only functions:orders
+npx -y firebase-tools@latest deploy --only functions:orders
 ```
 
 Rebuild/restart the mobile app or local web server. For hosted web, run

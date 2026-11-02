@@ -33,7 +33,7 @@ void main() {
   );
 
   testWidgets(
-    'an idle rider without contact still has an admin review action',
+    'rider contact saves an arbitrary number without separate approval',
     (tester) async {
       Map<String, dynamic>? saved;
       var ready = false;
@@ -62,69 +62,61 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Contact needs review'), findsOneWidget);
+      expect(find.text('Contact missing'), findsOneWidget);
       await tester.tap(find.byTooltip('Actions for Legacy Rider'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Review delivery contact'));
+      await tester.tap(find.text('Edit delivery contact'));
       await tester.pumpAndSettle();
       expect(find.byType(RiderContactEditor), findsOneWidget);
       expect(
         tester
             .widget<FilledButton>(
-              find.widgetWithText(FilledButton, 'Approve contact'),
+              find.widgetWithText(FilledButton, 'Save contact'),
             )
             .onPressed,
-        isNull,
+        isNotNull,
       );
-      await tester.tap(find.byType(CheckboxListTile));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Approve contact'));
+      expect(find.byType(CheckboxListTile), findsNothing);
+      await tester.tap(find.text('Save contact'));
       await tester.pumpAndSettle();
       expect(saved, isNull);
-      expect(find.textContaining('valid Malaysian phone'), findsOneWidget);
-      await tester.enterText(
-        find.byType(TextFormField).last,
-        '+60 12-345 6789',
-      );
-      await tester.ensureVisible(find.text('Approve contact'));
-      await tester.tap(find.text('Approve contact'));
+      expect(find.textContaining('Enter a phone number'), findsOneWidget);
+      await tester.enterText(find.byType(TextFormField).last, '676766767');
+      await tester.ensureVisible(find.text('Save contact'));
+      await tester.tap(find.text('Save contact'));
       await tester.pumpAndSettle();
-      expect(saved?['phone'], '+60123456789');
-      expect(saved?['confirmed'], true);
+      expect(saved?['phone'], '676766767');
+      expect(saved?.containsKey('confirmed'), false);
       expect(saved?['contactVersion'], 'version-one');
       expect(find.byType(RiderContactEditor), findsNothing);
-      expect(find.text('Contact approved'), findsOneWidget);
+      expect(find.text('Contact available'), findsOneWidget);
     },
   );
 
-  testWidgets(
-    'new delivery acceptance is disabled with actionable contact review guidance',
-    (tester) async {
-      var calls = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: RiderAvailableJobScreen(
-            job: DeliveryJobModel.fromMap({
-              'orderStatus': 'Ready for Delivery',
-              'deliveryAddress': '12 Main Street, Kuala Lumpur',
-            }, 'job'),
-            contactReady: false,
-            accept: (_) async {
-              calls++;
-            },
-          ),
+  testWidgets('new delivery acceptance explains missing contact details', (
+    tester,
+  ) async {
+    var calls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RiderAvailableJobScreen(
+          job: DeliveryJobModel.fromMap({
+            'orderStatus': 'Ready for Delivery',
+            'deliveryAddress': '12 Main Street, Kuala Lumpur',
+          }, 'job'),
+          contactReady: false,
+          accept: (_) async {
+            calls++;
+          },
         ),
-      );
-      expect(find.text('Delivery contact needs review'), findsOneWidget);
-      final button = tester.widget<FilledButton>(find.byType(FilledButton));
-      expect(button.onPressed, isNull);
-      expect(
-        find.textContaining('Ask the store administrator'),
-        findsOneWidget,
-      );
-      expect(calls, 0);
-    },
-  );
+      ),
+    );
+    expect(find.text('Delivery contact missing'), findsOneWidget);
+    final button = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(button.onPressed, isNull);
+    expect(find.textContaining('Ask the store administrator'), findsOneWidget);
+    expect(calls, 0);
+  });
 
   testWidgets(
     'florist can follow live delivery transitions and see the assigned rider',

@@ -180,7 +180,7 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                     child: Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
-                        'Your delivery contact needs administrator review. Ask the store to approve your name and Malaysian phone number before accepting a delivery.',
+                        'Your delivery name or phone number is missing. Ask the store to add these details before accepting a delivery.',
                       ),
                     ),
                   ),

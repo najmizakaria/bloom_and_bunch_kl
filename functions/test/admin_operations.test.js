@@ -26,9 +26,9 @@ test('staff creation is idempotent, preserves admin session and never grants adm
  await api.adminUpdateStaff.run(req('adm_owner',{uid:created.uid,suspended:true}));
  assert.equal((await auth.getUser(created.uid)).disabled,true);
  await assert.rejects(()=>api.adminOrders.run(req(created.uid)),e=>e.code==='permission-denied');
- await assert.rejects(()=>api.adminUpdateStaff.run(req('adm_owner',{uid:created.uid,suspended:false,role:'rider'})),e=>e.code==='failed-precondition');
- await api.adminUpdateStaff.run(req('adm_owner',{uid:created.uid,suspended:false,role:'rider',contactApproved:true,contactName:'New Staff',contactPhone:'0123456789'}));assert.deepEqual((await db.doc('users/'+created.uid).get()).data().roles,['rider']);
- assert.equal((await db.doc('rider_applications/'+created.uid).get()).data().phone,'+60123456789');
+ await assert.rejects(()=>api.adminUpdateStaff.run(req('adm_owner',{uid:created.uid,suspended:false,role:'rider'})),e=>e.code==='invalid-argument');
+ await api.adminUpdateStaff.run(req('adm_owner',{uid:created.uid,suspended:false,role:'rider',contactName:'New Staff',contactPhone:'676766767'}));assert.deepEqual((await db.doc('users/'+created.uid).get()).data().roles,['rider']);
+ assert.equal((await db.doc('rider_applications/'+created.uid).get()).data().phone,'676766767');
  await assert.rejects(()=>api.adminUpdateStaff.run(req('adm_owner',{uid:'adm_owner',suspended:true})));
 });
 test('rider locations require rider entitlement and an active delivery, sanitize values and can be removed',{skip:!enabled},async()=>{

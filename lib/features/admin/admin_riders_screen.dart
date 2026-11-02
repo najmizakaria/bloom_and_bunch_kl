@@ -128,7 +128,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
             setState(() => _revision++);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Rider contact approved.')),
+                const SnackBar(content: Text('Rider contact saved.')),
               );
             }
           }
@@ -151,7 +151,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
       itemBuilder: (_) => [
         const PopupMenuItem(
           value: 'contact',
-          child: Text('Review delivery contact'),
+          child: Text('Edit delivery contact'),
         ),
         if (p['activeDeliveryId'] != null)
           const PopupMenuItem(
@@ -172,7 +172,7 @@ class _AdminRiderDirectoryState extends State<AdminRiderDirectory> {
     mainAxisSize: MainAxisSize.min,
     children: [
       AdminBadge(
-        p['contactReady'] == true ? 'Contact approved' : 'Contact needs review',
+        p['contactReady'] == true ? 'Contact available' : 'Contact missing',
         color: p['contactReady'] == true
             ? const Color(0xFF237E61)
             : const Color(0xFFB23B35),

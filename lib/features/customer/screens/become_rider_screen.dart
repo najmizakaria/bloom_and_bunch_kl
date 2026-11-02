@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/services/rider_application_service.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/malaysian_phone.dart';
+import '../../../core/utils/rider_phone.dart';
 
 class BecomeRiderScreen extends StatefulWidget {
   const BecomeRiderScreen({super.key, this.watchApplication});
@@ -57,7 +57,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
       return;
     }
     try {
-      MalaysianPhone.normalize(_phoneController.text.trim());
+      RiderPhone.normalize(_phoneController.text.trim());
     } on FormatException catch (error) {
       ScaffoldMessenger.of(
         context,
@@ -248,6 +248,7 @@ class _BecomeRiderScreenState extends State<BecomeRiderScreen> {
                 TextField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  maxLength: 30,
                   decoration: const InputDecoration(
                     labelText: 'Phone Number',
                     helperText:

@@ -2,15 +2,10 @@
 const d = require('./domain');
 
 function normalizePhone(value) {
-  if (typeof value !== 'string' || value.length > 30 || !/^[+\d\s()-]+$/.test(value)) {
-    d.fail('Enter a valid Malaysian rider phone number, for example 0123456789 or +60123456789.');
-  }
-  let phone = value.replace(/[\s()+-]/g, '');
-  if (phone.startsWith('0060')) phone = '0' + phone.slice(4);
-  else if (phone.startsWith('60')) phone = '0' + phone.slice(2);
-  if (!/^0[1-9]\d{7,9}$/.test(phone))
-    d.fail('Enter a valid Malaysian rider phone number, for example 0123456789 or +60123456789.');
-  return '+60' + phone.slice(1);
+  const phone = d.text(value, 'rider phone number', 30);
+  if (!/^[+\d ()-]+$/.test(phone) || !/\d/.test(phone))
+    d.fail('Enter a phone number using digits, spaces, +, - or parentheses.');
+  return phone;
 }
 
 function approvedContact(application) {

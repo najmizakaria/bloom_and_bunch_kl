@@ -1,5 +1,5 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import '../utils/malaysian_phone.dart';
+import '../utils/rider_phone.dart';
 
 class RiderContact {
   const RiderContact({required this.name, required this.phone});
@@ -34,7 +34,7 @@ class RiderContactService {
     final data = Map<String, dynamic>.from(result.data as Map);
     return RiderContact(
       name: data['name'] as String,
-      phone: MalaysianPhone.normalize(data['phone'] as String),
+      phone: RiderPhone.normalize(data['phone'] as String),
     );
   }
 }

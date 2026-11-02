@@ -110,7 +110,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                'Ask the store administrator to approve your delivery name and Malaysian phone number. Refresh available deliveries after the contact is approved.',
+                'Ask the store administrator to add your delivery name and phone number, then refresh available deliveries.',
               ),
             ),
           if (widget.hasActiveDelivery)
@@ -169,7 +169,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
             _accepting
                 ? 'Accepting…'
                 : !widget.contactReady
-                ? 'Delivery contact needs review'
+                ? 'Delivery contact missing'
                 : widget.hasActiveDelivery
                 ? 'Complete current delivery first'
                 : !widget.job.readyForPickup

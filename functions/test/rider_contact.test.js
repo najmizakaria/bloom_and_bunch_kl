@@ -19,13 +19,14 @@ const get = (uid, id) => api.getAssignedRiderContact.run(req(uid,id));
 async function fixture(id, extra={}) {
   await db.doc('orders/'+id).set({customerId:'contact_buyer',riderId:'contact_rider',orderStatus:'Out for Delivery',...extra});
 }
-test('rider phone normalization permits Malaysian formats and blocks injected or malformed numbers', () => {
-  for (const phone of ['0123456789','+60 12-345 6789','60123456789','0060123456789','(012) 345-6789']) assert.equal(normalizePhone(phone),'+60123456789');
-  for (const phone of ['',null,123,'123','0000000000','+999123456789','0123456789?body=secret','abc0123456789']) assert.throws(()=>normalizePhone(phone));
+test('rider numbers retain any country and digit length while blocking unsafe dialer input', () => {
+  for (const phone of ['676766767','123','0000000000','0123456789','+60 12-345 6789','60123456789','0060123456789','(012) 345-6789','+44 (20) 1234-5678','1'.repeat(30)]) assert.equal(normalizePhone(phone),phone);
+  assert.equal(normalizePhone(' 676766767 '),'676766767');
+  for (const phone of ['',null,123,'+---','1'.repeat(31),'0123456789?body=secret','abc0123456789','123\n456']) assert.throws(()=>normalizePhone(phone));
 });
 test('only the owning customer obtains the assigned approved rider contact during active delivery', {skip:!enabled}, async () => {
   await fixture('contact_active');
-  const expected = {name:'Approved Rider',phone:'+60123456789'};
+  const expected = {name:'Approved Rider',phone:'0123456789'};
   assert.deepEqual(await get('contact_buyer','contact_active'),expected);
   await db.doc('orders/contact_active').update({orderStatus:'Awaiting Customer Confirmation'});
   assert.deepEqual(await get('contact_buyer','contact_active'),expected);
@@ -42,11 +43,11 @@ test('contact is unavailable before assignment and after delivery completion or 
 });
 test('contact follows current assignment and ignores a client-supplied rider ID', {skip:!enabled}, async () => {
   await fixture('contact_reassigned');
-  assert.equal((await get('contact_buyer','contact_reassigned')).phone,'+60123456789');
+  assert.equal((await get('contact_buyer','contact_reassigned')).phone,'0123456789');
   await db.doc('users/contact_replacement').set({role:'rider',name:'Replacement'});
   await db.doc('rider_applications/contact_replacement').set({status:'approved',name:'Replacement',phone:'0133333333'});
   await db.doc('orders/contact_reassigned').update({riderId:'contact_replacement'});
-  assert.deepEqual(await get('contact_buyer','contact_reassigned'),{name:'Replacement',phone:'+60133333333'});
+  assert.deepEqual(await get('contact_buyer','contact_reassigned'),{name:'Replacement',phone:'0133333333'});
 });
 test('missing approval, malformed contact, deleted accounts and role removal never expose a contact', {skip:!enabled}, async () => {
   await fixture('contact_invalid');
@@ -65,7 +66,7 @@ test('missing approval, malformed contact, deleted accounts and role removal nev
   await assert.rejects(()=>get('contact_buyer','contact_invalid'),e=>e.code==='permission-denied');
   await db.doc('users/contact_buyer').set({role:'customer'});
 });
-test('approval normalizes the application contact without changing the general profile phone', {skip:!enabled}, async () => {
+test('application approval accepts arbitrary rider numbers without changing the profile phone', {skip:!enabled}, async () => {
   const id='contact_applicant';
   await db.doc('users/'+id).set({role:'customer',name:'Applicant',phone:'0199999999'});
   const application=db.doc('rider_applications/'+id);
@@ -73,8 +74,8 @@ test('approval normalizes the application contact without changing the general p
   const request={auth:{uid:'contact_admin'},data:{applicantId:id,decision:'approved'}};
   await assert.rejects(()=>api.reviewRiderApplication.run(request),e=>e.code==='invalid-argument');
   assert.equal((await application.get()).data().status,'pending');
-  await application.update({phone:'+60 12-345 6789'});
+  await application.update({phone:'676766767'});
   await api.reviewRiderApplication.run(request);
-  assert.equal((await application.get()).data().phone,'+60123456789');
+  assert.equal((await application.get()).data().phone,'676766767');
   assert.equal((await db.doc('users/'+id).get()).data().phone,'0199999999');
 });

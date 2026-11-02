@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../core/services/admin_service.dart';
-import '../../core/utils/malaysian_phone.dart';
+import '../../core/utils/rider_phone.dart';
 import 'admin_widgets.dart';
 import 'admin_layout.dart';
 import 'admin_theme.dart';
@@ -24,7 +24,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
     bool suspended = person['suspended'] == true;
     var contactName = '${person['name'] ?? ''}',
         contactPhone = '${person['phone'] ?? ''}';
-    bool contactApproved = false;
     String? contactError;
     final result = await showDialog<bool>(
       context: context,
@@ -54,7 +53,7 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
               if (selected == 'rider' &&
                   !(person['roles'] as List).contains('rider')) ...[
                 const Text(
-                  'Review the contact customers will use during deliveries.',
+                  'Enter the contact customers will use during deliveries.',
                 ),
                 TextFormField(
                   initialValue: contactName,
@@ -70,15 +69,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                   keyboardType: TextInputType.phone,
                   maxLength: 30,
                   onChanged: (v) => contactPhone = v,
-                ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'I reviewed and approve this delivery contact',
-                  ),
-                  value: contactApproved,
-                  onChanged: (v) =>
-                      setDialog(() => contactApproved = v == true),
                 ),
                 if (contactError != null)
                   Text(
@@ -101,14 +91,10 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
                 if (selected == 'rider' &&
                     !(person['roles'] as List).contains('rider')) {
                   try {
-                    if (!contactApproved || contactName.trim().isEmpty) {
-                      throw const FormatException(
-                        'Review and approve the rider name and phone.',
-                      );
+                    if (contactName.trim().isEmpty) {
+                      throw const FormatException('Enter the rider name.');
                     }
-                    contactPhone = MalaysianPhone.normalize(
-                      contactPhone.trim(),
-                    );
+                    contactPhone = RiderPhone.normalize(contactPhone.trim());
                   } on FormatException catch (e) {
                     setDialog(() => contactError = e.message);
                     return;
@@ -132,7 +118,6 @@ class _AdminStaffScreenState extends State<AdminStaffScreen> {
             !(person['roles'] as List).contains('rider')) ...{
           'contactName': contactName.trim(),
           'contactPhone': contactPhone,
-          'contactApproved': contactApproved,
         },
         if (person['managed'] == true &&
             !(person['roles'] as List).contains(selected))
@@ -347,7 +332,7 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
         'name': _name.text.trim(),
         'email': _email.text.trim(),
         'phone': _role == 'rider'
-            ? MalaysianPhone.normalize(_phone.text.trim())
+            ? RiderPhone.normalize(_phone.text.trim())
             : _phone.text.trim(),
         'password': _password.text,
         'role': _role,
@@ -416,14 +401,16 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
                   enabled: !_busy,
                   maxLength: 30,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Phone number',
-                    hintText: '+60123456789',
+                    hintText: _role == 'rider'
+                        ? 'e.g. 676766767'
+                        : '+60123456789',
                   ),
                   validator: (v) {
                     if (_role == 'rider') {
                       try {
-                        MalaysianPhone.normalize(v?.trim() ?? '');
+                        RiderPhone.normalize(v?.trim() ?? '');
                         return null;
                       } on FormatException catch (e) {
                         return e.message;
@@ -446,7 +433,7 @@ class AdminCreateStaffScreenState extends State<AdminCreateStaffScreen> {
                 const SizedBox(height: 16),
                 if (_role == 'rider')
                   const Text(
-                    'Creating this rider account approves the name and Malaysian phone above as their delivery contact. Confirm these details with the rider.',
+                    'Customers will use this delivery contact during assigned orders.',
                   ),
                 TextFormField(
                   controller: _password,

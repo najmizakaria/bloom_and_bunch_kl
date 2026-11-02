@@ -60,7 +60,7 @@ function createAdminHandlers({
       },
       { merge: true },
     );
-    audit(tx, actorId, 'rider_contact_approved', uid, { source });
+    audit(tx, actorId, 'rider_contact_updated', uid, { source });
   }
   async function count(q) {
     return (await q.count().get()).data().count;
@@ -249,7 +249,7 @@ function createAdminHandlers({
       if (
         !['florist', 'rider'].includes(staffRole) ||
         !/^\S+@\S+\.\S+$/.test(email) ||
-        !/^\+?\d{9,15}$/.test(phone)
+        (staffRole === 'florist' && !/^\+?\d{9,15}$/.test(phone))
       )
         d.fail('Enter a valid staff role, email and phone.');
       const deliveryPhone = staffRole === 'rider' ? riderContact.normalizePhone(phone) : null;
@@ -365,11 +365,6 @@ function createAdminHandlers({
           );
           if (!current.empty) d.fail('Complete assigned preparation first.', 'failed-precondition');
           if (req.data.role === 'rider' && !role(p, 'rider')) {
-            if (req.data.contactApproved !== true)
-              d.fail(
-                'Review and approve the rider delivery contact before changing this role.',
-                'failed-precondition',
-              );
             newContact = {
               name: d.text(req.data.contactName, 'rider name', 160),
               phone: riderContact.normalizePhone(req.data.contactPhone),
@@ -465,7 +460,6 @@ function createAdminHandlers({
       await authorize(req);
       const p = req.data ?? {},
         uid = d.id(p.uid);
-      if (p.confirmed !== true) d.fail('Review and approve this delivery contact before saving.');
       const name = d.text(p.name, 'rider name', 160),
         phone = riderContact.normalizePhone(p.phone);
       return db.runTransaction(async (tx) => {
@@ -482,10 +476,10 @@ function createAdminHandlers({
           d.fail('An existing rider account is required.', 'failed-precondition');
         if (p.contactVersion !== riderContact.contactVersion(application.data()))
           d.fail(
-            'This rider contact changed. Refresh the directory and review it again.',
+            'This rider contact changed. Refresh the directory and try again.',
             'failed-precondition',
           );
-        saveContact(tx, uid, req.auth.uid, name, phone, application.data(), 'admin_review');
+        saveContact(tx, uid, req.auth.uid, name, phone, application.data(), 'admin_edit');
         return { saved: true };
       });
     },
