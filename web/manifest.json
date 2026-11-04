@@ -1,11 +1,11 @@
 {
-    "name": "bloombunch",
-    "short_name": "bloombunch",
+    "name": "Bloom & Bunch KL",
+    "short_name": "Bloom & Bunch KL",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Bouquet ordering and delivery from Bloom & Bunch KL.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
