@@ -9,7 +9,7 @@ import '../../../core/services/notification_service.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/widgets/reauthentication_dialog.dart';
 import '../../../core/widgets/legal_documents.dart';
-import '../../../core/widgets/phone_number_dialog.dart';
+import '../../../core/widgets/profile_field_dialog.dart';
 import 'package:provider/provider.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/firestore_service.dart';
@@ -81,25 +81,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _editPhoneNumber(
-    BuildContext context,
-    String currentPhone,
-  ) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    await showDialog<bool>(
+  Future<void> _editProfileField(
+    String uid,
+    String currentValue, {
+    required bool isName,
+  }) async {
+    Future<void> save(String value) async {
+      if (FirebaseAuth.instance.currentUser?.uid != uid) {
+        throw StateError('Your account changed. Please sign in again.');
+      }
+      await FirestoreService().updateUserFields(uid, {
+        (isName ? 'name' : 'phone'): value,
+      });
+    }
+
+    final saved = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PhoneNumberDialog(
-        currentPhone: currentPhone,
-        onSave: (phone) async {
-          if (FirebaseAuth.instance.currentUser?.uid != uid) {
-            throw StateError('Your account changed. Please sign in again.');
-          }
-          await FirestoreService().updateUserFields(uid, {'phone': phone});
-        },
-      ),
+      builder: (_) => isName
+          ? ProfileFieldDialog.name(currentName: currentValue, onSave: save)
+          : ProfileFieldDialog.phone(currentPhone: currentValue, onSave: save),
     );
+    if (isName && saved == true && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Name updated.')));
+    }
   }
 
   Future<void> _confirmDeleteAccount(BuildContext context) async {
@@ -214,7 +221,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         builder: (context, userDocSnapshot) {
           final userData = userDocSnapshot.data?.data();
           final phone = userData?['phone'] ?? '';
-          final name = userData?['name'] ?? user?.displayName ?? 'Guest';
+          final name =
+              userData?['name']?.toString() ?? user?.displayName ?? 'Guest';
           final roles = (userData?['roles'] as List<dynamic>? ?? const [])
               .whereType<String>();
           final hasRiderRole =
@@ -248,9 +256,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              name,
-                              style: const AppTypography.productTitle(),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    name,
+                                    style: const AppTypography.productTitle(),
+                                  ),
+                                ),
+                                if (uid != null)
+                                  IconButton(
+                                    tooltip: 'Edit name',
+                                    icon: const Icon(
+                                      Icons.edit_outlined,
+                                      size: 18,
+                                    ),
+                                    onPressed: () => _editProfileField(
+                                      uid,
+                                      name,
+                                      isName: true,
+                                    ),
+                                  ),
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -261,7 +288,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 6),
                             GestureDetector(
-                              onTap: () => _editPhoneNumber(context, phone),
+                              onTap: uid == null
+                                  ? null
+                                  : () => _editProfileField(
+                                      uid,
+                                      phone,
+                                      isName: false,
+                                    ),
                               child: Row(
                                 children: [
                                   const Icon(

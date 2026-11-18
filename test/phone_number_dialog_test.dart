@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'package:bloom_and_bunch_kl/core/widgets/phone_number_dialog.dart';
+import 'package:bloom_and_bunch_kl/core/widgets/profile_field_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,6 +7,7 @@ Future<void> openPhone(
   WidgetTester tester,
   Future<void> Function(String) save, {
   void Function(bool?)? result,
+  bool editName = false,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -17,8 +18,12 @@ Future<void> openPhone(
               final saved = await showDialog<bool>(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) =>
-                    PhoneNumberDialog(currentPhone: '', onSave: save),
+                builder: (_) => editName
+                    ? ProfileFieldDialog.name(
+                        currentName: 'Current Name',
+                        onSave: save,
+                      )
+                    : ProfileFieldDialog.phone(currentPhone: '', onSave: save),
               );
               result?.call(saved);
             },
@@ -33,6 +38,26 @@ Future<void> openPhone(
 }
 
 void main() {
+  testWidgets('name editing prefills, validates, and saves trimmed text', (
+    tester,
+  ) async {
+    String? name;
+    await openPhone(tester, (value) async => name = value, editName: true);
+    final field = find.byType(TextField);
+    expect(find.text('Edit name'), findsOneWidget);
+    expect(tester.widget<TextField>(field).controller!.text, 'Current Name');
+    await tester.enterText(field, '   ');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('Enter your name.'), findsOneWidget);
+    expect(name, isNull);
+    await tester.enterText(field, '  Updated Name  ');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(name, 'Updated Name');
+    expect(find.byType(ProfileFieldDialog), findsNothing);
+  });
+
   testWidgets('save keeps the controller alive through the closing animation', (
     tester,
   ) async {
@@ -50,7 +75,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(phone, '0123456789');
     expect(saved, true);
-    expect(find.byType(PhoneNumberDialog), findsNothing);
+    expect(find.byType(ProfileFieldDialog), findsNothing);
     expect(find.text('Edit phone'), findsOneWidget);
   });
 
@@ -68,7 +93,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(writes, 0);
-      expect(find.byType(PhoneNumberDialog), findsNothing);
+      expect(find.byType(ProfileFieldDialog), findsNothing);
     },
   );
 
@@ -91,7 +116,7 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
     expect(calls, 2);
-    expect(find.byType(PhoneNumberDialog), findsNothing);
+    expect(find.byType(ProfileFieldDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -117,14 +142,14 @@ void main() {
           .onPressed,
       isNull,
     );
-    final context = tester.element(find.byType(PhoneNumberDialog));
+    final context = tester.element(find.byType(ProfileFieldDialog));
     await Navigator.of(context).maybePop();
     await tester.pump();
-    expect(find.byType(PhoneNumberDialog), findsOneWidget);
+    expect(find.byType(ProfileFieldDialog), findsOneWidget);
     pending.complete();
     await tester.pumpAndSettle();
     expect(calls, 1);
-    expect(find.byType(PhoneNumberDialog), findsNothing);
+    expect(find.byType(ProfileFieldDialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

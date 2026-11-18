@@ -1,21 +1,31 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 
-class PhoneNumberDialog extends StatefulWidget {
-  const PhoneNumberDialog({
+class ProfileFieldDialog extends StatefulWidget {
+  const ProfileFieldDialog.phone({
     super.key,
-    required this.currentPhone,
+    required String currentPhone,
     required this.onSave,
-  });
-  final String currentPhone;
-  final Future<void> Function(String phone) onSave;
+  }) : _initialValue = currentPhone,
+       _isName = false;
+
+  const ProfileFieldDialog.name({
+    super.key,
+    required String currentName,
+    required this.onSave,
+  }) : _initialValue = currentName,
+       _isName = true;
+
+  final String _initialValue;
+  final bool _isName;
+  final Future<void> Function(String value) onSave;
 
   @override
-  State<PhoneNumberDialog> createState() => _PhoneNumberDialogState();
+  State<ProfileFieldDialog> createState() => _ProfileFieldDialogState();
 }
 
-class _PhoneNumberDialogState extends State<PhoneNumberDialog> {
-  late final _controller = TextEditingController(text: widget.currentPhone);
+class _ProfileFieldDialogState extends State<ProfileFieldDialog> {
+  late final _controller = TextEditingController(text: widget._initialValue);
   bool _saving = false, _closed = false;
   String? _error;
 
@@ -28,19 +38,26 @@ class _PhoneNumberDialogState extends State<PhoneNumberDialog> {
 
   Future<void> _save() async {
     if (_saving || _closed) return;
+    final value = _controller.text.trim();
+    if (widget._isName && value.isEmpty) {
+      setState(() => _error = 'Enter your name.');
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await widget.onSave(_controller.text.trim());
+      await widget.onSave(value);
       if (!mounted) return;
       _closed = true;
       Navigator.of(context).pop(true);
     } catch (_) {
       if (mounted) {
         setState(
-          () => _error = 'Could not save your phone number. Please retry.',
+          () => _error = widget._isName
+              ? 'Could not save your name. Please retry.'
+              : 'Could not save your phone number. Please retry.',
         );
       }
     } finally {
@@ -52,7 +69,7 @@ class _PhoneNumberDialogState extends State<PhoneNumberDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_saving,
     child: AlertDialog(
-      title: const Text('Phone Number'),
+      title: Text(widget._isName ? 'Edit name' : 'Phone Number'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -61,10 +78,19 @@ class _PhoneNumberDialogState extends State<PhoneNumberDialog> {
             TextField(
               controller: _controller,
               enabled: !_saving && !_closed,
-              keyboardType: TextInputType.phone,
-              autofillHints: const [AutofillHints.telephoneNumber],
-              maxLength: 30,
-              decoration: const InputDecoration(hintText: 'e.g. 012-3456789'),
+              keyboardType: widget._isName
+                  ? TextInputType.name
+                  : TextInputType.phone,
+              textCapitalization: widget._isName
+                  ? TextCapitalization.words
+                  : TextCapitalization.none,
+              autofillHints: widget._isName
+                  ? const [AutofillHints.name]
+                  : const [AutofillHints.telephoneNumber],
+              maxLength: widget._isName ? 120 : 30,
+              decoration: widget._isName
+                  ? const InputDecoration(labelText: 'Name')
+                  : const InputDecoration(hintText: 'e.g. 012-3456789'),
             ),
             if (_error != null)
               Semantics(

@@ -364,6 +364,7 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: optional ? '$label (optional)' : '$label *',
+        counterText: optional ? null : '',
         border: const OutlineInputBorder(),
       ),
       onChanged: c == _address
@@ -397,15 +398,9 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
               icon: const Icon(Icons.my_location),
               label: const Text('Use current location'),
             ),
-            const Text('Check your unit, building and street before saving.'),
-            const Text('* Required'),
             const SizedBox(height: 16),
             _field(_label, 'Label', 60),
             _field(_address, 'Full address', 600),
-            const Text(
-              'Town, postcode and state help your rider identify the delivery area.',
-            ),
-            const SizedBox(height: 12),
             _field(
               _locality,
               'Town / City',
@@ -447,9 +442,6 @@ class _DeliveryAddressFormScreenState extends State<DeliveryAddressFormScreen> {
               label: Text(
                 _lat == null ? 'Confirm delivery pin *' : 'Review delivery pin',
               ),
-            ),
-            const Text(
-              'After changing the street or building, confirm the entrance pin again.',
             ),
             SwitchListTile(
               title: const Text('Use as default address'),

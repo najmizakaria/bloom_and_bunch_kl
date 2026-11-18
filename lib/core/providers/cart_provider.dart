@@ -66,16 +66,17 @@ class CartProvider extends ChangeNotifier {
   List<CartItemModel> get items => List.unmodifiable(_items);
   bool get isEmpty => _items.isEmpty;
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
-  double get totalPrice =>
+  double get itemsSubtotal =>
       _items.fold<int>(
-            0,
-            (sum, item) => sum + Money.toSen(item.unitPrice) * item.quantity,
-          ) /
-          100 +
-      _messageCards.values.fold<double>(
         0,
-        (sum, card) => sum + (card['price'] as num? ?? 0).toDouble(),
-      );
+        (sum, item) => sum + Money.toSen(item.unitPrice) * item.quantity,
+      ) /
+      100;
+  double get messageCardTotal => _messageCards.values.fold<double>(
+    0,
+    (sum, card) => sum + (card['price'] as num? ?? 0).toDouble(),
+  );
+  double get totalPrice => itemsSubtotal + messageCardTotal;
 
   void _persist({bool cloud = true}) {
     final uid = _uid;

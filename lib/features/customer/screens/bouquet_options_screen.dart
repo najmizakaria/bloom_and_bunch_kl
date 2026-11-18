@@ -29,7 +29,6 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
   final Map<String, Map<String, dynamic>> _products = {};
   final Map<String, int> _quantities = {};
   String _category = 'All';
-  String? _date;
   bool _choosing = false;
   List<CartItemModel> get _bouquets => [
     widget.bouquet,
@@ -45,25 +44,25 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
     }
   }
 
-  Future<void> _choose() async {
-    setState(() => _choosing = true);
-    final date = await (widget.datePicker ?? chooseDeliveryDate)(
-      context,
-      _bouquets,
-    );
-    if (mounted) {
-      setState(() {
-        _choosing = false;
-        if (date != null) _date = date;
-      });
+  Future<void> _add() async {
+    if (_choosing) return;
+    final bouquets = _bouquets;
+    String? date;
+    if (_planned) {
+      setState(() => _choosing = true);
+      try {
+        date = await (widget.datePicker ?? chooseDeliveryDate)(
+          context,
+          bouquets,
+        );
+      } finally {
+        if (mounted) setState(() => _choosing = false);
+      }
+      if (!mounted || date == null) return;
     }
-  }
-
-  void _add() {
-    if (_planned && _date == null) return;
     final stamp = DateTime.now().microsecondsSinceEpoch;
     final selection = [
-      ..._bouquets.map((b) => b.withDate(_date)),
+      ...bouquets.map((b) => b.withDate(date)),
       for (final entry in _quantities.entries.where((e) => e.value > 0))
         CartItemModel(
           id: 'addon_${entry.key}_$stamp',
@@ -73,7 +72,7 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
           imageUrl: _products[entry.key]!['imageUrl'] as String? ?? '',
           unitPrice: (_products[entry.key]!['price'] as num).toDouble(),
           quantity: entry.value,
-          requestedDeliveryDate: _date,
+          requestedDeliveryDate: date,
         ),
     ];
     final cart = context.read<CartProvider>();
@@ -95,7 +94,7 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Make it extra special')),
+    appBar: AppBar(title: const Text('Add-ons')),
     body: ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -107,14 +106,6 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
           Text(
             'Also includes ${widget.extraBouquets.map((b) => b.name).join(', ')}',
           ),
-        const SizedBox(height: 8),
-        const Text(
-          '1. Optional add-ons',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        const Text(
-          'Each add-on appears separately in your cart. Message cards are added in the cart.',
-        ),
         const SizedBox(height: 16),
         StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: _catalogue,
@@ -163,75 +154,69 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
                           count = _quantities[product.id] ?? 0,
                           stock = (data['stockQuantity'] as num?)?.toInt() ?? 0;
                       return Card(
+                        margin: const EdgeInsets.only(top: 12),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                          child: Row(
                             children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if ((data['imageUrl'] ?? '')
-                                      .toString()
-                                      .isNotEmpty)
-                                    Padding(
-                                      padding: const EdgeInsets.only(right: 12),
-                                      child: Image.network(
+                              SizedBox.square(
+                                dimension: 56,
+                                child:
+                                    (data['imageUrl'] ?? '').toString().isEmpty
+                                    ? const Icon(Icons.redeem, size: 28)
+                                    : Image.network(
                                         data['imageUrl'] as String,
-                                        width: 76,
-                                        height: 76,
                                         fit: BoxFit.cover,
-                                        errorBuilder: (_, error, stack) =>
-                                            const Icon(Icons.redeem, size: 48),
+                                        errorBuilder: (_, _, _) =>
+                                            const Icon(Icons.redeem, size: 28),
+                                      ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      data['name'] as String,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          data['name'] as String,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'RM ${(data['price'] as num).toStringAsFixed(2)}',
-                                        ),
-                                        if (stock == 0) const Text('Sold out'),
-                                      ],
+                                    Text(
+                                      'RM ${(data['price'] as num).toStringAsFixed(2)}',
                                     ),
-                                  ),
-                                ],
+                                    if (stock == 0) const Text('Sold out'),
+                                  ],
+                                ),
                               ),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Remove one',
-                                    onPressed: count == 0
-                                        ? null
-                                        : () => setState(
-                                            () => _quantities[product.id] =
-                                                count - 1,
-                                          ),
-                                    icon: const Icon(
-                                      Icons.remove_circle_outline,
-                                    ),
-                                  ),
-                                  Text('$count'),
-                                  IconButton(
-                                    tooltip: 'Add one',
-                                    onPressed: count >= stock || count >= 20
-                                        ? null
-                                        : () => setState(() {
-                                            _products[product.id] = data;
-                                            _quantities[product.id] = count + 1;
-                                          }),
-                                    icon: const Icon(Icons.add_circle_outline),
-                                  ),
-                                ],
+                              IconButton(
+                                tooltip: 'Remove one',
+                                onPressed: count == 0
+                                    ? null
+                                    : () => setState(
+                                        () =>
+                                            _quantities[product.id] = count - 1,
+                                      ),
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(minWidth: 24),
+                                child: Text(
+                                  '$count',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Add one',
+                                onPressed: count >= stock || count >= 20
+                                    ? null
+                                    : () => setState(() {
+                                        _products[product.id] = data;
+                                        _quantities[product.id] = count + 1;
+                                      }),
+                                icon: const Icon(Icons.add_circle_outline),
                               ),
                             ],
                           ),
@@ -244,31 +229,9 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
           },
         ),
         const SizedBox(height: 24),
-        Text(
-          _planned ? '2. Choose your delivery date' : '2. Delivery',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        OutlinedButton.icon(
-          onPressed: _choosing ? null : _choose,
-          icon: const Icon(Icons.calendar_month),
-          label: Text(
-            _choosing
-                ? 'Loading available dates…'
-                : _date ??
-                      (_planned
-                          ? 'Choose delivery date'
-                          : 'Deliver later (optional)'),
-          ),
-        ),
-        if (!_planned && _date != null)
-          TextButton(
-            onPressed: () => setState(() => _date = null),
-            child: const Text('Use earliest delivery instead'),
-          ),
-        const SizedBox(height: 24),
         FilledButton(
-          onPressed: _choosing || (_planned && _date == null) ? null : _add,
-          child: const Text('Add bouquet and extras to cart'),
+          onPressed: _choosing ? null : _add,
+          child: Text(_choosing ? 'Loading available dates…' : 'Add to cart'),
         ),
       ],
     ),

@@ -19,7 +19,7 @@ void main() {
           name: 'Birthday bouquet',
           imageUrl: '',
           price: 50,
-          quantity: 1,
+          quantity: 2,
         );
         await tester.pumpWidget(
           ChangeNotifierProvider.value(
@@ -37,12 +37,57 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.text('Items subtotal'), findsOneWidget);
-        await tester.ensureVisible(find.text('Proceed to Checkout'));
+        expect(find.text('Cart'), findsOneWidget);
+        expect(find.text('Order Summary'), findsOneWidget);
+        expect(find.text('Subtotal for products'), findsOneWidget);
+        expect(find.text('Free'), findsOneWidget);
+        final label = find.text('Total');
+        final price = find.text('RM 100.00').last;
+        expect(
+          tester.getCenter(label).dx,
+          lessThan(tester.getCenter(price).dx),
+        );
+        await tester.ensureVisible(find.text('Checkout'));
         await tester.pumpAndSettle();
-        expect(find.text('Proceed to Checkout').hitTestable(), findsOneWidget);
+        expect(find.text('Checkout').hitTestable(), findsOneWidget);
         cart.dispose();
       },
     );
   }
+
+  testWidgets('swiping reveals Remove without removing the bouquet', (
+    tester,
+  ) async {
+    final cart = CartProvider();
+    addTearDown(cart.dispose);
+    cart.addReadyMadeItem(
+      bouquetId: 'swipe',
+      name: 'Bouquet to remove',
+      imageUrl: '',
+      price: 50,
+      quantity: 1,
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: cart,
+        child: const MaterialApp(home: CartScreen()),
+      ),
+    );
+    final remove = find.byTooltip('Remove');
+    final name = find.text('Bouquet to remove');
+    final card = find.ancestor(of: name, matching: find.byType(Card)).first;
+    final center = tester.getCenter(card).dy;
+    expect(tester.getCenter(find.byTooltip('Decrease quantity')).dy, center);
+    expect(tester.getCenter(find.text('1')).dy, center);
+    expect(tester.getCenter(find.byTooltip('Increase quantity')).dy, center);
+    expect(find.byIcon(Icons.more_horiz), findsNothing);
+    expect(remove, findsNothing);
+    await tester.drag(name, const Offset(-120, 0));
+    await tester.pumpAndSettle();
+    expect(cart.itemCount, 1);
+    expect(remove.hitTestable(), findsOneWidget);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+    expect(cart.isEmpty, isTrue);
+  });
 }

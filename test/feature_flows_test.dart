@@ -19,11 +19,28 @@ class FakeFavourites implements FavouritesService {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class EmptyAddons implements QuerySnapshot<Map<String, dynamic>> {
+class AddonCatalogue extends Fake
+    implements QuerySnapshot<Map<String, dynamic>> {
+  AddonCatalogue(this.docs);
+
   @override
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => [];
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs;
+}
+
+// ignore: subtype_of_sealed_class
+class ChocolateAddon extends Fake
+    implements QueryDocumentSnapshot<Map<String, dynamic>> {
+  static const name = 'Ferrero Rocher Chocolate (24 pcs)';
+
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+  String get id => 'chocolate';
+
+  @override
+  Map<String, dynamic> data() => {
+    'name': name,
+    'price': 30,
+    'stockQuantity': 2,
+  };
 }
 
 void main() {
@@ -31,6 +48,8 @@ void main() {
     WidgetTester tester, {
     String? mode,
     bool ready = true,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> addons = const [],
+    String? Function()? selectDate,
   }) async {
     final cart = CartProvider();
     final bouquet = BouquetModel(
@@ -57,8 +76,9 @@ void main() {
             favouritesService: FakeFavourites(),
             optionsBuilder: (draft) => BouquetOptionsScreen(
               bouquet: draft,
-              catalogueStream: Stream.value(EmptyAddons()),
-              datePicker: (_, items) async => '2026-11-12',
+              catalogueStream: Stream.value(AddonCatalogue(addons)),
+              datePicker: (_, items) async =>
+                  selectDate == null ? '2026-11-12' : selectDate(),
             ),
           ),
         ),
@@ -68,42 +88,71 @@ void main() {
     return cart;
   }
 
+  testWidgets('add-on quantity controls fit beside a long name on mobile', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 720);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await mount(tester, addons: [ChocolateAddon()]);
+    await tester.tap(find.text('Choose add-ons'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ready to send'));
+    await tester.pumpAndSettle();
+
+    final name = find.text(ChocolateAddon.name);
+    final add = find.byTooltip('Add one');
+    final remove = find.byTooltip('Remove one');
+    expect(tester.widget<Text>(name).maxLines, 2);
+    final rowCenter = tester.getCenter(add).dy;
+    expect(tester.getCenter(remove).dy, rowCenter);
+    expect(tester.getCenter(find.text('0')).dy, rowCenter);
+    expect(tester.getTopLeft(name).dy, lessThan(rowCenter));
+    await tester.tap(add);
+    await tester.pump();
+    expect(tester.getCenter(find.text('1')).dy, tester.getCenter(add).dy);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'pre-order detail retains the selected mode for a dual-mode bouquet',
     (tester) async {
       final cart = await mount(tester, mode: FulfillmentTypes.preOrder);
-      await tester.tap(find.text('Choose add-ons & date'));
+      final summary = find.text('Fresh roses');
+      await tester.scrollUntilVisible(summary, 150);
+      expect(
+        tester.getTopLeft(summary).dy,
+        greaterThan(tester.getBottomLeft(find.text('RM 55.00')).dy),
+      );
+      expect(find.text('Pre-order'), findsNothing);
+      await tester.tap(find.text('Choose add-ons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Pre-order'));
       await tester.pumpAndSettle();
       expect(cart.isEmpty, true);
-      expect(
-        tester
-            .widget<FilledButton>(
-              find.widgetWithText(
-                FilledButton,
-                'Add bouquet and extras to cart',
-              ),
-            )
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.text('Choose delivery date'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add bouquet and extras to cart'));
+      expect(find.text('Choose delivery date'), findsNothing);
+      await tester.tap(find.text('Add to cart'));
       await tester.pumpAndSettle();
       expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
       expect(cart.items.single.leadTimeBusinessDays, 2);
+      expect(cart.items.single.requestedDeliveryDate, '2026-11-12');
     },
   );
   testWidgets(
-    'pre-order-only favourite can be ordered through the details selector',
+    'pre-order-only favourite stays on add-ons when the date picker is cancelled',
     (tester) async {
-      final cart = await mount(tester, ready: false);
+      String? date;
+      final cart = await mount(tester, ready: false, selectDate: () => date);
       await tester.tap(find.text('Choose add-ons & date'));
       await tester.pumpAndSettle();
-      expect(cart.isEmpty, true);
-      await tester.tap(find.text('Choose delivery date'));
+      final add = find.text('Add to cart');
+      await tester.tap(add);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Add bouquet and extras to cart'));
+      expect(cart.isEmpty, true);
+      expect(add, findsOneWidget);
+      date = '2026-11-12';
+      await tester.tap(add);
       await tester.pumpAndSettle();
       expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
     },
@@ -121,7 +170,10 @@ void main() {
     );
     await tester.tap(find.text('Choose add-ons'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Add bouquet and extras to cart'));
+    await tester.tap(find.text('Ready to send'));
+    await tester.pumpAndSettle();
+    expect(find.text('Deliver later (optional)'), findsNothing);
+    await tester.tap(find.text('Add to cart'));
     await tester.pumpAndSettle();
     expect(cart.items.single.quantity, 20);
     expect(find.text('Maximum 20 bouquets per cart line.'), findsOneWidget);

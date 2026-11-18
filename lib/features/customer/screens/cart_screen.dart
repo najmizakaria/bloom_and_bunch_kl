@@ -1,6 +1,8 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/fulfillment_constants.dart';
@@ -83,6 +85,29 @@ class CartScreen extends StatelessWidget {
   Widget _delivery(BuildContext context, CartProvider cart, String group) {
     final card = cart.messageCards[group],
         items = cart.items.where((i) => i.deliveryGroupKey == group).toList();
+    final messageButton = Padding(
+      padding: EdgeInsets.symmetric(horizontal: card == null ? 24 : 0),
+      child: TextButton.icon(
+        style: card == null
+            ? TextButton.styleFrom(
+                backgroundColor: AppColors.softBlushEnd,
+                foregroundColor: AppColors.primaryDark,
+                minimumSize: const Size(48, 48),
+              )
+            : null,
+        onPressed: cart.hasPendingCheckout
+            ? null
+            : () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => MessageCardScreen(group: group),
+                ),
+              ),
+        icon: const Icon(Icons.mail_outline),
+        label: Text(card == null ? 'Add a message card' : 'Edit message card'),
+      ),
+    );
+    if (group == 'ready_now' && card == null) return messageButton;
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -123,22 +148,7 @@ class CartScreen extends StatelessWidget {
                 'Card: ${(card['price'] as num? ?? 0) == 0 ? 'Free' : 'RM ${(card['price'] as num).toStringAsFixed(2)}'}',
               ),
             ],
-            TextButton.icon(
-              onPressed: cart.hasPendingCheckout
-                  ? null
-                  : () => Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => MessageCardScreen(group: group),
-                      ),
-                    ),
-              icon: const Icon(Icons.mail_outline),
-              label: Text(
-                card == null
-                    ? 'Add a message card (optional)'
-                    : 'Edit message card',
-              ),
-            ),
+            messageButton,
             if (card != null)
               TextButton(
                 onPressed: cart.hasPendingCheckout
@@ -152,13 +162,36 @@ class CartScreen extends StatelessWidget {
     );
   }
 
+  Widget _summaryRow(String label, String value, {bool total = false}) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          label,
+          style: total
+              ? const AppTypography.productTitle()
+              : const AppTypography.supporting(color: AppColors.textMuted),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Text(
+          value,
+          textAlign: TextAlign.end,
+          style: total
+              ? const AppTypography.total(color: AppColors.primary)
+              : const AppTypography.supporting(fontWeight: FontWeight.w600),
+        ),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: const PageBackButton(),
         centerTitle: false,
-        title: const Text('Your cart'),
+        title: const Text('Cart'),
       ),
       body: Consumer<CartProvider>(
         builder: (context, cart, _) {
@@ -272,135 +305,132 @@ class CartScreen extends StatelessWidget {
                       item.fulfillmentType,
                     );
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: SizedBox(
-                                width: 64,
-                                height: 64,
-                                child: item.imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        item.imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Icon(
-                                                  Icons.local_florist,
-                                                  color: AppColors.primary,
-                                                ),
-                                      )
-                                    : const ColoredBox(
-                                        color: AppColors.secondarySurface,
-                                        child: Icon(
-                                          Icons.local_florist,
-                                          color: AppColors.primary,
+                    return _CartItemSwipe(
+                      key: ValueKey(item.id),
+                      onRemove: cart.hasPendingCheckout
+                          ? null
+                          : () => _remove(context, cart, item),
+                      child: Card(
+                        margin: EdgeInsets.zero,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: SizedBox(
+                                  width: 64,
+                                  height: 64,
+                                  child: item.imageUrl.isNotEmpty
+                                      ? Image.network(
+                                          item.imageUrl,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  const Icon(
+                                                    Icons.local_florist,
+                                                    color: AppColors.primary,
+                                                  ),
+                                        )
+                                      : const ColoredBox(
+                                          color: AppColors.secondarySurface,
+                                          child: Icon(
+                                            Icons.local_florist,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    Text(
+                                      item.name,
+                                      style: const AppTypography.supporting(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      item.type == 'addon'
+                                          ? 'Add-on'
+                                          : modeLabel,
+                                      style: AppTypography.badge(
+                                        color:
+                                            item.fulfillmentType ==
+                                                FulfillmentTypes.readyNow
+                                            ? AppColors.primary
+                                            : AppColors.primaryDark,
+                                      ),
+                                    ),
+                                    if (item.leadTimeBusinessDays > 0)
+                                      Text(
+                                        '${item.leadTimeBusinessDays} preparation days',
+                                        style: const AppTypography.caption(
+                                          color: AppColors.textMuted,
                                         ),
                                       ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.name,
-                                    style: const AppTypography.productTitle(),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.type == 'addon' ? 'Add-on' : modeLabel,
-                                    style: AppTypography.badge(
-                                      color:
-                                          item.fulfillmentType ==
-                                              FulfillmentTypes.readyNow
-                                          ? AppColors.primary
-                                          : AppColors.primaryDark,
-                                    ),
-                                  ),
-                                  if (item.leadTimeBusinessDays > 0)
-                                    Text(
-                                      '${item.leadTimeBusinessDays} preparation days',
-                                      style: const AppTypography.caption(
-                                        color: AppColors.textMuted,
+                                    if (item.requestedDeliveryDate != null)
+                                      Text(
+                                        'Delivery: ${item.requestedDeliveryDate}',
                                       ),
-                                    ),
-                                  if (item.requestedDeliveryDate != null)
+                                    if (item.type == 'custom') ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        '${item.wrapper} • ${item.ribbon}',
+                                        style: const AppTypography.caption(
+                                          color: AppColors.textMuted,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'Delivery: ${item.requestedDeliveryDate}',
-                                    ),
-                                  if (item.type == 'custom') ...[
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      '${item.wrapper} • ${item.ribbon}',
-                                      style: const AppTypography.caption(
-                                        color: AppColors.textMuted,
+                                      'RM ${item.unitPrice.toStringAsFixed(2)}',
+                                      style: const AppTypography.price(
+                                        color: AppColors.primary,
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 7),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Decrease quantity',
+                                    onPressed:
+                                        cart.hasPendingCheckout ||
+                                            item.quantity == 1
+                                        ? null
+                                        : () => cart.decrementQuantity(item.id),
+                                    icon: const Icon(
+                                      Icons.remove_circle_outline,
+                                      size: 20,
+                                    ),
+                                  ),
                                   Text(
-                                    'RM ${item.unitPrice.toStringAsFixed(2)}',
-                                    style: const AppTypography.price(
-                                      color: AppColors.primary,
+                                    '${item.quantity}',
+                                    style: const AppTypography.label(),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Increase quantity',
+                                    onPressed: cart.hasPendingCheckout
+                                        ? null
+                                        : () => cart.incrementQuantity(item.id),
+                                    icon: const Icon(
+                                      Icons.add_circle_outline,
+                                      size: 20,
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            Column(
-                              children: [
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: () {
-                                        if (item.quantity == 1) {
-                                          _remove(context, cart, item);
-                                        } else {
-                                          cart.decrementQuantity(item.id);
-                                        }
-                                      },
-                                      icon: const Icon(
-                                        Icons.remove_circle_outline,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${item.quantity}',
-                                      style: const AppTypography.label(),
-                                    ),
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: () => context
-                                          .read<CartProvider>()
-                                          .incrementQuantity(item.id),
-                                      icon: const Icon(
-                                        Icons.add_circle_outline,
-                                        size: 20,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                TextButton(
-                                  onPressed: () => _remove(context, cart, item),
-                                  child: const Text(
-                                    'Remove',
-                                    style: AppTypography.caption(
-                                      color: AppColors.primaryDark,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -430,31 +460,34 @@ class CartScreen extends StatelessWidget {
                     child: SafeArea(
                       top: false,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            runSpacing: 8,
-                            spacing: 16,
-                            children: [
-                              Text(
-                                cart.messageCards.isEmpty
-                                    ? 'Items subtotal'
-                                    : 'Items and cards',
-                                style: AppTypography.body(
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              Text(
-                                'RM ${cart.totalPrice.toStringAsFixed(2)}',
-                                style: const AppTypography.total(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
+                          const Text(
+                            'Order Summary',
+                            style: AppTypography.sectionTitle(),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'Items and cards share one payment and receipt. Different dates are shown as separate deliveries.',
+                          _summaryRow(
+                            'Subtotal for products',
+                            'RM ${cart.itemsSubtotal.toStringAsFixed(2)}',
+                          ),
+                          if (cart.messageCardTotal > 0) ...[
+                            const SizedBox(height: 4),
+                            _summaryRow(
+                              'Message cards',
+                              'RM ${cart.messageCardTotal.toStringAsFixed(2)}',
+                            ),
+                          ],
+                          const SizedBox(height: 4),
+                          _summaryRow('Delivery shipping', 'Free'),
+                          const Divider(
+                            height: 20,
+                            color: AppColors.inputBorder,
+                          ),
+                          _summaryRow(
+                            'Total',
+                            'RM ${cart.totalPrice.toStringAsFixed(2)}',
+                            total: true,
                           ),
                           const SizedBox(height: 12),
                           SizedBox(
@@ -481,7 +514,7 @@ class CartScreen extends StatelessWidget {
                                       ),
                                     ),
                               child: const Text(
-                                'Proceed to Checkout',
+                                'Checkout',
                                 style: AppTypography.button(),
                               ),
                             ),
@@ -495,6 +528,118 @@ class CartScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _CartItemSwipe extends StatefulWidget {
+  const _CartItemSwipe({
+    super.key,
+    required this.onRemove,
+    required this.child,
+  });
+
+  final VoidCallback? onRemove;
+  final Widget child;
+
+  @override
+  State<_CartItemSwipe> createState() => _CartItemSwipeState();
+}
+
+class _CartItemSwipeState extends State<_CartItemSwipe> {
+  static const _revealWidth = 64.0;
+  double _reveal = 0;
+  bool _dragging = false;
+
+  void _settle(bool open) => setState(() {
+    _dragging = false;
+    _reveal = open ? _revealWidth : 0;
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final onRemove = widget.onRemove;
+    final enabled = onRemove != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: ClipRect(
+        child: LayoutBuilder(
+          builder: (context, constraints) => Stack(
+            children: [
+              if (enabled && _reveal > 0)
+                Positioned(
+                  top: 0,
+                  bottom: 0,
+                  right: 0,
+                  width: _revealWidth - 8,
+                  child: Card(
+                    margin: EdgeInsets.zero,
+                    child: Center(
+                      child: IconButton(
+                        tooltip: 'Remove',
+                        color: AppColors.error,
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          _settle(false);
+                          widget.onRemove?.call();
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              GestureDetector(
+                onHorizontalDragStart: enabled
+                    ? (_) => setState(() => _dragging = true)
+                    : null,
+                onHorizontalDragUpdate: enabled
+                    ? (details) => setState(() {
+                        _reveal = (_reveal - details.delta.dx).clamp(
+                          0.0,
+                          _revealWidth,
+                        );
+                      })
+                    : null,
+                onHorizontalDragEnd: enabled
+                    ? (details) {
+                        final speed = details.primaryVelocity ?? 0;
+                        _settle(
+                          speed.abs() > 250
+                              ? speed < 0
+                              : _reveal >= _revealWidth / 2,
+                        );
+                      }
+                    : null,
+                onHorizontalDragCancel: enabled ? () => _settle(false) : null,
+                child: AnimatedSlide(
+                  offset: Offset(
+                    enabled ? -_reveal / constraints.maxWidth : 0,
+                    0,
+                  ),
+                  duration: _dragging || MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 180),
+                  curve: Curves.easeOut,
+                  child: onRemove == null
+                      ? widget.child
+                      : CallbackShortcuts(
+                          bindings: {
+                            const SingleActivator(LogicalKeyboardKey.delete):
+                                onRemove,
+                          },
+                          child: Semantics(
+                            customSemanticsActions: {
+                              const CustomSemanticsAction(label: 'Remove'):
+                                  onRemove,
+                            },
+                            child: widget.child,
+                          ),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

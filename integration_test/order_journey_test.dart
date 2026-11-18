@@ -62,7 +62,7 @@ void main() {
     bool planned = false,
     bool addTeddy = false,
   }) async {
-    await waitFor(tester, find.text('Make it extra special'));
+    await waitFor(tester, find.widgetWithText(AppBar, 'Add-ons'));
     if (addTeddy) {
       await waitFor(tester, find.text('Teddy Bear'));
       await tester.scrollUntilVisible(
@@ -79,24 +79,18 @@ void main() {
       );
       await tester.pumpAndSettle();
     }
-    if (planned) {
-      await tester.scrollUntilVisible(
-        find.text('Choose delivery date'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Choose delivery date'));
-      await waitFor(tester, find.byType(DatePickerDialog));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('OK'));
-      await tester.pumpAndSettle();
-    }
+    final add = find.widgetWithText(FilledButton, 'Add to cart');
     await tester.scrollUntilVisible(
-      find.text('Add bouquet and extras to cart'),
+      add,
       150,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.text('Add bouquet and extras to cart'));
+    await tester.tap(add);
+    if (planned) {
+      await waitFor(tester, find.byType(DatePickerDialog));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('OK'));
+    }
     await tester.pumpAndSettle();
   }
 
@@ -224,6 +218,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Choose add-ons'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Ready to send'));
+    await tester.pumpAndSettle();
     expect(cart.isEmpty, isTrue);
     await finishBouquetOptions(tester);
     expect(cart.items.single.quantity, 1);
@@ -234,10 +230,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Proceed to Checkout'));
+    await tester.ensureVisible(find.text('Checkout'));
     await tester.pumpAndSettle();
-    expect(find.text('Proceed to Checkout').hitTestable(), findsOneWidget);
-    await tester.tap(find.text('Proceed to Checkout'));
+    expect(find.text('Checkout').hitTestable(), findsOneWidget);
+    await tester.tap(find.text('Checkout'));
     await tester.pumpAndSettle();
     expect(
       find.text('Review your order'),
@@ -940,13 +936,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.textContaining('one payment and receipt'), findsOneWidget);
+      expect(find.textContaining('one payment and receipt'), findsNothing);
       await tester.scrollUntilVisible(
-        find.text('Add a message card (optional)').first,
+        find.text('Add a message card').first,
         150,
         scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(find.text('Add a message card (optional)').first);
+      await tester.tap(find.text('Add a message card').first);
       await waitFor(tester, find.byType(DropdownButtonFormField<String>));
       await tester.tap(find.byType(DropdownButtonFormField<String>));
       await tester.pumpAndSettle();
@@ -988,8 +984,8 @@ void main() {
         'Browser sender',
       );
       mirror.dispose();
-      await tester.ensureVisible(find.text('Proceed to Checkout'));
-      await tester.tap(find.text('Proceed to Checkout'));
+      await tester.ensureVisible(find.text('Checkout'));
+      await tester.tap(find.text('Checkout'));
       await waitFor(tester, find.text('Place Order'));
       await tester.scrollUntilVisible(
         find.byKey(const Key('confirm-order')),

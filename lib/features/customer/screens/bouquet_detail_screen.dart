@@ -32,7 +32,9 @@ class BouquetDetailScreen extends StatefulWidget {
 }
 
 class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
-  late bool _readyNow;
+  late final bool _readyNow;
+  bool get _readyAvailable =>
+      widget.bouquet.availableForReadyNow && widget.bouquet.readyStock > 0;
   late final FavouritesService _favourites =
       widget.favouritesService ?? FavouritesService();
 
@@ -43,12 +45,27 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
     _readyNow =
         !(widget.initialFulfillmentType == FulfillmentTypes.preOrder &&
             widget.bouquet.availableForPreOrder) &&
-        widget.bouquet.availableForReadyNow &&
-        widget.bouquet.readyStock > 0;
+        _readyAvailable;
   }
 
   Future<void> _add() async {
     final bouquet = widget.bouquet;
+    final readyNow = _readyAvailable && bouquet.availableForPreOrder
+        ? await showDialog<bool>(
+            context: context,
+            builder: (dialog) => SimpleDialog(
+              title: const Text('Choose a delivery option'),
+              children: [
+                for (final ready in [_readyNow, !_readyNow])
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(dialog, ready),
+                    child: Text(ready ? 'Ready to send' : 'Pre-order'),
+                  ),
+              ],
+            ),
+          )
+        : _readyNow;
+    if (!mounted || readyNow == null) return;
     final added = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -60,10 +77,10 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
             name: bouquet.name,
             imageUrl: bouquet.imageUrl,
             unitPrice: bouquet.price,
-            fulfillmentType: _readyNow
+            fulfillmentType: readyNow
                 ? FulfillmentTypes.readyNow
                 : FulfillmentTypes.preOrder,
-            leadTimeBusinessDays: _readyNow ? 0 : bouquet.leadTimeBusinessDays,
+            leadTimeBusinessDays: readyNow ? 0 : bouquet.leadTimeBusinessDays,
           );
           return widget.optionsBuilder?.call(draft) ??
               BouquetOptionsScreen(bouquet: draft);
@@ -76,10 +93,16 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final bouquet = widget.bouquet;
-    final readyAvailable =
-        bouquet.availableForReadyNow && bouquet.readyStock > 0;
-    final preorderAvailable = bouquet.availableForPreOrder;
+    final description = bouquet.description.trim();
     final cartCount = context.watch<CartProvider>().itemCount;
+    const imagePlaceholder = AspectRatio(
+      aspectRatio: 1.15,
+      child: Icon(
+        Icons.local_florist_outlined,
+        size: 90,
+        color: AppColors.primary,
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -131,26 +154,22 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: AspectRatio(
-              aspectRatio: 1.15,
-              child: ColoredBox(
-                color: AppColors.inputFill,
-                child: bouquet.imageUrl.isEmpty
-                    ? const Icon(
-                        Icons.local_florist_outlined,
-                        size: 90,
-                        color: AppColors.primary,
-                      )
-                    : Image.network(
-                        bouquet.imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(
-                          Icons.local_florist_outlined,
-                          size: 90,
-                          color: AppColors.primary,
-                        ),
+            child: ColoredBox(
+              color: AppColors.inputFill,
+              child: bouquet.imageUrl.isEmpty
+                  ? imagePlaceholder
+                  : ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.sizeOf(context).height,
                       ),
-              ),
+                      child: Image.network(
+                        bouquet.imageUrl,
+                        fit: BoxFit.contain,
+                        frameBuilder: (_, child, frame, _) =>
+                            frame == null ? imagePlaceholder : child,
+                        errorBuilder: (_, _, _) => imagePlaceholder,
+                      ),
+                    ),
             ),
           ),
           SliverPadding(
@@ -174,56 +193,16 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
                   'RM ${bouquet.price.toStringAsFixed(2)}',
                   style: const AppTypography.total(color: AppColors.primary),
                 ),
-                if (bouquet.description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 18),
+                if (description.isNotEmpty) ...[
+                  const Divider(height: 24, color: AppColors.inputBorder),
                   Text(
-                    bouquet.description,
+                    description,
                     style: const TextStyle(
                       color: AppColors.textMuted,
                       height: 1.55,
                     ),
                   ),
                 ],
-                const SizedBox(height: 24),
-                Text(
-                  'How would you like it?',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-                const SizedBox(height: 12),
-                if (readyAvailable)
-                  _FulfilmentOption(
-                    selected: _readyNow,
-                    icon: Icons.bolt_rounded,
-                    title: 'Ready to send',
-                    subtitle:
-                        '${bouquet.readyStock} available; dispatch depends on a rider',
-                    onTap: () => setState(() => _readyNow = true),
-                  ),
-                if (readyAvailable && preorderAvailable)
-                  const SizedBox(height: 10),
-                if (preorderAvailable)
-                  _FulfilmentOption(
-                    selected: !_readyNow,
-                    icon: Icons.calendar_today_outlined,
-                    title: 'Pre-order',
-                    subtitle:
-                        'Choose a date after ${bouquet.leadTimeBusinessDays < 2 ? 2 : bouquet.leadTimeBusinessDays} preparation days',
-                    onTap: () => setState(() => _readyNow = false),
-                  ),
-                const SizedBox(height: 24),
-                const _InfoRow(
-                  icon: Icons.eco_outlined,
-                  title: 'Arranged by hand',
-                  subtitle:
-                      'Each bouquet is prepared by the Bloom & Bunch florist team.',
-                ),
-                const SizedBox(height: 12),
-                const _InfoRow(
-                  icon: Icons.local_shipping_outlined,
-                  title: 'Delivery across KL',
-                  subtitle:
-                      'Check delivery coverage, fees and estimated dispatch at checkout.',
-                ),
               ],
             ),
           ),
@@ -238,114 +217,16 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
             border: Border(top: BorderSide(color: AppColors.inputBorder)),
           ),
           child: FilledButton.icon(
-            onPressed: readyAvailable || preorderAvailable ? _add : null,
+            onPressed: _readyAvailable || bouquet.availableForPreOrder
+                ? _add
+                : null,
             icon: const Icon(Icons.shopping_bag_outlined),
-            label: Text(_readyNow ? 'Choose add-ons' : 'Choose add-ons & date'),
+            label: Text(
+              _readyAvailable ? 'Choose add-ons' : 'Choose add-ons & date',
+            ),
           ),
         ),
       ),
-    );
-  }
-}
-
-class _FulfilmentOption extends StatelessWidget {
-  const _FulfilmentOption({
-    required this.selected,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-  final bool selected;
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.secondarySurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.inputBorder,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(icon, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: const AppTypography.label()),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: const AppTypography.caption(
-                        color: AppColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: AppColors.primary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-  final IconData icon;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(
-            color: AppColors.secondarySurface,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(icon, size: 20, color: AppColors.primary),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const AppTypography.label()),
-              const SizedBox(height: 3),
-              Text(
-                subtitle,
-                style: const TextStyle(color: AppColors.textMuted, height: 1.4),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }
