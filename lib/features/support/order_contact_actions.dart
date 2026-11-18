@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/fulfillment_constants.dart';
 import '../../core/services/rider_contact_service.dart';
-import '../../core/widgets/app_note.dart';
 
 class OrderContactActions extends StatefulWidget {
   const OrderContactActions({
@@ -31,7 +30,6 @@ class _OrderContactActionsState extends State<OrderContactActions> {
   bool get _active =>
       _assigned &&
       const [
-        OrderStatuses.riderAssigned,
         OrderStatuses.outForDelivery,
         OrderStatuses.awaitingConfirmation,
       ].contains(widget.order['orderStatus']);
@@ -73,37 +71,25 @@ class _OrderContactActionsState extends State<OrderContactActions> {
 
   @override
   Widget build(BuildContext context) {
-    final past = OrderStatuses.isPast(
-      widget.order['orderStatus']?.toString() ?? '',
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: () => _showContact(
-                'Florist',
-                const RiderContact(
-                  name: 'Bloom & Bunch KL',
-                  phone: '+60148376919',
-                ),
-              ),
-              icon: const Icon(Icons.storefront_outlined),
-              label: const Text('Call Florist'),
-            ),
-            if (!past)
-              OutlinedButton.icon(
-                onPressed: _active && !_busy ? _callRider : null,
-                icon: const Icon(Icons.delivery_dining_outlined),
-                label: Text(_busy ? 'Loading rider…' : 'Call Rider'),
-              ),
-            if (widget.trailing != null) widget.trailing!,
-          ],
+        OutlinedButton.icon(
+          onPressed: () => _showContact(
+            'Florist',
+            const RiderContact(name: 'Bloom & Bunch KL', phone: '+60148376919'),
+          ),
+          icon: const Icon(Icons.storefront_outlined),
+          label: const Text('Call Florist'),
         ),
-        if (!past && !_assigned) const AppNote('Rider not assigned yet'),
+        if (_active)
+          OutlinedButton.icon(
+            onPressed: _busy ? null : _callRider,
+            icon: const Icon(Icons.delivery_dining_outlined),
+            label: Text(_busy ? 'Loading rider…' : 'Call Rider'),
+          ),
+        if (widget.trailing != null) widget.trailing!,
       ],
     );
   }

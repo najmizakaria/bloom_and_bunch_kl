@@ -5,7 +5,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 // Public names and deployment options are part of the existing client contract.
-function registerFunctions({ callable, options, paymentEnabled, paymentSecret, handlers }) {
+function registerFunctions({ callable, options, paymentEnabled, paymentSecret, stripeSecret, stripeWebhookSecret, handlers }) {
   const api = {};
   const {
     checkout,
@@ -58,9 +58,25 @@ function registerFunctions({ callable, options, paymentEnabled, paymentSecret, h
     api[name] = callable((req) => admin[handler](req));
 
   const paymentOptions = { secrets: [paymentSecret] };
+  const checkoutPaymentOptions = { secrets: [paymentSecret, stripeSecret] };
   api.createToyyibpayPayment = callable((req) => payments.create(req), paymentOptions);
   api.checkToyyibpayPayment = callable((req) => payments.status(req), paymentOptions);
-  api.adminCheckPayment = callable((req) => payments.adminStatus(req), paymentOptions);
+  api.createCheckoutPayment = callable((req) => payments.create(req), checkoutPaymentOptions);
+  api.checkCheckoutPayment = callable((req) => payments.status(req), checkoutPaymentOptions);
+  api.adminCheckPayment = callable((req) => payments.adminStatus(req), checkoutPaymentOptions);
+  api.stripeSandboxWebhook = onRequest({ ...options, secrets: [stripeSecret, stripeWebhookSecret] }, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.method !== 'POST') {
+      res.status(405).send('POST required');
+      return;
+    }
+    try {
+      await payments.stripeWebhook(req.rawBody, req.get('stripe-signature'));
+      res.status(200).send('OK');
+    } catch (error) {
+      res.status(error.code === 'permission-denied' ? 400 : 503).send('Stripe event not applied');
+    }
+  });
   api.toyyibpayCallback = onRequest({ ...options, ...paymentOptions }, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (req.method !== 'POST') {
@@ -81,11 +97,11 @@ function registerFunctions({ callable, options, paymentEnabled, paymentSecret, h
     {
       region: options.region,
       maxInstances: 1,
-      secrets: [paymentSecret],
-      schedule: 'every 5 minutes',
+      secrets: [paymentSecret, stripeSecret],
+      schedule: '* * * * *',
     },
     async () => {
-      if (paymentEnabled.value()) await payments.sweep();
+      await payments.sweep({ includeToyyibpay: paymentEnabled.value() });
     },
   );
   api.releaseScheduledDeliveries = onSchedule(

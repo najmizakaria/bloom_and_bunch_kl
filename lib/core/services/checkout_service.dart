@@ -1,26 +1,21 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import '../../models/saved_address_model.dart';
 import '../../models/cart_item_model.dart';
+import '../constants/payment_modes.dart';
 
 class CheckoutQuote {
   final Map<String, dynamic> data;
   CheckoutQuote(Map<String, dynamic> value)
     : data = Map<String, dynamic>.from(value);
   String get id => data['quoteId'] as String;
-  bool get isDemo => data['mode'] == 'demo';
   bool get usesToyyibpay => data['mode'] == 'toyyibpay_sandbox';
+  bool get usesStripe => data['mode'] == stripeSandboxMode;
+  bool get usesOnlinePayment => isOnlinePaymentMode(data['mode']);
+  bool get supportsCardPayment => data['paymentMethod'] == 'card';
   int get totalSen => (data['totalSen'] as num).toInt();
   List<Map<String, dynamic>> get groups => (data['groups'] as List)
       .map((g) => Map<String, dynamic>.from(g as Map))
       .toList();
-  String get paymentInstructions => isDemo
-      ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
-      : usesToyyibpay
-      ? 'Complete payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
-      : data['paymentInstructions'] as String;
-  String get timingNotice => isDemo
-      ? 'Estimated dispatch dates depend on preparation and rider availability.'
-      : data['timingNotice'] as String;
   static String money(num sen) => 'RM ${(sen / 100).toStringAsFixed(2)}';
 }
 

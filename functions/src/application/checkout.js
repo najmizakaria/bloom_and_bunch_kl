@@ -19,7 +19,6 @@ function createCheckoutHandlers({
   Timestamp,
 }) {
   const quoteCheckout = async (req) => {
-    if (storePolicy.configured.mode === payments.MODE) assertPaymentsEnabled();
     const items = d.normalizeItems(req.data?.items),
       address = d.address(req.data?.address);
     return db.runTransaction(async (tx) => {
@@ -28,7 +27,9 @@ function createCheckoutHandlers({
         d.fail('Customer access required.', 'permission-denied');
       const { plan } = await readPlan(tx, items);
       const messageCards = await readCards(tx, req.data?.messageCards ?? {});
-      return storePolicy.quote(plan, address, new Date(), await readStorePolicy(tx), {
+      const policy = await readStorePolicy(tx);
+      if (payments.isOnlineMode(policy.mode)) assertPaymentsEnabled(policy.mode);
+      return storePolicy.quote(plan, address, new Date(), policy, {
         requireDates: true,
         messageCards,
       });
@@ -72,6 +73,8 @@ function createCheckoutHandlers({
         d.fail('Customer access required.', 'permission-denied');
       const previous = await tx.get(requestRef);
       if (previous.exists) {
+        if (previous.data().paymentExpired)
+          d.fail('This payment expired. Start a new checkout.', 'failed-precondition');
         if (previous.data().fingerprint !== fingerprint)
           d.fail('Checkout changed. Review your cart before retrying.', 'failed-precondition');
         const replayCartRef = db.doc('users/' + uid + '/cart/current'),
@@ -87,7 +90,6 @@ function createCheckoutHandlers({
           });
         return { orderIds: previous.data().orderIds };
       }
-      if (storePolicy.configured.mode === payments.MODE) assertPaymentsEnabled();
       const addressSnapshot = await tx.get(
         db.collection('users').doc(uid).collection('addresses').doc(addressId),
       );
@@ -126,11 +128,15 @@ function createCheckoutHandlers({
       const { plan, bouquets, flowers, addons } = await readPlan(tx, items);
       const messageCards = await readCards(tx, selectedCards);
       const policy = await readStorePolicy(tx);
+      const onlinePayment = payments.isOnlineMode(policy.mode);
+      if (onlinePayment) assertPaymentsEnabled(policy.mode);
+      if (policy.mode === payments.STRIPE_MODE && payload.paymentProvider !== 'stripe')
+        d.fail('Update the app to use Stripe Checkout.', 'failed-precondition');
       const quote = storePolicy.quote(plan, submittedAddress, new Date(), policy, {
         requireDates: true,
         messageCards,
       });
-      if (quote.mode === payments.MODE && quote.totalSen < 100)
+      if (onlinePayment && quote.totalSen < 100)
         d.fail('Online payment requires a total of at least RM 1.00.', 'failed-precondition');
       if ((payload.quoteId || quote.mode !== 'demo') && payload.quoteId !== quote.quoteId)
         d.fail(
@@ -247,7 +253,7 @@ function createCheckoutHandlers({
           orderMode: quote.mode,
           paymentStatus: quote.mode === 'demo' ? 'not_required' : 'pending',
           paymentInstructions: quote.paymentInstructions,
-          ...(quote.mode === payments.MODE
+          ...(onlinePayment
             ? { paymentId: payments.paymentId(uid, checkoutId) }
             : {}),
           estimatedDispatchDate: pricing.date,
@@ -283,10 +289,10 @@ function createCheckoutHandlers({
         cardFeeSen: quote.cardFeeSen,
         totalSen: total,
         orderMode: quote.mode,
-        paymentId: quote.mode === payments.MODE ? payments.paymentId(uid, checkoutId) : null,
+        paymentId: onlinePayment ? payments.paymentId(uid, checkoutId) : null,
         createdAt: FieldValue.serverTimestamp(),
       });
-      if (quote.mode === payments.MODE) {
+      if (onlinePayment) {
         const id = payments.paymentId(uid, checkoutId),
           expiresAt = Timestamp.fromMillis(Date.now() + payments.HOLD_MS);
         tx.create(db.doc('payments/' + id), {
@@ -296,10 +302,12 @@ function createCheckoutHandlers({
           orderIds,
           totalSen: total,
           status: 'awaiting_bill',
-          provider: 'toyyibpay',
+          provider: quote.mode === payments.STRIPE_MODE ? 'stripe' : 'toyyibpay',
           environment: 'sandbox',
+          paymentMethod: quote.paymentMethod,
           expiresAt,
-          nextCheckAt: Timestamp.fromMillis(expiresAt.toMillis() + 5 * 60000),
+          nextCheckAt: quote.mode === payments.STRIPE_MODE
+            ? expiresAt : Timestamp.fromMillis(expiresAt.toMillis() + 5 * 60000),
           capacityReserved: policy.dailyDeliveryCapacity > 0,
           createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),

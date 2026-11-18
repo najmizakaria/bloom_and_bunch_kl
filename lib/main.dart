@@ -21,7 +21,7 @@ final paymentLinkNavigatorObserver = PaymentLinkNavigatorObserver();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb && !AppEnvironment.isDemo) paymentLinks.start();
+  if (!AppEnvironment.isDemo) paymentLinks.start();
   runApp(const _StartupApp());
 }
 
@@ -136,7 +136,7 @@ class _BloomAndBunchAppState extends State<BloomAndBunchApp> {
         builder: (context, child) => NotificationSession(
           messengerKey: appMessengerKey,
           navigatorKey: appNavigatorKey,
-          child: kIsWeb || AppEnvironment.isDemo
+          child: AppEnvironment.isDemo
               ? child!
               : PaymentLinkSession(
                   links: paymentLinks,

@@ -30,6 +30,9 @@ class Addresses implements AddressService {
 }
 
 class Quotes implements CheckoutService {
+  Quotes({this.mode = 'demo'});
+
+  final String mode;
   int calls = 0;
   @override
   Future<CheckoutQuote> quote(
@@ -39,11 +42,17 @@ class Quotes implements CheckoutService {
     calls++;
     return CheckoutQuote({
       'quoteId': 'quote-$calls',
-      'mode': 'demo',
+      'mode': mode,
+      if (mode == 'toyyibpay_sandbox') 'paymentMethod': 'card',
       'totalSen': 5000,
       'subtotalSen': 5000,
       'deliveryFeeSen': 0,
-      'groups': [],
+      'groups': [
+        {
+          'items': items.map((item) => item.toMap()).toList(),
+          'date': '2026-11-19',
+        },
+      ],
       'paymentInstructions': 'No payment.',
       'timingNotice': 'Demo only.',
     });
@@ -81,6 +90,54 @@ class UncertainOrders implements OrderService {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('Order now submits a Stripe order without a payment picker', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(400, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final cart = CartProvider();
+    final orders = UncertainOrders();
+    addTearDown(cart.dispose);
+    await cart.switchUser('buyer');
+    cart.addReadyMadeItem(
+      bouquetId: 'rose',
+      name: 'Rose',
+      imageUrl: 'https://example.test/rose.png',
+      price: 50,
+    );
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: cart,
+        child: MaterialApp(
+          home: CheckoutScreen(
+            addressService: Addresses(),
+            checkoutService: Quotes(mode: 'stripe_sandbox'),
+            orderService: orders,
+            currentUserId: () => 'buyer',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final thumbnail = find.image(
+      const NetworkImage('https://example.test/rose.png'),
+    );
+    expect(thumbnail, findsOneWidget);
+    expect(
+      tester.getTopRight(thumbnail).dx,
+      lessThan(tester.getTopLeft(find.text('Rose')).dx),
+    );
+    expect(find.text('× 1 · RM 50.00'), findsOneWidget);
+    final button = find.widgetWithText(FilledButton, 'Order now');
+    expect(tester.getBottomLeft(button).dy, closeTo(830, 1));
+    expect(find.text('Payment method'), findsNothing);
+    await tester.tap(button);
+    await tester.pumpAndSettle();
+    expect(orders.requests.single['paymentProvider'], 'stripe');
+  });
+
   testWidgets(
     'missing quote disables ordering without displaying a zero total',
     (tester) async {
@@ -185,6 +242,7 @@ void main() {
         find.byKey(const Key('confirm-order')),
         200,
       );
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('confirm-order')));
       await tester.pumpAndSettle();
       expect(orders.requests.length, 2);

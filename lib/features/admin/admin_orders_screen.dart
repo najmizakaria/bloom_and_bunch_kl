@@ -73,6 +73,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               'needs_review' => 'Needs review',
               'manual' => 'Manual payment',
               'toyyibpay_sandbox' => 'ToyyibPay sandbox',
+              'stripe_sandbox' => 'Stripe sandbox',
+              'sandbox' => 'All sandbox payments',
               'demo' => 'Demo',
               _ => v,
             }, overflow: TextOverflow.ellipsis),
@@ -166,6 +168,8 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                     _filter('Payment mode', _mode, const [
                       'manual',
                       'toyyibpay_sandbox',
+                      'stripe_sandbox',
+                      'sandbox',
                       'demo',
                     ], (v) => _mode = v),
                     SizedBox(

@@ -1,16 +1,19 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
 import '../../../core/widgets/retry_stream_builder.dart';
-import '../../../core/widgets/app_note.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../../core/constants/payment_modes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/malaysia_time.dart';
+import '../../../core/utils/order_tracking_display.dart';
 import '../../../core/services/order_service.dart';
 import '../../../core/widgets/delivery_progress.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../support/order_support.dart';
+import '../widgets/order_thumbnail.dart';
+import '../widgets/order_tracking_progress.dart';
 import 'payment_screen.dart';
-import 'checkout_receipt_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -47,7 +50,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       FirebaseFirestore.instance.doc('orders/${widget.orderId}').snapshots();
   @override
   Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.softBlushStart,
     appBar: AppBar(
+      backgroundColor: AppColors.softBlushStart,
       leading: const PageBackButton(),
       centerTitle: false,
       title: const Text('Track order'),
@@ -77,11 +82,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             status = OrderStatuses.normalize(
               (s.data!.data()!['orderStatus'] ?? 'Pending').toString(),
             );
+        final onlinePayment = isOnlinePaymentMode(d['orderMode']);
+        final paymentStatus = d['paymentStatus']?.toString();
         final id = widget.orderId;
-        final orderLabel =
-            d['orderNumber'] as String? ??
-            '#${id.substring(0, id.length.clamp(0, 8)).toUpperCase()}';
-        final updated = (d['updatedAt'] as Timestamp?)?.toDate();
+        final orderLabel = trackingOrderNumber(
+          d['orderNumber'] as String? ??
+              '#${id.substring(0, id.length.clamp(0, 8)).toUpperCase()}',
+        );
+        final featuredBouquet = (d['items'] as List? ?? const [])
+            .whereType<Map>()
+            .where((item) => item['type'] != 'addon')
+            .firstOrNull;
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -89,27 +100,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               'Order $orderLabel',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            if (updated != null)
-              AppNote('Last updated ${malaysiaTime(updated)}'),
             const SizedBox(height: 16),
-            if (d['orderMode'] == 'toyyibpay_sandbox' &&
-                d['paymentStatus'] != 'paid' &&
-                status != OrderStatuses.cancelled)
-              const Card(
-                child: ListTile(
-                  leading: Icon(Icons.payment_outlined),
-                  title: Text('Awaiting payment verification'),
-                  subtitle: Text(
-                    'Preparation and delivery will begin after payment is verified.',
-                  ),
-                ),
-              )
-            else
-              DeliveryProgress(
-                status: status,
-                receiptConfirmed: d['customerAcceptedAt'] is Timestamp,
-                fulfillmentType: (d['fulfillmentType'] ?? 'custom').toString(),
-              ),
+            OrderTrackingProgress(
+              status: status,
+              paymentStatus: paymentStatus,
+              receiptConfirmed: d['customerAcceptedAt'] is Timestamp,
+              fulfillmentType: d['fulfillmentType']?.toString(),
+            ),
             if (status == OrderStatuses.awaitingConfirmation &&
                 d['customerId'] == FirebaseAuth.instance.currentUser?.uid)
               ReceiptConfirmation(
@@ -118,70 +115,60 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     d['support'] is Map && d['support']['status'] == 'open',
                 onConfirm: _confirmReceived,
               ),
-            if (d['estimatedDispatchDate'] != null)
-              Text(
-                'Estimated dispatch: ${d['estimatedDispatchDate']}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            if (d['scheduledDeliveryDate'] != null)
-              Text('Requested delivery: ${d['scheduledDeliveryDate']}'),
-            if (d['earlyDispatchDate'] != null)
-              Text('Early delivery arranged for ${d['earlyDispatchDate']}'),
-            if (d['schemaVersion'] == 3 && d['checkoutGroupId'] != null)
-              OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => CheckoutReceiptScreen(
-                      checkoutId: d['checkoutGroupId'] as String,
-                    ),
-                  ),
+            if (d['estimatedDispatchDate'] case final Object date)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'Estimated dispatch: ${trackingDate(date)}',
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('View combined receipt'),
               ),
-            AppNote(
-              (d['deliveryTimeSlot'] ??
-                      'Contact the store for delivery timing.')
-                  .toString(),
-            ),
-            if (!OrderStatuses.isPast(status))
-              Text(
-                d['riderId'] == null
-                    ? 'No rider assigned yet. Contact the store if your delivery is time-sensitive.'
-                    : 'A rider has accepted your delivery.',
-              ),
+            if (d['scheduledDeliveryDate'] case final Object date)
+              Text('Requested delivery: ${trackingDate(date)}'),
+            if (d['earlyDispatchDate'] case final Object date)
+              Text('Early delivery arranged for ${trackingDate(date)}'),
             const SizedBox(height: 16),
             Card(
               child: ListTile(
                 title: const Text('Delivering to'),
                 subtitle: Text(
-                  '${d['recipientName'] ?? ''}\n${d['deliveryAddress'] ?? ''}',
+                  '${d['recipientName'] ?? ''}\n${trackingAddress((d['deliveryAddress'] ?? '').toString())}',
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Total RM ${((d['totalAmount'] as num?) ?? 0).toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                if (featuredBouquet != null) ...[
+                  OrderThumbnail(items: [featuredBouquet]),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (featuredBouquet?['name'] case final String name
+                          when name.isNotEmpty)
+                        Text(
+                          name,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      Text(
+                        'Total RM ${((d['totalAmount'] as num?) ?? 0).toStringAsFixed(2)}',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            Text(switch (d['paymentStatus']) {
-              'paid' =>
-                d['orderMode'] == 'toyyibpay_sandbox'
-                    ? 'Payment verified'
-                    : 'Payment confirmed by the store',
-              'pending' =>
-                d['orderMode'] == 'toyyibpay_sandbox'
-                    ? 'Payment pending verification. Preparation and delivery are on hold.'
-                    : 'Payment awaiting store confirmation',
-              'expired' => 'Payment expired',
-              'not_required' => 'Payment is not required for this order',
-              _ => 'Payment: contact the store',
-            }),
-            if (d['orderMode'] == 'toyyibpay_sandbox' &&
-                d['paymentStatus'] != 'paid' &&
-                d['customerId'] == FirebaseAuth.instance.currentUser?.uid)
-              OutlinedButton(
+            if (onlinePayment &&
+                paymentStatus != 'paid' &&
+                paymentStatus != 'expired' &&
+                status != OrderStatuses.cancelled &&
+                d['customerId'] == FirebaseAuth.instance.currentUser?.uid) ...[
+              const SizedBox(height: 12),
+              FilledButton(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -190,14 +177,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 ),
                 child: const Text('View payment / pay'),
               ),
-            if (d['paymentInstructions'] != null)
-              AppNote(
-                d['orderMode'] == 'demo'
-                    ? 'Submitting an order does not confirm payment. Contact the store for payment arrangements.'
-                    : d['orderMode'] == 'toyyibpay_sandbox'
-                    ? 'Your order will proceed after payment is verified. Unpaid reservations expire after 30 minutes.'
-                    : d['paymentInstructions'].toString(),
-              ),
+            ],
             if (d['checkoutGroupId'] != null)
               RetryStreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 key: ValueKey(
@@ -228,64 +208,55 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             ),
                           ),
                           child: Text(
-                            'Track ${other.data()['orderNumber'] ?? 'your other delivery'} · ${other.data()['orderStatus']}',
+                            'Track ${trackingOrderNumber(other.data()['orderNumber']?.toString() ?? 'your other delivery')} · ${other.data()['orderStatus']}',
                           ),
                         ),
                   ],
                 ),
               ),
-            ExpansionTile(
-              initiallyExpanded: true,
-              title: const Text('Delivery timeline'),
-              children: [
-                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .doc('orders/${widget.orderId}')
-                      .collection('events')
-                      .orderBy('createdAt', descending: true)
-                      .limit(20)
-                      .snapshots(),
-                  builder: (context, events) {
-                    if (events.hasError) {
-                      return const ListTile(
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .doc('orders/${widget.orderId}')
+                  .collection('events')
+                  .orderBy('createdAt', descending: true)
+                  .limit(20)
+                  .snapshots(),
+              builder: (context, events) {
+                if (events.hasError) {
+                  return const ListTile(
+                    title: Text(
+                      'Activity is unavailable. Try reopening this order.',
+                    ),
+                  );
+                }
+                if (!events.hasData) return const LinearProgressIndicator();
+                if (events.data!.docs.isEmpty) {
+                  return const ListTile(
+                    title: Text('No activity recorded for this older order.'),
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final e in events.data!.docs)
+                      ListTile(
                         title: Text(
-                          'Activity is unavailable. Try reopening this order.',
-                        ),
-                      );
-                    }
-                    if (!events.hasData) return const LinearProgressIndicator();
-                    if (events.data!.docs.isEmpty) {
-                      return const ListTile(
-                        title: Text(
-                          'No activity recorded for this older order.',
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: [
-                        for (final e in events.data!.docs)
-                          ListTile(
-                            title: Text(
-                              OrderStatuses.label(
-                                e.data()['status'].toString(),
-                                receiptConfirmed:
-                                    d['customerAcceptedAt'] is Timestamp,
-                              ),
-                            ),
-                            subtitle: Text(
-                              e.data()['createdAt'] is Timestamp
-                                  ? malaysiaTime(
-                                      (e.data()['createdAt'] as Timestamp)
-                                          .toDate(),
-                                    )
-                                  : 'Updating…',
-                            ),
+                          OrderStatuses.label(
+                            e.data()['status'].toString(),
+                            receiptConfirmed:
+                                d['customerAcceptedAt'] is Timestamp,
                           ),
-                      ],
-                    );
-                  },
-                ),
-              ],
+                        ),
+                        subtitle: Text(
+                          e.data()['createdAt'] is Timestamp
+                              ? malaysiaTime(
+                                  (e.data()['createdAt'] as Timestamp).toDate(),
+                                )
+                              : 'Updating…',
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
             OrderSupportPanel(orderId: widget.orderId, order: d),
           ],

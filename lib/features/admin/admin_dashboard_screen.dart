@@ -95,7 +95,7 @@ class AdminOverview extends StatelessWidget {
                   amount('sandboxPaidSen'),
                   () => orders(
                     payment: 'paid',
-                    mode: 'toyyibpay_sandbox',
+                    mode: 'sandbox',
                     dates: month,
                     dateField: 'paidAt',
                   ),

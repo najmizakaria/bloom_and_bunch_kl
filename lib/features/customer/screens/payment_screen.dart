@@ -15,6 +15,7 @@ class PaymentScreen extends StatefulWidget {
     this.service,
     this.open,
     this.orderBuilder,
+    this.autoOpen = false,
   }) : paymentId = null;
   const PaymentScreen.fromReturn({
     super.key,
@@ -22,8 +23,10 @@ class PaymentScreen extends StatefulWidget {
     this.service,
     this.open,
     this.orderBuilder,
-  }) : orderId = null;
+  }) : orderId = null,
+       autoOpen = false;
   final String? orderId, paymentId;
+  final bool autoOpen;
   final PaymentService? service;
   final Future<bool> Function(Uri)? open;
   final Widget Function(String, List<String>)? orderBuilder;
@@ -39,6 +42,7 @@ class _PaymentScreenState extends State<PaymentScreen>
   Timer? _retry;
   int _returnChecks = 0;
   bool _navigated = false;
+  late bool _autoOpen = widget.autoOpen;
   String? get _orderId => widget.orderId ?? _payment?.orderIds.firstOrNull;
   final _phoneForm = GlobalKey<FormState>();
   final _payerPhone = TextEditingController();
@@ -80,7 +84,7 @@ class _PaymentScreenState extends State<PaymentScreen>
           : await service.check(widget.orderId!);
       if (!mounted) return;
       setState(() => _payment = payment);
-      if (widget.paymentId != null) {
+      if (widget.paymentId != null || widget.autoOpen) {
         if (payment.paid) {
           _viewOrder();
         } else if (payment.status == 'pending' && ++_returnChecks < 10) {
@@ -91,6 +95,13 @@ class _PaymentScreenState extends State<PaymentScreen>
       if (mounted) setState(() => _error = OrderService.message(error));
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+    if (mounted &&
+        _autoOpen &&
+        _payment?.usesStripe == true &&
+        _payment?.canPay == true) {
+      _autoOpen = false;
+      unawaited(_pay());
     }
   }
 
@@ -131,9 +142,8 @@ class _PaymentScreenState extends State<PaymentScreen>
             'Payment link is unavailable. Try again or contact the store.',
           );
         }
-        // Opening the bank page is a separate user click, preserving browser
-        // popup permission after the asynchronous bill creation request.
-        return;
+        // The legacy FPX flow opens a new tab on a separate user click.
+        if (!payment.usesStripe) return;
       }
       if (!payment.canPay) return;
       final uri = payment.checkoutUri;
@@ -147,7 +157,7 @@ class _PaymentScreenState extends State<PaymentScreen>
               launchUrl(
                 uri,
                 mode: LaunchMode.externalApplication,
-                webOnlyWindowName: '_blank',
+                webOnlyWindowName: payment.usesStripe ? '_self' : '_blank',
               ));
       if (!opened) {
         throw StateError(
@@ -171,7 +181,9 @@ class _PaymentScreenState extends State<PaymentScreen>
         : payment.needsReview
         ? 'Your payment needs verification. Please wait or contact the store. Please do not create another order to retry payment.'
         : payment.status == 'expired'
-        ? 'Payment expired. This order was cancelled and its reserved stock released.'
+        ? (payment.usesStripe
+              ? 'Payment expired. This unpaid order was removed and its reserved stock released.'
+              : 'Payment expired. This order was cancelled and its reserved stock released.')
         : 'Payment is pending. Your order will proceed after payment is verified. If an attempt fails, reopen the same bill to retry.';
     return Scaffold(
       appBar: AppBar(
@@ -189,7 +201,8 @@ class _PaymentScreenState extends State<PaymentScreen>
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           const SizedBox(height: 12),
-          Semantics(liveRegion: true, child: Text(message)),
+          if (payment != null || _error == null)
+            Semantics(liveRegion: true, child: Text(message)),
           if (payment?.expiresAt != null &&
               !payment!.paid &&
               payment.status != 'expired')
@@ -254,10 +267,11 @@ class _PaymentScreenState extends State<PaymentScreen>
               onPressed: _busy ? null : _check,
               child: const Text('Retry'),
             ),
-          TextButton(
-            onPressed: _orderId == null ? null : _viewOrder,
-            child: const Text('View order'),
-          ),
+          if (!(payment?.usesStripe == true && payment?.status == 'expired'))
+            TextButton(
+              onPressed: _orderId == null ? null : _viewOrder,
+              child: const Text('View order'),
+            ),
           if (payment?.paid != true)
             const AppNote(
               'You can reopen payment from your order details. Returning from the bank page alone does not confirm payment.',

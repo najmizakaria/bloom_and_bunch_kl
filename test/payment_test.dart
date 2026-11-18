@@ -10,6 +10,7 @@ PaymentSession session(
   String status, {
   String? url,
   bool phoneRequired = false,
+  String? provider,
 }) => PaymentSession(
   id: 'payment',
   status: status,
@@ -17,6 +18,7 @@ PaymentSession session(
   orderIds: const ['one', 'two'],
   paymentUrl: url,
   payerPhoneRequired: phoneRequired,
+  provider: provider,
   expiresAt: DateTime.now().add(const Duration(minutes: 30)),
 );
 
@@ -44,12 +46,43 @@ class Payments implements PaymentService {
     submittedPhone = payerPhone;
     return current = session(
       'pending',
-      url: 'https://dev.toyyibpay.com/testbill',
+      provider: current.provider,
+      url: current.usesStripe
+          ? 'https://checkout.stripe.com/g/pay/cs_test_bouquet#hosted'
+          : 'https://dev.toyyibpay.com/testbill',
     );
   }
 }
 
 void main() {
+  testWidgets('Stripe opens hosted checkout directly and only once', (
+    tester,
+  ) async {
+    final service = Payments()
+      ..current = session('awaiting_bill', provider: 'stripe');
+    final opened = <Uri>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PaymentScreen(
+          orderId: 'one',
+          autoOpen: true,
+          service: service,
+          open: (url) async {
+            opened.add(url);
+            return true;
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(service.starts, 1);
+    expect(opened.single.host, 'checkout.stripe.com');
+    expect(opened.single.fragment, 'hosted');
+    expect(service.submittedPhone, isNull);
+    await tester.pump(const Duration(seconds: 10));
+    expect(opened, hasLength(1));
+  });
+
   testWidgets(
     'native return verifies payment ID then opens all checkout orders',
     (tester) async {
@@ -194,6 +227,23 @@ void main() {
       'https://dev.toyyibpay.com:444/bill',
     ]) {
       expect(session('pending', url: url).checkoutUri, isNull);
+    }
+    for (final path in ['c', 'g']) {
+      final url =
+          'https://checkout.stripe.com/$path/pay/cs_test_bouquet#hosted';
+      expect(
+        session('pending', provider: 'stripe', url: url).checkoutUri,
+        Uri.parse(url),
+      );
+    }
+    for (final url in [
+      'https://checkout.stripe.com/g/pay/cs_live_bouquet',
+      'https://checkout.stripe.com.example.test/g/pay/cs_test_bouquet',
+    ]) {
+      expect(
+        session('pending', provider: 'stripe', url: url).checkoutUri,
+        isNull,
+      );
     }
   });
 

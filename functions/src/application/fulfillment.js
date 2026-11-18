@@ -150,7 +150,7 @@ function createFulfillmentHandlers({
           'Payment must be verified before this order can be prepared or delivered.',
           'failed-precondition',
         );
-      if (o.orderMode === payments.MODE && o.paymentStatus !== 'paid' && action === 'cancel')
+      if (payments.requiresPayment(o) && action === 'cancel')
         d.fail(
           'Unpaid online orders expire through payment verification. Please wait or contact support.',
           'failed-precondition',

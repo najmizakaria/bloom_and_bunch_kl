@@ -112,7 +112,7 @@ function createGateway({ secret, categoryCode, callbackUrl, returnUrl, fetchImpl
         billTo: payer.name,
         billEmail: payer.email,
         billPhone: payer.phone,
-        billPaymentChannel: '0',
+        billPaymentChannel: payment.paymentMethod === 'card' ? '1' : '0',
         billSplitPayment: '0',
         billExpiryDate: expiryText(payment.expiresAt.toDate()),
       });

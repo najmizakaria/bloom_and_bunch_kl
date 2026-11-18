@@ -37,19 +37,23 @@ test('verification requires successful status, exact external reference, amount 
   assert.throws(() => api.amountSen('50.001'));
 });
 
-test('bill creation uses sandbox, fixed cents, FPX, MYT expiry and server-owned reference', async () => {
+test('bill creation uses the stored payment channel, sandbox, fixed cents and MYT expiry', async () => {
   let request;
   const gateway = api.createGateway({secret: 'test-secret', categoryCode: 'category',
     callbackUrl: 'https://example.test/callback', returnUrl: 'https://example.test/return',
     fetchImpl: async (url, options) => { request = {url, fields: Object.fromEntries(options.body)};
       return {ok: true, text: async () => '[{"BillCode":"testBill"}]'}; },
   });
-  const result = await gateway.create({id: 'checkout', totalSen: 5005,
-    expiresAt: {toDate: () => new Date('2026-10-16T02:30:00Z')}}, {name: 'Test', email: 'test@example.test', phone: '0123456789'});
+  const payment = {id: 'checkout', totalSen: 5005,
+    expiresAt: {toDate: () => new Date('2026-10-16T02:30:00Z')}};
+  const payer = {name: 'Test', email: 'test@example.test', phone: '0123456789'};
+  await gateway.create(payment, payer);
+  assert.equal(request.fields.billPaymentChannel, '0');
+  const result = await gateway.create({...payment, paymentMethod: 'card'}, payer);
   assert.equal(request.url, 'https://dev.toyyibpay.com/index.php/api/createBill');
   assert.equal(request.fields.billAmount, '5005');
   assert.equal(request.fields.billPriceSetting, '1');
-  assert.equal(request.fields.billPaymentChannel, '0');
+  assert.equal(request.fields.billPaymentChannel, '1');
   assert.equal(request.fields.billExpiryDate, '16-10-2026 10:30:00');
   assert.equal(request.fields.billExternalReferenceNo, 'checkout');
   assert.equal(result.paymentUrl, 'https://dev.toyyibpay.com/testBill');

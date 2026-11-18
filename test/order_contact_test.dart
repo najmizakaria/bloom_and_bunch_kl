@@ -84,31 +84,23 @@ void main() {
       expect(() => RiderPhone.normalize(number), throwsFormatException);
     }
   });
-  testWidgets(
-    'before assignment the rider button is disabled and explains why',
-    (tester) async {
+  testWidgets('rider calling stays hidden until collection', (tester) async {
+    for (final order in [
+      {'orderStatus': 'Ready for Delivery', 'riderId': null},
+      {'orderStatus': 'Rider assigned', 'riderId': 'assigned'},
+    ]) {
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: Scaffold(
-            body: OrderContactActions(
-              orderId: 'order',
-              order: {'orderStatus': 'Ready for Delivery', 'riderId': null},
-            ),
+            body: OrderContactActions(orderId: 'order', order: order),
           ),
         ),
       );
       expect(find.text('Call Florist'), findsOneWidget);
-      expect(find.text('Rider not assigned yet'), findsOneWidget);
-      expect(
-        tester
-            .widget<OutlinedButton>(
-              find.widgetWithText(OutlinedButton, 'Call Rider'),
-            )
-            .onPressed,
-        isNull,
-      );
-    },
-  );
+      expect(find.text('Call Rider'), findsNothing);
+      expect(find.text('Rider not assigned yet'), findsNothing);
+    }
+  });
   testWidgets(
     'active order fetches its assigned contact then opens the correct dialer URI',
     (tester) async {

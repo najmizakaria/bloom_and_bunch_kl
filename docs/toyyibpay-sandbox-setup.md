@@ -1,6 +1,6 @@
 # ToyyibPay sandbox payment
 
-Sandbox checkout was activated on the existing Firebase project on 16 October 2026. The checked-in defaults remain demo mode; the ignored backend environment selects sandbox payment for this deployment. The provider adapter is restricted to `https://dev.toyyibpay.com` and FPX simulation. This is not a live-payment integration. See [activation record and test steps](toyyibpay-sandbox-activation-2026-10-16.md).
+Sandbox checkout was activated on the existing Firebase project on 16 October 2026. The checked-in defaults remain demo mode; the ignored backend environment selects sandbox payment for this deployment. The provider adapter is restricted to `https://dev.toyyibpay.com`. New quotes request the card-only channel, and existing FPX bills retain their original payment flow. See [the original sandbox activation record](toyyibpay-sandbox-activation-2026-10-16.md).
 
 ## Before enabling
 
@@ -68,6 +68,6 @@ References: [app_links setup](https://pub.dev/packages/app_links), [Flutter plug
 
 Unit tests mock HTTP responses, callback signatures and transaction data. Firestore emulator tests cover checkout grouping, racing bill creation, ambiguous creation, verified settlement, forged data, ownership, fulfillment gates, expiry, duplicate cleanup, late payment review and direct-client denial. Flutter tests cover allowed sandbox URLs, the payment screen, explicit bank opening, pending-to-paid verification and recovery after errors.
 
-Before calling the integration connected, use real sandbox credentials to verify successful, failed, cancelled and pending bank simulations; callback delivery; return-page behavior; app restart recovery; expiry; and concurrent attempts. Mock and emulator tests cannot establish the behavior of your ToyyibPay account.
+Use the configured sandbox account to verify card-only bill creation, successful and unsuccessful payment attempts, callbacks, return-page handling, app restart recovery, expiry, and concurrent attempts. Mock and emulator tests cannot establish the behavior of your ToyyibPay account.
 
 Reference: <https://toyyibpay.com/apireference/>.

@@ -15,6 +15,9 @@
     "secretEnvironmentVariables": [
       {
         "key": "TOYYIBPAY_SANDBOX_SECRET_KEY"
+      },
+      {
+        "key": "STRIPE_SANDBOX_SECRET_KEY"
       }
     ],
     "labels": {},
@@ -294,6 +297,30 @@
       "retry": true
     }
   },
+  "checkCheckoutPayment": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": 10,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": null,
+    "vpc": null,
+    "platform": "gcfv2",
+    "region": [
+      "asia-southeast1"
+    ],
+    "secretEnvironmentVariables": [
+      {
+        "key": "TOYYIBPAY_SANDBOX_SECRET_KEY"
+      },
+      {
+        "key": "STRIPE_SANDBOX_SECRET_KEY"
+      }
+    ],
+    "labels": {},
+    "callableTrigger": {}
+  },
   "checkToyyibpayPayment": {
     "availableMemoryMb": null,
     "timeoutSeconds": null,
@@ -327,6 +354,30 @@
     "platform": "gcfv2",
     "region": [
       "asia-southeast1"
+    ],
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "createCheckoutPayment": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": 10,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": null,
+    "vpc": null,
+    "platform": "gcfv2",
+    "region": [
+      "asia-southeast1"
+    ],
+    "secretEnvironmentVariables": [
+      {
+        "key": "TOYYIBPAY_SANDBOX_SECRET_KEY"
+      },
+      {
+        "key": "STRIPE_SANDBOX_SECRET_KEY"
+      }
     ],
     "labels": {},
     "callableTrigger": {}
@@ -416,11 +467,14 @@
     "secretEnvironmentVariables": [
       {
         "key": "TOYYIBPAY_SANDBOX_SECRET_KEY"
+      },
+      {
+        "key": "STRIPE_SANDBOX_SECRET_KEY"
       }
     ],
     "labels": {},
     "scheduleTrigger": {
-      "schedule": "every 5 minutes",
+      "schedule": "* * * * *",
       "retryConfig": {}
     }
   },
@@ -808,6 +862,34 @@
     ],
     "labels": {},
     "callableTrigger": {}
+  },
+  "stripeSandboxWebhook": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": 10,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": null,
+    "vpc": null,
+    "platform": "gcfv2",
+    "region": [
+      "asia-southeast1"
+    ],
+    "secretEnvironmentVariables": [
+      {
+        "key": "STRIPE_SANDBOX_SECRET_KEY"
+      },
+      {
+        "key": "STRIPE_SANDBOX_WEBHOOK_SECRET"
+      }
+    ],
+    "labels": {},
+    "httpsTrigger": {
+      "invoker": [
+        "public"
+      ]
+    }
   },
   "submitOrderFeedback": {
     "availableMemoryMb": null,

@@ -236,7 +236,7 @@ void main() {
     await tester.tap(find.text('Checkout'));
     await tester.pumpAndSettle();
     expect(
-      find.text('Review your order'),
+      find.text('Order confirmation'),
       findsOneWidget,
       reason:
           'Visible texts: ${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).join(" | ")}',
@@ -371,9 +371,9 @@ void main() {
         home: OrderTrackingScreen(orderId: order.id),
       ),
     );
-    await waitFor(tester, find.text('Report a problem'));
-    await tester.scrollUntilVisible(find.text('Report a problem'), 200);
-    await tester.tap(find.text('Report a problem'));
+    await waitFor(tester, find.text('Need help?'));
+    await tester.scrollUntilVisible(find.text('Need help?'), 200);
+    await tester.tap(find.text('Need help?'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byType(TextField),
@@ -1022,13 +1022,12 @@ void main() {
         (await db.doc('addons/demo_teddy').get()).data()!['stockQuantity'],
         19,
       );
-      await tester.scrollUntilVisible(
-        find.text('View combined receipt'),
-        150,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('View combined receipt'));
-      await waitFor(tester, find.text('Total: RM 94.00'));
+      expect(find.text('View combined receipt'), findsNothing);
+      final checkoutId = created.first.data()['checkoutGroupId'];
+      final receipt = await db
+          .doc('users/demo_customer/receipts/$checkoutId')
+          .get();
+      expect(receipt.data()?['totalSen'], 9400);
       final stemId = selectedStemId;
       expect(
         (await db.doc('flowers/$stemId').get()).data()!['reservedQuantity'],

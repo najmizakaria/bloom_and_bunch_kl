@@ -13,6 +13,10 @@ String? paymentIdFromLink(Uri uri) {
       uri.hasFragment) {
     return null;
   }
+  return _paymentId(uri);
+}
+
+String? _paymentId(Uri uri) {
   final ids = uri.queryParametersAll['payment_id'];
   if (ids == null ||
       ids.length != 1 ||
@@ -28,6 +32,10 @@ class PaymentLinks extends ValueNotifier<String?> {
 
   // Start before Firebase initialization so a cold-start link is retained.
   void start() {
+    if (kIsWeb) {
+      if (Uri.base.path == '/') value = _paymentId(Uri.base);
+      return;
+    }
     _subscription ??= AppLinks().uriLinkStream.listen((uri) {
       final id = paymentIdFromLink(uri);
       if (id != null) value = id;

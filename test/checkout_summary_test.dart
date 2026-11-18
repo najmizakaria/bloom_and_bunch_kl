@@ -1,12 +1,13 @@
 import 'package:bloom_and_bunch_kl/core/services/checkout_service.dart';
+import 'package:bloom_and_bunch_kl/core/widgets/app_note.dart';
 import 'package:bloom_and_bunch_kl/features/customer/screens/checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final mode in ['demo', 'toyyibpay_sandbox']) {
+  for (final mode in ['demo', 'toyyibpay_sandbox', 'stripe_sandbox', 'manual']) {
     testWidgets(
-      'mixed checkout shows item total and neutral payment wording at double text ($mode)',
+      'mixed checkout shows totals without a payment section at double text ($mode)',
       (tester) async {
         tester.view.physicalSize = const Size(320, 900);
         tester.view.devicePixelRatio = 1;
@@ -18,10 +19,6 @@ void main() {
           'subtotalSen': 10000,
           'deliveryFeeSen': 0,
           'totalSen': 10000,
-          'paymentInstructions':
-              'Test payments only. Complete ToyyibPay sandbox payment before preparation or delivery.',
-          'timingNotice':
-              'Estimated dispatch dates depend on preparation and rider availability.',
           'groups': [
             {'kind': 'ready_now', 'date': '2026-09-21', 'deliveryFeeSen': 0},
             {'kind': 'planned', 'date': '2026-09-23', 'deliveryFeeSen': 0},
@@ -48,15 +45,9 @@ void main() {
         expect(find.textContaining('Demo'), findsNothing);
         expect(find.textContaining('ToyyibPay'), findsNothing);
         expect(find.textContaining('sandbox'), findsNothing);
-        expect(find.textContaining('travel separately'), findsOneWidget);
-        expect(
-          find.textContaining(
-            mode == 'demo'
-                ? 'does not confirm payment'
-                : 'Unpaid reservations expire',
-          ),
-          findsOneWidget,
-        );
+        expect(find.text('Payment method'), findsNothing);
+        expect(find.byType(OutlinedButton), findsNothing);
+        expect(find.byType(AppNote), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );

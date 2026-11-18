@@ -1,4 +1,5 @@
 'use strict';
+const { isOnlineMode } = require('./payments');
 const { createHash } = require('node:crypto');
 const d = require('./domain');
 
@@ -8,8 +9,8 @@ function createStorePolicy(configured) {
     createHash('sha256').update(require('./commerce').stableStringify(value)).digest('hex');
 
   function validate(policy) {
-    if (!['demo', 'manual', 'toyyibpay_sandbox'].includes(policy.mode))
-      throw Error('Store mode must be demo, manual or toyyibpay_sandbox.');
+    if (!['demo', 'manual'].includes(policy.mode) && !isOnlineMode(policy.mode))
+      throw Error('Store payment mode is invalid.');
     if (
       !Number.isSafeInteger(policy.deliveryFeeSen) ||
       policy.deliveryFeeSen < 0 ||
@@ -191,9 +192,10 @@ function createStorePolicy(configured) {
       d.fail('A message card belongs to a removed delivery. Review your cart.');
     const result = {
       mode: policy.mode,
+      ...(isOnlineMode(policy.mode) ? { paymentMethod: 'card' } : {}),
       paymentInstructions:
-        policy.mode === 'toyyibpay_sandbox'
-          ? 'Test payments only. Complete ToyyibPay sandbox payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
+        isOnlineMode(policy.mode)
+          ? 'Test payments only. Complete sandbox payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
           : policy.paymentInstructions,
       areaLabel: policy.serviceArea?.label ?? 'Store delivery area',
       openingHour: policy.openingHour,

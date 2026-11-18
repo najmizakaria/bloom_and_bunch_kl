@@ -9,6 +9,7 @@ class PaymentSession {
     this.paymentUrl,
     this.expiresAt,
     this.payerPhoneRequired = false,
+    this.provider,
   });
   final String id, status;
   final int totalSen;
@@ -16,16 +17,30 @@ class PaymentSession {
   final String? paymentUrl;
   final DateTime? expiresAt;
   final bool payerPhoneRequired;
+  final String? provider;
+  bool get usesStripe => provider == 'stripe';
 
   bool get paid => status == 'paid';
   bool get needsReview =>
-      ['creating', 'creation_unknown', 'needs_review'].contains(status);
+      status == 'needs_review' ||
+      (!usesStripe && ['creating', 'creation_unknown'].contains(status));
   bool get canPay =>
-      ['awaiting_bill', 'pending'].contains(status) &&
+      (['awaiting_bill', 'pending'].contains(status) ||
+          (usesStripe && status == 'creating')) &&
       (expiresAt == null || expiresAt!.isAfter(DateTime.now()));
 
   Uri? get checkoutUri {
     final uri = Uri.tryParse(paymentUrl ?? '');
+    if (usesStripe) {
+      return uri != null &&
+              uri.scheme == 'https' &&
+              uri.host == 'checkout.stripe.com' &&
+              uri.userInfo.isEmpty &&
+              uri.port == 443 &&
+              RegExp(r'^/[cg]/pay/cs_test_[a-zA-Z0-9]+$').hasMatch(uri.path)
+          ? uri
+          : null;
+    }
     return uri != null &&
             uri.scheme == 'https' &&
             uri.host == 'dev.toyyibpay.com' &&
@@ -44,6 +59,7 @@ class PaymentSession {
     totalSen: (data['totalSen'] as num).toInt(),
     orderIds: List<String>.from(data['orderIds'] as List),
     paymentUrl: data['paymentUrl'] as String?,
+    provider: data['provider'] as String?,
     payerPhoneRequired: data['payerPhoneRequired'] == true,
     expiresAt: data['expiresAt'] == null
         ? null
@@ -59,21 +75,20 @@ class PaymentService {
     String? orderId, [
     Map<String, dynamic> fields = const {},
   ]) async {
-    final result =
-        await FirebaseFunctions.instanceFor(region: 'asia-southeast1')
-            .httpsCallable(name)
-            .call({'orderId': ?orderId, ...fields});
+    final result = await FirebaseFunctions.instanceFor(
+      region: 'asia-southeast1',
+    ).httpsCallable(name).call({'orderId': ?orderId, ...fields});
     return PaymentSession.fromMap(
       Map<String, dynamic>.from(result.data as Map),
     );
   }
 
   Future<PaymentSession> check(String orderId) =>
-      _call('checkToyyibpayPayment', orderId);
+      _call('checkCheckoutPayment', orderId);
   Future<PaymentSession> checkPayment(String paymentId) =>
-      _call('checkToyyibpayPayment', null, {'paymentId': paymentId});
+      _call('checkCheckoutPayment', null, {'paymentId': paymentId});
   Future<PaymentSession> start(String orderId, {String? payerPhone}) => _call(
-    'createToyyibpayPayment',
+    'createCheckoutPayment',
     orderId,
     payerPhone == null || payerPhone.trim().isEmpty
         ? const {}

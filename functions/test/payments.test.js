@@ -16,7 +16,8 @@ before(async () => {
   if (!enabled) return;
   if (!process.env.GCLOUD_PROJECT?.startsWith('demo-')) throw Error('Demo emulators only');
   Object.assign(process.env, {TOYYIBPAY_ENABLED: 'true', TOYYIBPAY_SANDBOX_CATEGORY_CODE: 'test-category',
-    TOYYIBPAY_RETURN_URL: 'https://example.test/payment-return.html'});
+    TOYYIBPAY_RETURN_URL: 'https://example.test/payment-return.html',
+    STRIPE_SANDBOX_RETURN_URL: 'https://example.test/payment-return.html'});
   api = require('../index');
   ({Timestamp} = require('firebase-admin/firestore'));
   db = require('firebase-admin/firestore').getFirestore();
@@ -27,9 +28,10 @@ before(async () => {
 });
 after(async () => { if (db) await db.terminate(); });
 
-async function fixture(id, extra = {}) {
+async function fixture(id, extra = {}, stripeGateway) {
   const orderIds = [id + '_ready', id + '_planned'];
-  const common = {customerId: 'pay_buyer', checkoutGroupId: id, paymentId: id, orderMode: MODE,
+  const common = {customerId: 'pay_buyer', checkoutGroupId: id, paymentId: id,
+    orderMode: stripeGateway ? 'stripe_sandbox' : MODE,
     paymentStatus: 'pending', riderId: null, latitude: 3.139, longitude: 101.687,
     deliveryAddress: '12 Test Street, Kuala Lumpur', createdAt: new Date(), estimatedDispatchDate: '2026-10-16'};
   await db.doc('bouquets/' + id).set({name: 'Bouquet', readyStock: 8, stockCount: 8});
@@ -46,15 +48,90 @@ async function fixture(id, extra = {}) {
     async create(_payment, payer) { calls++; payerValue = payer; return {billCode: 'bill_' + id, paymentUrl: 'https://dev.toyyibpay.com/bill_' + id}; },
     async transactions() { return rows; }, async deactivate() { return mayDeactivate; },
   };
-  const handlers = createPaymentHandlers({db, getGateway: () => gateway, getSecret: () => 'test-secret', now: () => clock,
+  const handlers = createPaymentHandlers({db, getGateway: () => gateway, getStripeGateway: () => stripeGateway,
+    getSecret: () => 'test-secret', now: () => clock,
     writeAvailableJob(tx, orderId) { tx.set(db.doc('delivery_jobs/' + orderId), {orderId, orderStatus: 'Ready for Delivery'}); },
   });
   return {handlers, gateway, orderIds, get calls() { return calls; }, get payer() { return payerValue; },
     set rows(value) { rows = value; }, set mayDeactivate(value) { mayDeactivate = value; }};
 }
 
-test('mixed checkout creates one backend-owned payment and does not publish unpaid delivery jobs', {skip: !enabled}, async () => {
+test('Stripe expiry deletes the unpaid reservation and leaves a safe retry marker', {skip: !enabled}, async () => {
+  const id = createHash('sha256').update('stripe-expiry').digest('hex');
+  const session = {id: 'cs_test_expired', status: 'expired', payment_status: 'unpaid'};
+  const gateway = {expire: async () => session};
+  const f = await fixture(id, {
+    provider: 'stripe', stripeSessionId: session.id, status: 'pending',
+    expiresAt: Timestamp.fromMillis(clock - 1),
+  }, gateway);
+  const payment = db.doc('payments/' + id);
+  const checkout = db.doc('users/pay_buyer/checkouts/' + id);
+  const receipt = db.doc('users/pay_buyer/receipts/' + id);
+  const order = db.doc('orders/' + f.orderIds[0]);
+  const event = order.collection('events').doc('created');
+  await Promise.all([checkout.set({orderIds: f.orderIds}), receipt.set({orderIds: f.orderIds}), event.set({status: 'Created'})]);
+  await f.handlers.expire(await payment.get());
+  await f.handlers.expire(await payment.get());
+  assert.equal((await payment.get()).get('status'), 'expired');
+  assert.equal((await checkout.get()).get('paymentExpired'), true);
+  assert.equal((await receipt.get()).exists, false);
+  assert.equal((await order.get()).exists, false);
+  assert.equal((await event.get()).exists, false);
+  assert.equal((await db.doc('bouquets/' + id).get()).get('readyStock'), 10);
+  assert.equal((await db.doc('flowers/' + id).get()).get('reservedQuantity'), 0);
+  const request = {auth: {uid: 'pay_buyer'}, data: {orderId: order.id}};
+  assert.equal((await f.handlers.status(request)).status, 'expired');
+  await assert.rejects(() => f.handlers.status({...request, auth: {uid: 'pay_other'}}), {code: 'permission-denied'});
+});
+
+test('expired Stripe creation finds its existing session without starting another', {skip: !enabled}, async () => {
+  const id = createHash('sha256').update('stripe-recover').digest('hex');
+  const session = {id: 'cs_test_unrecorded', status: 'expired', payment_status: 'unpaid'};
+  let providerCalls = 0;
+  const gateway = {
+    async findSession(p, created) {
+      providerCalls++;
+      assert.equal(p.id, id);
+      assert.ok(created.gte < created.lte);
+      return session;
+    },
+    async expire(p) {
+      assert.equal(p.stripeSessionId, session.id);
+      return session;
+    },
+  };
+  const f = await fixture(id, {
+    provider: 'stripe', status: 'creating', expiresAt: Timestamp.fromMillis(clock - 61000),
+  }, gateway);
+  const result = await f.handlers.status(req('pay_buyer', id));
+  assert.equal(result.status, 'expired');
+  assert.equal(providerCalls, 1);
+  assert.equal((await db.doc('orders/' + f.orderIds[0]).get()).exists, false);
+});
+
+test('Stripe confirmation wins a cleanup race and duplicate webhooks are safe', {skip: !enabled}, async () => {
+  const id = createHash('sha256').update('stripe-paid').digest('hex');
+  const session = {id: 'cs_test_paid', client_reference_id: id, status: 'complete',
+    payment_status: 'paid', payment_intent: 'pi_paid'};
+  const gateway = {expire: async () => session, retrieve: async () => session,
+    verifyWebhook: () => ({livemode: false, type: 'checkout.session.completed', data: {object: session}})};
+  const f = await fixture(id, {
+    provider: 'stripe', stripeSessionId: session.id, status: 'pending',
+    expiresAt: Timestamp.fromMillis(clock - 1),
+  }, gateway);
+  const payment = db.doc('payments/' + id);
+  const snapshot = await payment.get();
+  await Promise.all([f.handlers.stripeWebhook(), f.handlers.expire(snapshot)]);
+  await f.handlers.stripeWebhook();
+  assert.equal((await payment.get()).get('status'), 'paid');
+  assert.equal((await payment.get()).get('transactionId'), 'pi_paid');
+  for (const orderId of f.orderIds) assert.equal((await db.doc('orders/' + orderId).get()).get('paymentStatus'), 'paid');
+  assert.equal((await db.doc('bouquets/' + id).get()).get('readyStock'), 8);
+});
+
+test('ToyyibPay and Stripe mixed checkouts create one payment each and hold delivery jobs', {skip: !enabled}, async () => {
   const policy = require('../store-policy').configured, previous = {...policy};
+  const configuration = process.env.STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION;
   try {
     Object.assign(policy, {mode: MODE, serviceArea: null, dailyDeliveryCapacity: 0});
     await db.doc('bouquets/pay_checkout').set({name: 'Bouquet', price: 50, isPublished: true,
@@ -65,19 +142,47 @@ test('mixed checkout creates one backend-owned payment and does not publish unpa
     const date=require('../store-policy').dateFor(new Date(),2,policy);
     const items = ['ready_now', 'pre_order'].map(fulfillmentType => ({bouquetId: 'pay_checkout', quantity: 1, fulfillmentType,...(fulfillmentType==='pre_order'?{requestedDeliveryDate:date}:{})}));
     const quote = await api.quoteCheckout.run({auth: {uid: 'pay_buyer'}, data: {items, address}});
+    assert.equal(quote.paymentMethod, 'card');
     const request = {auth: {uid: 'pay_buyer'}, data: {checkoutId: 'pay_checkout', addressId: 'home', address, items, expectedTotal: 100, quoteId: quote.quoteId}};
     const result = await api.placeOrder.run(request);
     assert.deepEqual(await api.placeOrder.run(request), result);
     const id = paymentId('pay_buyer', 'pay_checkout'), payment = (await db.doc('payments/' + id).get()).data();
+    assert.equal(payment.paymentMethod, 'card');
     assert.equal(payment.totalSen, 10000); assert.equal(payment.orderIds.length, 2);
     assert.equal(payment.capacityReserved, false);
     for (const orderId of result.orderIds) {
       assert.equal((await db.doc('orders/' + orderId).get()).data().paymentId, id);
       assert.equal((await db.doc('delivery_jobs/' + orderId).get()).exists, false);
     }
+    policy.mode = 'stripe_sandbox';
+    process.env.STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION = 'pmc_fixture';
+    const stripeQuote = await api.quoteCheckout.run({auth: request.auth, data: {items, address}});
+    assert.equal(stripeQuote.mode, 'stripe_sandbox');
+    assert.equal(stripeQuote.paymentMethod, 'card');
+    const stripeRequest = {auth: request.auth, data: {...request.data,
+      checkoutId: 'pay_checkout_stripe', quoteId: stripeQuote.quoteId}};
+    await assert.rejects(() => api.placeOrder.run(stripeRequest), /Update the app to use Stripe Checkout/);
+    stripeRequest.data.paymentProvider = 'stripe';
+    const stripeResult = await api.placeOrder.run(stripeRequest);
+    const stripeId = paymentId('pay_buyer', 'pay_checkout_stripe');
+    const stripePayment = (await db.doc('payments/' + stripeId).get()).data();
+    assert.equal(stripePayment.provider, 'stripe');
+    assert.equal(stripePayment.totalSen, 10000);
+    assert.equal(stripePayment.nextCheckAt.toMillis(), stripePayment.expiresAt.toMillis());
+    assert.equal(stripeResult.orderIds.length, 2);
+    for (const orderId of stripeResult.orderIds) {
+      assert.equal((await db.doc('orders/' + orderId).get()).get('paymentId'), stripeId);
+      assert.equal((await db.doc('delivery_jobs/' + orderId).get()).exists, false);
+    }
+    policy.mode = MODE;
     process.env.TOYYIBPAY_ENABLED = 'false';
     await assert.rejects(() => api.quoteCheckout.run({auth: {uid: 'pay_buyer'}, data: {items, address}}), e => e.code === 'failed-precondition');
-  } finally { Object.assign(policy, previous); process.env.TOYYIBPAY_ENABLED = 'true'; }
+  } finally {
+    Object.assign(policy, previous);
+    process.env.TOYYIBPAY_ENABLED = 'true';
+    if (configuration === undefined) delete process.env.STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION;
+    else process.env.STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION = configuration;
+  }
 });
 
 test('one bill per checkout survives racing clicks and repeated payment opening', {skip: !enabled}, async () => {

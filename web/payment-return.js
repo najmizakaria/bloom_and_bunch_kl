@@ -14,6 +14,12 @@
     return;
   }
   const query = '?payment_id=' + encodeURIComponent(id);
+  const stripe = params.get('provider') === 'stripe';
+  if (stripe) {
+    const website = document.getElementById('open-website');
+    website.href = '/' + query;
+    document.getElementById('website-return').replaceChildren(website);
+  }
   const schemeUrl = 'bloombunch://payment-return' + query;
   const android = /Android/i.test(navigator.userAgent);
   const mobile = android || /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -25,6 +31,10 @@
       encodeURIComponent(fallback.href) + ';end'
     : schemeUrl;
   if (!mobile) {
+    if (stripe) {
+      window.location.replace('/' + query);
+      return;
+    }
     message.textContent = 'On your phone, tap Open app to verify payment. On the website, return to your original tab.';
   } else if (!params.has('manual')) {
     // Browsers may require a user gesture; the button remains as a fallback.

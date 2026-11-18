@@ -15,6 +15,8 @@ const { deliveryEligible } = require('./domain/delivery');
 const d = require('./domain/domain');
 const storePolicy = require('../store-policy');
 const toyyibpay = require('./infrastructure/payments/toyyibpay');
+const { createStripeGateway } = require('./infrastructure/payments/stripe');
+const { MODE, STRIPE_MODE } = require('./domain/payments');
 const { createCheckoutReader } = require('./infrastructure/firebase/checkout-reader');
 const { createDeliveryJobWriter } = require('./infrastructure/firebase/delivery-jobs');
 const { createCallable } = require('./presentation/callable');
@@ -40,6 +42,12 @@ function createBackend({ db }) {
   const paymentCategory = defineString('TOYYIBPAY_SANDBOX_CATEGORY_CODE', { default: '' });
   const paymentReturnUrl = defineString('TOYYIBPAY_RETURN_URL', { default: '' });
   const paymentSecret = defineSecret('TOYYIBPAY_SANDBOX_SECRET_KEY');
+  const stripeSecret = defineSecret('STRIPE_SANDBOX_SECRET_KEY');
+  const stripeWebhookSecret = defineSecret('STRIPE_SANDBOX_WEBHOOK_SECRET');
+  const stripeConfiguration = defineString('STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION', { default: '' });
+  const stripeReturnUrl = defineString('STRIPE_SANDBOX_RETURN_URL', {
+    default: 'https://bloomandbunchkl.com/payment-return.html',
+  });
   const options = {
     region: 'asia-southeast1',
     maxInstances: 10,
@@ -47,7 +55,13 @@ function createBackend({ db }) {
     enforceAppCheck: process.env.ENFORCE_APP_CHECK === 'true',
   };
 
-  function assertPaymentsEnabled() {
+  function assertPaymentsEnabled(mode = MODE) {
+    if (mode === STRIPE_MODE) {
+      if (!/^pmc_[A-Za-z0-9]+$/.test(stripeConfiguration.value()) ||
+          !/^https:\/\//.test(stripeReturnUrl.value()))
+        d.fail('Stripe sandbox checkout is not configured.', 'failed-precondition');
+      return;
+    }
     if (
       !paymentEnabled.value() ||
       !paymentCategory.value() ||
@@ -116,6 +130,15 @@ function createBackend({ db }) {
     FieldValue,
     Timestamp,
     gatewayApi: toyyibpay,
+    getStripeGateway: (verifyWebhook = false) => {
+      assertPaymentsEnabled(STRIPE_MODE);
+      return createStripeGateway({
+        secret: stripeSecret.value(),
+        configuration: stripeConfiguration.value(),
+        returnUrl: stripeReturnUrl.value(),
+        ...(verifyWebhook ? { webhookSecret: stripeWebhookSecret.value() } : {}),
+      });
+    },
     getSecret: () => paymentSecret.value(),
     getGateway: () => {
       assertPaymentsEnabled();
@@ -139,6 +162,8 @@ function createBackend({ db }) {
     options,
     paymentEnabled,
     paymentSecret,
+    stripeSecret,
+    stripeWebhookSecret,
     handlers: {
       checkout,
       fulfillment,

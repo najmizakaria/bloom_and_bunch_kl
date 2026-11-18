@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../core/constants/fulfillment_constants.dart';
+import '../core/constants/payment_modes.dart';
 
 class OrderModel {
   static String _normalizedStatus(String? s) =>
@@ -50,7 +51,7 @@ class OrderModel {
           ) >
           0;
   bool get paymentOnHold =>
-      orderMode == 'toyyibpay_sandbox' && paymentStatus != 'paid';
+      isOnlinePaymentMode(orderMode) && paymentStatus != 'paid';
   bool get receiptConfirmed => customerAcceptedAt != null;
   String? get handoffBlockReason {
     if (paymentOnHold) return 'Waiting for verified payment.';

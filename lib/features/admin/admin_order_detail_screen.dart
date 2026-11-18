@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../support/order_rider_assignment.dart';
 import '../../core/constants/fulfillment_constants.dart';
+import '../../core/constants/payment_modes.dart';
 import '../../core/services/admin_service.dart';
 import '../../core/services/order_service.dart';
 import '../../core/utils/malaysia_time.dart';
@@ -131,7 +132,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
             Text(
               'Payment: ${order.paymentStatus.isEmpty ? 'Unknown' : order.paymentStatus} · ${order.orderMode.isEmpty ? 'Legacy' : order.orderMode}',
             ),
-            if (order.orderMode == 'toyyibpay_sandbox')
+            if (isOnlinePaymentMode(order.orderMode))
               const Text(
                 'ToyyibPay sandbox: test transaction, not live revenue.',
               ),
@@ -150,7 +151,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
                       'orderId': widget.orderId,
                     });
                   }),
-                if (order.orderMode == 'toyyibpay_sandbox')
+                if (isOnlinePaymentMode(order.orderMode))
                   button('Verify sandbox payment', () async {
                     final p = await AdminService().call('adminCheckPayment', {
                       'orderId': widget.orderId,

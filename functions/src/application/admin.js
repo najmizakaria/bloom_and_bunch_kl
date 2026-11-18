@@ -92,7 +92,8 @@ function createAdminHandlers({
         count(db.collection('rider_applications').where('status', '==', 'pending')),
         received(b.day, 'manual'),
         received(b.month, 'manual'),
-        received(b.month, 'toyyibpay_sandbox'),
+        Promise.all(['toyyibpay_sandbox', 'stripe_sandbox'].map((mode) => received(b.month, mode)))
+          .then(([legacy, stripe]) => legacy + stripe),
         count(o.where('createdAt', '>=', b.month)),
         count(o.where('orderStatus', '==', 'Completed')),
         count(db.collection('products')),
@@ -142,9 +143,11 @@ function createAdminHandlers({
         q = q.where('fulfillmentType', '==', p.fulfillment);
       }
       if (p.mode) {
-        if (!['demo', 'manual', 'toyyibpay_sandbox'].includes(p.mode))
+        if (!['demo', 'manual', 'toyyibpay_sandbox', 'stripe_sandbox', 'sandbox'].includes(p.mode))
           d.fail('Invalid payment mode.');
-        q = q.where('orderMode', '==', p.mode);
+        q = p.mode === 'sandbox'
+          ? q.where('orderMode', 'in', ['toyyibpay_sandbox', 'stripe_sandbox'])
+          : q.where('orderMode', '==', p.mode);
       }
       const dateField = p.dateField ?? 'createdAt';
       if (!['createdAt', 'paidAt'].includes(dateField)) d.fail('Invalid date filter.');
@@ -173,7 +176,9 @@ function createAdminHandlers({
             (p.status === 'preparation'
               ? ['Awaiting Preparation', 'Pending', 'Processing'].includes(v.orderStatus)
               : v.orderStatus === p.status)) &&
-          (!p.mode || v.orderMode === p.mode) &&
+          (!p.mode || (p.mode === 'sandbox'
+            ? ['toyyibpay_sandbox', 'stripe_sandbox'].includes(v.orderMode)
+            : v.orderMode === p.mode)) &&
           (!p.payment || v.paymentStatus === p.payment) &&
           (!p.fulfillment || v.fulfillmentType === p.fulfillment) &&
           (!p.from || ms(v[dateField]) >= p.from) &&

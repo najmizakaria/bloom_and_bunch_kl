@@ -98,18 +98,25 @@ class _OrderSupportPanelState extends State<OrderSupportPanel> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 24),
-        Text(
-          'Help with this order',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
-        OrderContactActions(
-          orderId: widget.orderId,
-          order: widget.order,
-          trailing: OutlinedButton(
-            onPressed: support?['status'] == 'open'
-                ? null
-                : () => reportIssue(context, widget.orderId),
-            child: const Text('Report a problem'),
+        OutlinedButtonTheme(
+          data: OutlinedButtonThemeData(
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(48, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              textStyle: Theme.of(context).textTheme.labelMedium,
+              iconSize: 16,
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
+          ),
+          child: OrderContactActions(
+            orderId: widget.orderId,
+            order: widget.order,
+            trailing: OutlinedButton(
+              onPressed: support?['status'] == 'open'
+                  ? null
+                  : () => reportIssue(context, widget.orderId),
+              child: const Text('Need help?'),
+            ),
           ),
         ),
         if (support != null)

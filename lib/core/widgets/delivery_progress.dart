@@ -126,7 +126,7 @@ class ReceiptConfirmation extends StatelessWidget {
             child: Text(busy ? 'Confirming…' : 'Confirm received'),
           ),
           const Text(
-            'If the order is missing or damaged, use Report a problem below.',
+            'If the order is missing or damaged, select Need help? below.',
           ),
         ],
       ),
