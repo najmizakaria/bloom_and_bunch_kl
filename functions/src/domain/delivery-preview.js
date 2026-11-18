@@ -93,6 +93,9 @@ function preview(order) {
     pickupName,
     pickupAddress,
     itemCount,
+    ...(Number.isSafeInteger(order.riderPaySen) && order.riderPaySen >= 0
+      ? { riderPaySen: order.riderPaySen }
+      : {}),
     estimatedDispatchDate:
       typeof order.estimatedDispatchDate === 'string' ? order.estimatedDispatchDate : null,
     scheduledDeliveryDate:

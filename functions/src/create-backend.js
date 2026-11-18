@@ -130,6 +130,7 @@ function createBackend({ db }) {
     FieldValue,
     Timestamp,
     gatewayApi: toyyibpay,
+    notifyReceiptReminder: notifications.notifyReceiptReminder,
     getStripeGateway: (verifyWebhook = false) => {
       assertPaymentsEnabled(STRIPE_MODE);
       return createStripeGateway({

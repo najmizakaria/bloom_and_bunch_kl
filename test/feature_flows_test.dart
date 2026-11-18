@@ -48,6 +48,7 @@ void main() {
     WidgetTester tester, {
     String? mode,
     bool ready = true,
+    bool preOrder = true,
     List<QueryDocumentSnapshot<Map<String, dynamic>>> addons = const [],
     String? Function()? selectDate,
   }) async {
@@ -62,7 +63,7 @@ void main() {
       isPublished: true,
       availableForReadyNow: ready,
       readyStock: ready ? 5 : 0,
-      availableForPreOrder: true,
+      availableForPreOrder: preOrder,
       leadTimeBusinessDays: 2,
       recipeStems: {'rose': 12},
     );
@@ -116,9 +117,17 @@ void main() {
   });
 
   testWidgets(
-    'pre-order detail retains the selected mode for a dual-mode bouquet',
+    'pre-order section opens add-ons directly for a dual-mode bouquet',
     (tester) async {
-      final cart = await mount(tester, mode: FulfillmentTypes.preOrder);
+      var dateRequests = 0;
+      final cart = await mount(
+        tester,
+        mode: FulfillmentTypes.preOrder,
+        selectDate: () {
+          dateRequests++;
+          return '2026-11-12';
+        },
+      );
       final summary = find.text('Fresh roses');
       await tester.scrollUntilVisible(summary, 150);
       expect(
@@ -128,17 +137,57 @@ void main() {
       expect(find.text('Pre-order'), findsNothing);
       await tester.tap(find.text('Choose add-ons'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Pre-order'));
-      await tester.pumpAndSettle();
+      expect(find.text('Choose a delivery option'), findsNothing);
       expect(cart.isEmpty, true);
-      expect(find.text('Choose delivery date'), findsNothing);
+      expect(dateRequests, 0);
       await tester.tap(find.text('Add to cart'));
       await tester.pumpAndSettle();
-      expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
-      expect(cart.items.single.leadTimeBusinessDays, 2);
-      expect(cart.items.single.requestedDeliveryDate, '2026-11-12');
+      expect(dateRequests, 1);
+      expect(
+        cart.items.single.toMap(),
+        containsPair('fulfillmentType', FulfillmentTypes.preOrder),
+      );
+      expect(
+        cart.items.single.toMap(),
+        containsPair('leadTimeBusinessDays', 2),
+      );
+      expect(
+        cart.items.single.toMap(),
+        containsPair('requestedDeliveryDate', '2026-11-12'),
+      );
     },
   );
+  testWidgets('ready-to-send section offers both valid modes', (tester) async {
+    final cart = await mount(tester, mode: FulfillmentTypes.readyNow);
+    await tester.tap(find.text('Choose add-ons'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a delivery option'), findsOneWidget);
+    expect(find.text('Ready to send'), findsOneWidget);
+    await tester.tap(find.text('Pre-order'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Add to cart'));
+    await tester.pumpAndSettle();
+    expect(cart.items.single.fulfillmentType, FulfillmentTypes.preOrder);
+    expect(cart.items.single.requestedDeliveryDate, '2026-11-12');
+  });
+  testWidgets('a ready-only bouquet skips the chooser and date picker', (
+    tester,
+  ) async {
+    final cart = await mount(
+      tester,
+      mode: FulfillmentTypes.readyNow,
+      preOrder: false,
+      selectDate: () => throw StateError('Ready-to-send needs no date'),
+    );
+    await tester.tap(find.text('Choose add-ons'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose a delivery option'), findsNothing);
+    await tester.tap(find.text('Add to cart'));
+    await tester.pumpAndSettle();
+    expect(cart.items.single.fulfillmentType, FulfillmentTypes.readyNow);
+    expect(cart.items.single.leadTimeBusinessDays, 0);
+    expect(cart.items.single.requestedDeliveryDate, isNull);
+  });
   testWidgets(
     'pre-order-only favourite stays on add-ons when the date picker is cancelled',
     (tester) async {

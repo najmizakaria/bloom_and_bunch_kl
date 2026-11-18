@@ -14,6 +14,7 @@ import '../../support/order_support.dart';
 import '../widgets/order_thumbnail.dart';
 import '../widgets/order_tracking_progress.dart';
 import 'payment_screen.dart';
+import 'checkout_receipt_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
@@ -84,6 +85,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             );
         final onlinePayment = isOnlinePaymentMode(d['orderMode']);
         final paymentStatus = d['paymentStatus']?.toString();
+        final checkoutId = d['checkoutGroupId'];
         final id = widget.orderId;
         final orderLabel = trackingOrderNumber(
           d['orderNumber'] as String? ??
@@ -177,6 +179,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 ),
                 child: const Text('View payment / pay'),
               ),
+            ],
+            if (paymentStatus == 'paid' &&
+                d['customerId'] == FirebaseAuth.instance.currentUser?.uid &&
+                checkoutId is String) ...[
+              const SizedBox(height: 12),
+              ViewPaymentReceiptButton(checkoutId: checkoutId),
             ],
             if (d['checkoutGroupId'] != null)
               RetryStreamBuilder<QuerySnapshot<Map<String, dynamic>>>(

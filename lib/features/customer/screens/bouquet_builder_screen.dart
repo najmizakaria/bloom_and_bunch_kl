@@ -354,61 +354,40 @@ class _BouquetBuilderScreenState extends State<BouquetBuilderScreen> {
       onAdd: canAdd ? () => _incrementFlower(flower) : null,
       onEdit: () => _enterExactQuantity(flower),
     );
-    final flowerInfo = Row(
-      children: [
-        SizedBox(
-          width: 52,
-          height: 52,
-          child: ProductImage(imageUrl: flower.imageUrl),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(flower.name, style: const AppTypography.label()),
-              const SizedBox(height: 4),
-              Text(
-                'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
-                style: const AppTypography.supporting(
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final stacked =
-                constraints.maxWidth < 420 ||
-                MediaQuery.textScalerOf(context).scale(14) > 18;
-            if (stacked) {
-              return Column(
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 48,
+              child: ProductImage(imageUrl: flower.imageUrl),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  flowerInfo,
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: quantityControl,
+                  Text(
+                    flower.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const AppTypography.label(),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'RM ${flower.pricePerStem.toStringAsFixed(2)} / stem',
+                    style: const AppTypography.supporting(
+                      color: AppColors.textMuted,
+                    ),
                   ),
                 ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: flowerInfo),
-                const SizedBox(width: 12),
-                quantityControl,
-              ],
-            );
-          },
+              ),
+            ),
+            const SizedBox(width: 4),
+            quantityControl,
+          ],
         ),
       ),
     );

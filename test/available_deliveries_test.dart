@@ -124,8 +124,17 @@ void main() {
             ),
           ),
         );
-        final button = tester.widget<FilledButton>(find.byType(FilledButton));
-        expect(button.onPressed, blocked ? isNull : isNotNull);
+        expect(
+          find.text('Swipe to accept'),
+          blocked ? findsNothing : findsOneWidget,
+        );
+        expect(
+          find.text('Accept with confirmation'),
+          blocked ? findsNothing : findsOneWidget,
+        );
+        if (blocked) {
+          expect(find.text('Complete current delivery first'), findsOneWidget);
+        }
       },
     );
   }

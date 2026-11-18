@@ -21,6 +21,12 @@ test('legacy Malaysian addresses recover the locality beside the postcode', () =
   assert.equal(preview({deliveryAddress:'Unit G2, StreetMall, 63000 Cyberjaya, Selangor'}).deliveryArea,'Cyberjaya · 63000');
   assert.equal(preview({deliveryAddress:'12 Main Street, Kuala Lumpur'}).deliveryArea,'Kuala Lumpur');
 });
+test('only a valid per-order rider payout is projected into the preview', () => {
+  for (const riderPaySen of [0, 850]) assert.equal(preview({riderPaySen}).riderPaySen,riderPaySen);
+  for (const riderPaySen of [undefined, null, -100, 850.5, '850']) {
+    assert.equal('riderPaySen' in preview({riderPaySen,deliveryFee:8.50}),false);
+  }
+});
 test('ambiguous, street-like and malformed localities never expose address fragments', () => {
   for (const address of ['Private Building, Selangor, Malaysia','Unit 5, 43000 Jalan Rahsia, Selangor','Private Street']) {
     assert.equal(preview({deliveryAddress:address}).deliveryArea,'Area needs confirmation');

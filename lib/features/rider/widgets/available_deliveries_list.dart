@@ -202,9 +202,6 @@ class _AvailableDeliveriesListState extends State<AvailableDeliveriesList>
                       ),
                     ),
                   ),
-                const Text(
-                  'Choose a delivery to see pickup and destination details before accepting.',
-                ),
                 if (_lastUpdated != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8, bottom: 16),

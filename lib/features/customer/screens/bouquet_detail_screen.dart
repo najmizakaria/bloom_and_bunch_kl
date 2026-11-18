@@ -3,7 +3,6 @@ import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/favourites_service.dart';
 import '../../../core/services/app_monitoring.dart';
@@ -32,7 +31,6 @@ class BouquetDetailScreen extends StatefulWidget {
 }
 
 class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
-  late final bool _readyNow;
   bool get _readyAvailable =>
       widget.bouquet.availableForReadyNow && widget.bouquet.readyStock > 0;
   late final FavouritesService _favourites =
@@ -42,50 +40,14 @@ class _BouquetDetailScreenState extends State<BouquetDetailScreen> {
   void initState() {
     super.initState();
     AppMonitoring.event('product_viewed');
-    _readyNow =
-        !(widget.initialFulfillmentType == FulfillmentTypes.preOrder &&
-            widget.bouquet.availableForPreOrder) &&
-        _readyAvailable;
   }
 
   Future<void> _add() async {
-    final bouquet = widget.bouquet;
-    final readyNow = _readyAvailable && bouquet.availableForPreOrder
-        ? await showDialog<bool>(
-            context: context,
-            builder: (dialog) => SimpleDialog(
-              title: const Text('Choose a delivery option'),
-              children: [
-                for (final ready in [_readyNow, !_readyNow])
-                  SimpleDialogOption(
-                    onPressed: () => Navigator.pop(dialog, ready),
-                    child: Text(ready ? 'Ready to send' : 'Pre-order'),
-                  ),
-              ],
-            ),
-          )
-        : _readyNow;
-    if (!mounted || readyNow == null) return;
-    final added = await Navigator.push<bool>(
+    final added = await openBouquetAddOns(
       context,
-      MaterialPageRoute(
-        builder: (_) {
-          final draft = CartItemModel(
-            id: 'bouquet_${DateTime.now().microsecondsSinceEpoch}',
-            type: 'ready',
-            bouquetId: bouquet.id,
-            name: bouquet.name,
-            imageUrl: bouquet.imageUrl,
-            unitPrice: bouquet.price,
-            fulfillmentType: readyNow
-                ? FulfillmentTypes.readyNow
-                : FulfillmentTypes.preOrder,
-            leadTimeBusinessDays: readyNow ? 0 : bouquet.leadTimeBusinessDays,
-          );
-          return widget.optionsBuilder?.call(draft) ??
-              BouquetOptionsScreen(bouquet: draft);
-        },
-      ),
+      bouquet: widget.bouquet,
+      initialFulfillmentType: widget.initialFulfillmentType,
+      optionsBuilder: widget.optionsBuilder,
     );
     if (added == true) AppMonitoring.event('cart_added');
   }

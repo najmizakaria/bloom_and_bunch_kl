@@ -13,6 +13,7 @@ import '../../../core/services/reorder_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../widgets/order_thumbnail.dart';
 import 'order_tracking_screen.dart';
+import 'checkout_receipt_screen.dart';
 import 'cart_screen.dart';
 import '../../../core/widgets/firestore_page.dart';
 
@@ -255,6 +256,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     final total =
                         (data['totalAmount'] as num?)?.toDouble() ?? 0;
                     final items = data['items'] as List<dynamic>? ?? const [];
+                    final checkoutId = data['checkoutGroupId'];
                     final createdAt = (data['createdAt'] as Timestamp?)
                         ?.toDate();
                     final orderLabel =
@@ -375,6 +377,16 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                 ),
                               ],
                             ),
+                            if (data['paymentStatus'] == 'paid' &&
+                                checkoutId is String) ...[
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ViewPaymentReceiptButton(
+                                  checkoutId: checkoutId,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -13,7 +13,7 @@ String trackingDate(Object value) {
       : DateFormat('EEE, d MMM yyyy', 'en_US').format(date);
 }
 
-String trackingAddress(String address) {
+String trackingAddress(String address, {bool keepMapCodeOnly = true}) {
   final parts = address
       .split(RegExp(r'[,\n]+'))
       .map((part) => part.trim())
@@ -26,7 +26,7 @@ String trackingAddress(String address) {
   final postcodeWithCity = RegExp(r'^(\d{5}) (.+)$');
   final readable = parts.where((part) => !plusCode.hasMatch(part)).toList();
   final seen = <String>{};
-  return (readable.isEmpty ? parts : readable)
+  return (readable.isEmpty && keepMapCodeOnly ? parts : readable)
       .where((part) {
         final key = part.toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
         if (!seen.add(key)) return false;

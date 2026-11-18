@@ -1,6 +1,7 @@
 'use strict';
 const d = require('../domain/domain');
 const { MODE, STRIPE_MODE, HOLD_MS, isOnlineMode, paymentId, requiresPayment } = require('../domain/payments');
+const { createPayoutSweep } = require('./payouts');
 const STRIPE_RECOVERY_GRACE_MS = 60000;
 
 // Payment records are backend-only. Clients obtain a sanitized view by callable.
@@ -13,9 +14,11 @@ function createPaymentHandlers({
   FieldValue,
   Timestamp,
   gatewayApi,
+  notifyReceiptReminder,
   now = () => Date.now(),
 }) {
   const refFor = (id) => db.doc('payments/' + d.id(id));
+  const sweepPayouts = createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldValue, Timestamp, now });
   const view = (p) => ({
     paymentId: p.id,
     status: p.status,
@@ -72,6 +75,9 @@ function createPaymentHandlers({
       const review =
         p.status === 'expired' ||
         orders.some((s) => !s.exists || s.data().orderStatus === 'Cancelled');
+      const receipt = !review && p.customerId && p.checkoutId
+        ? await tx.get(db.doc('users/' + p.customerId + '/receipts/' + p.checkoutId))
+        : null;
       const updates = {
         status: review ? 'needs_review' : 'paid',
         transactionId,
@@ -80,7 +86,14 @@ function createPaymentHandlers({
         nextCheckAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       };
+      if (!review && p.provider === 'stripe' && p.environment === 'sandbox') {
+        updates.payoutStatus = 'awaiting_delivery';
+        updates.payoutNextCheckAt = Timestamp.fromMillis(now());
+      }
       tx.update(ref, updates);
+      if (receipt?.exists) {
+        tx.update(receipt.ref, { paymentStatus: 'paid', paidAt: updates.paidAt });
+      }
       if (!review)
         for (const order of orders) {
           const o = order.data();
@@ -432,6 +445,7 @@ function createPaymentHandlers({
         if (current.data()?.nextCheckAt)
           await snapshot.ref.update({ nextCheckAt: Timestamp.fromMillis(now() + 5 * 60000) });
       }
+      await sweepPayouts();
     },
   };
 }

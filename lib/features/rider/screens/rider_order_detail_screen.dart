@@ -103,13 +103,6 @@ class _RiderOrderDetailContentState extends State<_RiderOrderDetailContent> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (collecting)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 16),
-                child: Text(
-                  'Rider assigned — collect the packed order from the florist, then confirm collection. Delivery has not started yet.',
-                ),
-              ),
             if (widget.order.hasOpenIssue)
               const Padding(
                 padding: EdgeInsets.only(bottom: 16),

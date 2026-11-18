@@ -53,6 +53,23 @@ class _EmptySnapshot implements QuerySnapshot<Map<String, dynamic>> {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _FlowerSnapshot extends _EmptySnapshot {
+  @override
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> get docs => [_FlowerDoc()];
+}
+
+class _FlowerDoc implements QueryDocumentSnapshot<Map<String, dynamic>> {
+  @override
+  String get id => 'rose';
+  @override
+  Map<String, dynamic> data() => {
+    'name': 'Long Stem Garden Rose',
+    'pricePerStem': 5,
+  };
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 class _EmptyQuery implements Query<Map<String, dynamic>> {
   @override
   Query<Map<String, dynamic>> limit(int value) => this;
@@ -81,6 +98,45 @@ class _RetryQuery extends _EmptyQuery {
 }
 
 void main() {
+  testWidgets('builder keeps the flower and quantity on one narrow row', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(2)),
+          child: child!,
+        ),
+        home: BouquetBuilderScreen(
+          watchFlowers: () => Stream.value(_FlowerSnapshot()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final photo = tester.getCenter(find.byType(ProductImage));
+    final title = find.text('Long Stem Garden Rose');
+    final quantity = tester.getCenter(find.byType(StemQuantityControl));
+    expect(tester.widget<Text>(title).maxLines, 2);
+    expect(tester.getCenter(title).dx, greaterThan(photo.dx));
+    expect(quantity.dx, greaterThan(tester.getCenter(title).dx));
+    expect(quantity.dy, closeTo(photo.dy, 1));
+    final addStem = find.byTooltip('Add one stem');
+    await tester.ensureVisible(addStem);
+    await tester.tap(addStem);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, '1'));
+    await tester.pumpAndSettle();
+    expect(find.text('Number of stems'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('custom builder recovers a failed flower lookup with Retry', (
     tester,
   ) async {

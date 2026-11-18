@@ -151,7 +151,7 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
         webpush: { notification: { tag: event.params.orderId } },
         apns: { headers: { 'apns-collapse-id': event.params.orderId } },
       });
-      let retry = false;
+      const retryCodes = new Set();
       for (let i = 0; i < result.responses.length; i++) {
         const code = result.responses[i].error?.code;
         if (
@@ -161,9 +161,11 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
           ].includes(code)
         )
           await devices.docs[i].ref.delete();
-        else if (code) retry = true;
+        else if (code) retryCodes.add(code);
       }
-      if (retry) throw new Error('Some notifications need retry.');
+      if (retryCodes.size) {
+        throw new Error(`Order push retry needed (${[...retryCodes].join(', ')}).`);
+      }
       await marker.set({ status: 'sent', sentAt: FieldValue.serverTimestamp() });
     } catch (error) {
       await marker.set({ status: 'pending' });
@@ -190,6 +192,15 @@ function createNotificationHandlers({ db, getMessaging, FieldValue, Timestamp, F
     updateNotificationSettings,
     unregisterNotificationDevice,
     notifyOrderStatus,
+    notifyReceiptReminder: (orderId, customerId) => {
+      if (process.env.GCLOUD_PROJECT?.startsWith('demo-')) return;
+      return notifyRecipient(
+        { id: `receipt-reminder:${orderId}`, params: { orderId } },
+        customerId,
+        'Your flowers have arrived. Open Track order to confirm delivery or get help.',
+        { customerId },
+      );
+    },
   };
 }
 

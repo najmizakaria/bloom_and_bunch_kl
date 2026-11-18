@@ -54,6 +54,9 @@ test('order numbers start at one, survive retries, and stay unique across checko
     assert.deepEqual(await readNumbers(first.orderIds), ['#ORDER0001', '#ORDER0002']);
     const receipt = await db.doc('users/buyer/receipts/split').get();
     assert.deepEqual(receipt.get('groups').map((group) => group.orderNumber), ['#ORDER0001', '#ORDER0002']);
+    assert.equal(receipt.get('recipientName'), address.recipientName);
+    assert.equal(receipt.get('deliveryAddress'), address.address);
+    assert.equal(receipt.get('recipientPhone'), undefined);
 
     const next = await Promise.all(['next-a', 'next-b'].map((checkoutId) =>
       api.placeOrder.run(buyer({ checkoutId, items: [ready], address, addressId: 'home', expectedTotal: 50 })),

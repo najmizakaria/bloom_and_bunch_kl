@@ -16,6 +16,7 @@ class DeliveryJobModel {
   final String locality, postcode, state, pickupName, pickupAddress;
   final String? estimatedDispatchDate, scheduledDeliveryDate, earlyDispatchDate;
   final int itemCount;
+  final int? riderPaySen;
 
   const DeliveryJobModel({
     required this.orderId,
@@ -35,11 +36,27 @@ class DeliveryJobModel {
     this.scheduledDeliveryDate,
     this.earlyDispatchDate,
     this.itemCount = 0,
+    this.riderPaySen,
   });
 
   String get reference =>
       orderNumber ??
       '#${orderId.substring(0, orderId.length.clamp(0, 8)).toUpperCase()}';
+  String? get destinationArea {
+    final town = locality.trim();
+    final region = state.trim();
+    if (town.isNotEmpty) {
+      return region.isEmpty || region == town ? town : '$town, $region';
+    }
+    final area = deliveryArea.trim();
+    return area.isEmpty ||
+            area.contains('+') ||
+            area.contains('Malaysia') ||
+            area.toLowerCase().contains('area needs confirmation')
+        ? null
+        : area;
+  }
+
   bool get hasDeliveryAddress => deliveryAddress.trim().isNotEmpty;
   String get destination => hasDeliveryAddress
       ? deliveryAddress.trim()
@@ -97,6 +114,7 @@ class DeliveryJobModel {
     Map<String, dynamic> map,
     String documentId,
   ) {
+    final pay = map['riderPaySen'];
     return DeliveryJobModel(
       orderId: (map['orderId'] ?? documentId).toString(),
       orderNumber: map['orderNumber'] as String?,
@@ -114,6 +132,7 @@ class DeliveryJobModel {
       pickupAddress: (map['pickupAddress'] ?? StoreDetails.pickupAddress)
           .toString(),
       itemCount: (map['itemCount'] as num?)?.toInt() ?? 0,
+      riderPaySen: pay is num && pay >= 0 && pay % 1 == 0 ? pay.toInt() : null,
       estimatedDispatchDate: map['estimatedDispatchDate'] as String?,
       scheduledDeliveryDate: map['scheduledDeliveryDate'] as String?,
       earlyDispatchDate: map['earlyDispatchDate'] as String?,

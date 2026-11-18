@@ -79,6 +79,51 @@ function createStripeGateway({ secret, returnUrl, configuration, webhookSecret, 
         return current;
       }
     },
+    async payoutAmount(payment) {
+      const settings = await stripe.balanceSettings.retrieve();
+      if (settings.payments?.payouts?.schedule?.interval !== 'manual')
+        return { review: 'Stripe manual payouts are required.' };
+      const intent = await stripe.paymentIntents.retrieve(payment.transactionId, {
+        expand: ['latest_charge.balance_transaction'],
+      });
+      const charge = intent.latest_charge;
+      if (intent.livemode !== false || intent.status !== 'succeeded' ||
+          intent.currency !== 'myr' || intent.amount_received !== payment.totalSen ||
+          charge?.livemode !== false || !charge.captured || charge.amount_captured !== payment.totalSen ||
+          charge.disputed || charge.amount_refunded !== 0)
+        return { review: 'The Stripe charge is refunded, disputed, or no longer matches.' };
+      const transaction = charge.balance_transaction;
+      if (!transaction || typeof transaction === 'string') return {};
+      if (transaction.currency !== 'myr' || !Number.isSafeInteger(transaction.net) || transaction.net <= 0)
+        return { review: 'The Stripe charge has an invalid net payout amount.' };
+      if (transaction.status !== 'available') return {};
+      const balance = await stripe.balance.retrieve();
+      const available = balance.available.find((entry) => entry.currency === 'myr');
+      return (available?.source_types?.card ?? 0) >= transaction.net ? { amount: transaction.net } : {};
+    },
+    async createPayout(payment, amount) {
+      const payout = await stripe.payouts.create({
+        amount, currency: 'myr', source_type: 'card',
+        metadata: { bloom_payment_id: payment.id },
+      }, { idempotencyKey: 'bloom-order-payout-' + payment.id });
+      if (payout.livemode !== false || payout.amount !== amount || payout.currency !== 'myr')
+        d.fail('Stripe sandbox payout does not match.', 'failed-precondition');
+      return payout;
+    },
+    async retrievePayout(id) {
+      const payout = await stripe.payouts.retrieve(id);
+      if (payout.livemode !== false) d.fail('Expected a Stripe sandbox payout.', 'failed-precondition');
+      return payout;
+    },
+    async findPayout(payment) {
+      const since = Math.floor(payment.payoutStartedAt.toMillis() / 1000) - 60;
+      for await (const payout of stripe.payouts.list({ created: { gte: since }, limit: 100 })) {
+        if (payout.metadata?.bloom_payment_id !== payment.id) continue;
+        if (payout.livemode !== false || payout.amount !== payment.payoutAmountSen || payout.currency !== 'myr')
+          d.fail('Stripe sandbox payout does not match.', 'failed-precondition');
+        return payout;
+      }
+    },
     verifyWebhook(rawBody, signature) {
       if (!webhookSecret || !signature) d.fail('Invalid Stripe signature.', 'permission-denied');
       try {

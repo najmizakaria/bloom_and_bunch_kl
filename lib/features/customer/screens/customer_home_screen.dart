@@ -19,7 +19,6 @@ import 'bouquet_catalogue_screen.dart';
 import 'bouquet_detail_screen.dart';
 import 'cart_screen.dart';
 import 'bouquet_options_screen.dart';
-import '../../../models/cart_item_model.dart';
 
 enum DeliveryMode { readyNow, preOrder }
 
@@ -115,24 +114,10 @@ class _CustomerHomeScreenState extends State<CustomerHomeScreen> {
   }
 
   void _addBouquetToCart(BouquetModel bouquet) {
-    Navigator.push<bool>(
+    openBouquetAddOns(
       context,
-      MaterialPageRoute(
-        builder: (_) => BouquetOptionsScreen(
-          bouquet: CartItemModel(
-            id: 'bouquet_${DateTime.now().microsecondsSinceEpoch}',
-            type: 'ready',
-            bouquetId: bouquet.id,
-            name: bouquet.name,
-            imageUrl: bouquet.imageUrl,
-            unitPrice: bouquet.price,
-            fulfillmentType: _fulfillmentType,
-            leadTimeBusinessDays: _deliveryMode == DeliveryMode.preOrder
-                ? bouquet.leadTimeBusinessDays
-                : 0,
-          ),
-        ),
-      ),
+      bouquet: bouquet,
+      initialFulfillmentType: _fulfillmentType,
     );
   }
 

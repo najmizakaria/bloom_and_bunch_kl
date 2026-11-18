@@ -30,23 +30,27 @@ class RiderAvailableJobScreen extends StatefulWidget {
 class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
   bool _accepting = false;
 
-  Future<void> _accept() async {
-    if (_accepting ||
-        !widget.contactReady ||
-        !widget.job.readyForPickup ||
-        widget.hasActiveDelivery) {
-      return;
-    }
-    if (!await confirmAction(
+  bool get _canAccept =>
+      !_accepting &&
+      widget.contactReady &&
+      widget.job.readyForPickup &&
+      !widget.hasActiveDelivery;
+
+  Future<void> _confirmAcceptance() async {
+    if (await confirmAction(
           context,
           title: 'Accept delivery?',
           message:
               'You will be responsible for delivering this order. Recipient details unlock after acceptance.',
           action: 'Accept delivery',
-        ) ||
-        !mounted) {
-      return;
+        ) &&
+        mounted) {
+      await _accept();
     }
+  }
+
+  Future<void> _accept() async {
+    if (!_canAccept) return;
     setState(() => _accepting = true);
     try {
       await (widget.accept?.call(widget.job.orderId) ??
@@ -132,7 +136,7 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Recipient contact, delivery instructions and navigation become available after you accept.',
+                      'Recipient contact, delivery instructions and exact navigation become available after you accept.',
                     ),
                   ),
                 ],
@@ -143,41 +147,136 @@ class _RiderAvailableJobScreenState extends State<RiderAvailableJobScreen> {
       ),
       bottomNavigationBar: SafeArea(
         minimum: const EdgeInsets.all(16),
-        child: FilledButton.icon(
-          onPressed:
-              _accepting ||
-                  !widget.contactReady ||
-                  !widget.job.readyForPickup ||
-                  widget.hasActiveDelivery
-              ? null
-              : _accept,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          ),
-          icon: _accepting
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
+        child: _canAccept
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SwipeToAccept(onAccept: _accept),
+                  TextButton(
+                    onPressed: _confirmAcceptance,
+                    child: const Text('Accept with confirmation'),
                   ),
-                )
-              : const Icon(Icons.check_circle_outline),
-          label: Text(
-            _accepting
-                ? 'Accepting…'
-                : !widget.contactReady
-                ? 'Delivery contact missing'
-                : widget.hasActiveDelivery
-                ? 'Complete current delivery first'
-                : !widget.job.readyForPickup
-                ? 'Waiting for preparation'
-                : 'Accept Delivery',
-          ),
-        ),
+                ],
+              )
+            : FilledButton.icon(
+                onPressed: null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 16,
+                    horizontal: 16,
+                  ),
+                ),
+                icon: _accepting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(
+                  _accepting
+                      ? 'Accepting…'
+                      : !widget.contactReady
+                      ? 'Delivery contact missing'
+                      : widget.hasActiveDelivery
+                      ? 'Complete current delivery first'
+                      : 'Waiting for preparation',
+                ),
+              ),
       ),
+    );
+  }
+}
+
+class _SwipeToAccept extends StatefulWidget {
+  const _SwipeToAccept({required this.onAccept});
+
+  final VoidCallback onAccept;
+
+  @override
+  State<_SwipeToAccept> createState() => _SwipeToAcceptState();
+}
+
+class _SwipeToAcceptState extends State<_SwipeToAccept> {
+  double _progress = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    const thumbSize = 48.0;
+    const inset = 4.0;
+    final direction = Directionality.of(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final travel = constraints.maxWidth - thumbSize - inset * 2;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.softBlushEnd,
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: thumbSize + inset,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: thumbSize + inset * 2,
+                  ),
+                  child: const Center(
+                    child: Text('Swipe to accept', textAlign: TextAlign.center),
+                  ),
+                ),
+              ),
+              if (travel > 0)
+                PositionedDirectional(
+                  start: inset + travel * _progress,
+                  child: GestureDetector(
+                    excludeFromSemantics: true,
+                    onHorizontalDragUpdate: (details) {
+                      final delta = direction == TextDirection.ltr
+                          ? details.delta.dx
+                          : -details.delta.dx;
+                      setState(
+                        () => _progress = (_progress + delta / travel).clamp(
+                          0.0,
+                          1.0,
+                        ),
+                      );
+                    },
+                    onHorizontalDragCancel: () => setState(() => _progress = 0),
+                    onHorizontalDragEnd: (_) {
+                      final completed = _progress >= 0.9;
+                      setState(() => _progress = 0);
+                      if (completed) widget.onAccept();
+                    },
+                    child: SizedBox.square(
+                      dimension: thumbSize,
+                      child: DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          direction == TextDirection.ltr
+                              ? Icons.chevron_right
+                              : Icons.chevron_left,
+                          color: AppColors.onPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

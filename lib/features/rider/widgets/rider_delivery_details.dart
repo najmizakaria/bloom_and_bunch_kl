@@ -37,6 +37,20 @@ class RiderNavigation {
     }),
     'Could not open navigation. Use the written delivery address.',
   );
+
+  static Future<void> previewRoute(
+    BuildContext context,
+    DeliveryJobModel job,
+    String area,
+  ) => _open(
+    context,
+    Uri.https('www.google.com', '/maps/dir/', {
+      'api': '1',
+      'origin': job.pickupAddress,
+      'destination': '$area, Malaysia',
+    }),
+    'Could not open Maps. Use the destination area shown here.',
+  );
 }
 
 class RiderDeliveryDetails extends StatelessWidget {

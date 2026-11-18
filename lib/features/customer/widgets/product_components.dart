@@ -183,20 +183,23 @@ class StemQuantityControl extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton.filledTonal(
+        IconButton(
           tooltip: 'Remove one stem',
           onPressed: onRemove,
-          icon: const Icon(Icons.remove),
+          icon: const Icon(Icons.remove_circle_outline),
         ),
         TextButton(
           onPressed: onEdit,
-          style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(48, 48),
+            padding: EdgeInsets.zero,
+          ),
           child: Text('$count', style: const AppTypography.productTitle()),
         ),
-        IconButton.filledTonal(
+        IconButton(
           tooltip: 'Add one stem',
           onPressed: onAdd,
-          icon: const Icon(Icons.add),
+          icon: const Icon(Icons.add_circle_outline),
         ),
       ],
     );

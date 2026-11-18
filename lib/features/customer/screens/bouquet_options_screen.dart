@@ -1,10 +1,66 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/constants/fulfillment_constants.dart';
 import '../../../core/providers/cart_provider.dart';
 import '../../../core/services/commerce_service.dart';
+import '../../../models/bouquet_model.dart';
 import '../../../models/cart_item_model.dart';
 import '../widgets/delivery_date_picker.dart';
+
+Future<bool?> openBouquetAddOns(
+  BuildContext context, {
+  required BouquetModel bouquet,
+  String? initialFulfillmentType,
+  Widget Function(CartItemModel)? optionsBuilder,
+}) async {
+  final canSendNow = bouquet.availableForReadyNow && bouquet.readyStock > 0;
+  final canPreOrder = bouquet.availableForPreOrder;
+  if (!canSendNow && !canPreOrder) return null;
+
+  var readyNow = canSendNow;
+  if (canPreOrder && initialFulfillmentType == FulfillmentTypes.preOrder) {
+    readyNow = false;
+  } else if (canSendNow && canPreOrder) {
+    final selection = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => SimpleDialog(
+        title: const Text('Choose a delivery option'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialog, true),
+            child: const Text('Ready to send'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(dialog, false),
+            child: const Text('Pre-order'),
+          ),
+        ],
+      ),
+    );
+    if (selection == null || !context.mounted) return null;
+    readyNow = selection;
+  }
+
+  final draft = CartItemModel(
+    id: 'bouquet_${DateTime.now().microsecondsSinceEpoch}',
+    type: 'ready',
+    bouquetId: bouquet.id,
+    name: bouquet.name,
+    imageUrl: bouquet.imageUrl,
+    unitPrice: bouquet.price,
+    fulfillmentType: readyNow
+        ? FulfillmentTypes.readyNow
+        : FulfillmentTypes.preOrder,
+    leadTimeBusinessDays: readyNow ? 0 : bouquet.leadTimeBusinessDays,
+  );
+  return Navigator.of(context).push<bool>(
+    MaterialPageRoute(
+      builder: (_) =>
+          optionsBuilder?.call(draft) ?? BouquetOptionsScreen(bouquet: draft),
+    ),
+  );
+}
 
 class BouquetOptionsScreen extends StatefulWidget {
   const BouquetOptionsScreen({
@@ -34,7 +90,8 @@ class _BouquetOptionsScreenState extends State<BouquetOptionsScreen> {
     widget.bouquet,
     ...widget.extraBouquets,
   ];
-  bool get _planned => _bouquets.any((b) => b.fulfillmentType != 'ready_now');
+  bool get _planned =>
+      _bouquets.any((b) => b.fulfillmentType != FulfillmentTypes.readyNow);
   @override
   void initState() {
     super.initState();
