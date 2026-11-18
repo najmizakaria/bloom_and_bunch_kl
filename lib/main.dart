@@ -37,6 +37,8 @@ class _StartupAppState extends State<_StartupApp> {
     try {
       if (!AppEnvironment.isDemo && (!kIsWeb || kDebugMode)) {
         await dotenv.load(fileName: '.env', isOptional: true);
+      } else if (kIsWeb && AppEnvironment.name == 'production') {
+        await dotenv.load(fileName: 'web-config.env', isOptional: true);
       }
       await AppEnvironment.initialize();
       await AppMonitoring.initialize();

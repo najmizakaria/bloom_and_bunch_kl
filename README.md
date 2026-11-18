@@ -46,10 +46,22 @@ To run against the configured Firebase project locally, ensure the existing
 flutter run -d edge
 ```
 
-Chrome uses `flutter run -d chrome`. Debug web runs automatically load `.env`;
-no `--dart-define-from-file` flag is required. Explicit build defines take
-precedence over `.env`. Release web builds continue to use `tool/build_web.ps1`
-on Windows or `build_web.sh` on Unix.
+Chrome uses `flutter run -d chrome`. Debug web runs automatically load `.env`.
+Explicit build defines take precedence.
+
+## Update the hosted website
+
+From the project root, with the Firebase CLI signed in:
+
+```powershell
+flutter build web
+firebase deploy --only hosting
+```
+
+The Hosting hook prepares public browser configuration from `.env`, which
+must contain `FIREBASE_API_KEY_WEB` and `MAPS_API_KEY_WEB`. To prepare a
+release build for local static hosting, run `node tool/configure_web.cjs`
+after building.
 
 ## Run a local demo
 

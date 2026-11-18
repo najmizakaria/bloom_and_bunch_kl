@@ -36,8 +36,8 @@ class DefaultFirebaseOptions {
     final apiKey = WebConfiguration.firebaseApiKey;
     if (apiKey.isEmpty) {
       throw StateError(
-        'FIREBASE_API_KEY_WEB is missing. Add it to the project .env file '
-        'and restart flutter run -d edge. Release builds use tool/build_web.ps1.',
+        'FIREBASE_API_KEY_WEB is missing. Check .env and run '
+        'flutter build web followed by firebase deploy --only hosting.',
       );
     }
 

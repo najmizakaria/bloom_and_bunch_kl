@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-/// Public browser configuration. Build defines win; local debug runs can use
-/// the existing .env asset without additional flutter run arguments.
+/// Public browser configuration. Explicit build defines take precedence.
 class WebConfiguration {
   static String get firebaseApiKey => _resolve(
     'FIREBASE_API_KEY_WEB',
@@ -23,8 +21,6 @@ class WebConfiguration {
 
   static String _resolve(String name, String compiled) {
     if (compiled.trim().isNotEmpty) return compiled.trim();
-    // Release web builds continue to use their explicit build configuration.
-    if (kIsWeb && !kDebugMode) return '';
     return dotenv.isInitialized ? (dotenv.env[name]?.trim() ?? '') : '';
   }
 }

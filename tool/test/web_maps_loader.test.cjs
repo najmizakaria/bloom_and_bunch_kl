@@ -15,7 +15,7 @@ function browser(){
   vm.runInNewContext(source,context);
   return {window,scripts,timers,events};
 }
-test('debug web runs require a supplied key and never request the template placeholder',async()=>{
+test('the loader requires a supplied key before requesting Maps',async()=>{
   const b=browser();await assert.rejects(b.window.bloomLoadMaps(),/configuration missing/);
   assert.equal(b.scripts.length,0);
   const pending=b.window.bloomLoadMaps('test-public-key');

@@ -43,9 +43,7 @@
       if (window.bloomMapsFailure) return Promise.reject(new Error('Maps authorization failed'));
       if (window.bloomMapsPromise) return window.bloomMapsPromise;
       if (window.google && window.google.maps && typeof window.google.maps.Map === 'function') return Promise.resolve(true);
-      const configuredKey = '%%MAPS_API_KEY_WEB%%';
-      const key = providedKey || (configuredKey.includes('%%') ? '' : configuredKey);
-      if (!key) return Promise.reject(new Error('Maps web configuration missing'));
+      if (!providedKey) return Promise.reject(new Error('Maps web configuration missing'));
       window.bloomMapsPromise = new Promise(function (resolve, reject) {
         const script = document.createElement('script');
         script.async = true;
@@ -62,7 +60,7 @@
           resolve(true);
         };
         script.onerror = failed;
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(key) + '&callback=bloomMapsLoaded&loading=async';
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(providedKey) + '&callback=bloomMapsLoaded&loading=async';
         document.head.appendChild(script);
       });
       return window.bloomMapsPromise;

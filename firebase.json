@@ -24,13 +24,21 @@
   },
   "hosting": {
     "predeploy": [
-      "node tool/validate_web_build.cjs"
+      "node tool/configure_web.cjs"
     ],
     "public": "build/web",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "/assets/web-config.env",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
     ],
     "rewrites": [
       {
