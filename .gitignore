@@ -74,3 +74,7 @@ android/key.properties
 # Temporary files and dependencies
 /tmp/
 node_modules/
+
+# Markdown files
+*.md
+!README.md
