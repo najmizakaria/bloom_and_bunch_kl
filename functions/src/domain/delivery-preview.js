@@ -82,6 +82,7 @@ function preview(order) {
     0,
   );
   return {
+    ...(typeof order.orderNumber === 'string' ? { orderNumber: order.orderNumber } : {}),
     deliveryAddress: typeof order.deliveryAddress === 'string' ? order.deliveryAddress.trim() : '',
     deliveryArea: area.locality
       ? [area.locality, area.postcode].filter(Boolean).join(' · ')

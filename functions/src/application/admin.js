@@ -157,10 +157,16 @@ function createAdminHandlers({
         q = q.where(dateField, '<', Timestamp.fromMillis(p.to));
       }
       const search = typeof p.search === 'string' ? p.search.trim() : '';
-      // Exact order ID search is global; other filters apply to that result too.
+      // Exact order search is global; other filters apply to that result too.
       if (search) {
-        const s = await db.doc('orders/' + d.id(search.replace(/^#/, ''))).get(),
-          v = s.data();
+        const id = d.id(search.replace(/^#/, ''));
+        let s = await db.doc('orders/' + id).get();
+        if (!s.exists && /^ORDER\d{4,}$/i.test(id)) {
+          const matches = await db.collection('orders')
+            .where('orderNumber', '==', '#' + id.toUpperCase()).limit(1).get();
+          s = matches.docs[0] ?? s;
+        }
+        const v = s.data();
         const matches =
           v &&
           (!p.status ||

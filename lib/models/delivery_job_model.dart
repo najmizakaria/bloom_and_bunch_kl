@@ -5,6 +5,7 @@ import '../core/constants/store_details.dart';
 /// Rider-visible order destination, without recipient contact or map coordinates.
 class DeliveryJobModel {
   final String orderId;
+  final String? orderNumber;
   final String deliveryArea;
   final String deliveryAddress;
   final String orderStatus;
@@ -18,6 +19,7 @@ class DeliveryJobModel {
 
   const DeliveryJobModel({
     required this.orderId,
+    this.orderNumber,
     required this.deliveryArea,
     this.deliveryAddress = '',
     this.orderStatus = 'Ready for Delivery',
@@ -36,6 +38,7 @@ class DeliveryJobModel {
   });
 
   String get reference =>
+      orderNumber ??
       '#${orderId.substring(0, orderId.length.clamp(0, 8)).toUpperCase()}';
   bool get hasDeliveryAddress => deliveryAddress.trim().isNotEmpty;
   String get destination => hasDeliveryAddress
@@ -96,6 +99,7 @@ class DeliveryJobModel {
   ) {
     return DeliveryJobModel(
       orderId: (map['orderId'] ?? documentId).toString(),
+      orderNumber: map['orderNumber'] as String?,
       orderStatus: (map['orderStatus'] ?? 'Ready for Delivery').toString(),
       deliveryArea: (map['deliveryArea'] ?? 'Area needs confirmation')
           .toString(),

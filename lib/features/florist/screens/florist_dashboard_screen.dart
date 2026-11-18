@@ -37,14 +37,6 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
     return isMalaysiaDay(date, DateTime.now());
   }
 
-  String _shortOrderId(String orderId) {
-    if (orderId.length <= 8) {
-      return orderId.toUpperCase();
-    }
-
-    return orderId.substring(0, 8).toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -255,10 +247,7 @@ class _FloristDashboardScreenState extends State<FloristDashboardScreen> {
                   if (nextOrder == null)
                     const _EmptyNextOrderCard()
                   else
-                    _NextOrderCard(
-                      order: nextOrder,
-                      shortOrderId: _shortOrderId(nextOrder.orderId),
-                    ),
+                    _NextOrderCard(order: nextOrder),
 
                   const SizedBox(height: 24),
                 ],
@@ -451,10 +440,9 @@ class _AttentionCard extends StatelessWidget {
 }
 
 class _NextOrderCard extends StatelessWidget {
-  const _NextOrderCard({required this.order, required this.shortOrderId});
+  const _NextOrderCard({required this.order});
 
   final OrderModel order;
-  final String shortOrderId;
 
   @override
   Widget build(BuildContext context) {
@@ -476,11 +464,15 @@ class _NextOrderCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Text(
-                    'ORDER #$shortOrderId',
-                    style: const AppTypography.label(color: AppColors.primary),
+                  Expanded(
+                    child: Text(
+                      'ORDER ${order.shortReference}',
+                      style: const AppTypography.label(
+                        color: AppColors.primary,
+                      ),
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   _StatusBadge(status: order.orderStatus),
                 ],
               ),

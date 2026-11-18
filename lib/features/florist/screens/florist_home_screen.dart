@@ -84,7 +84,7 @@ class FloristHomeScreen extends StatelessWidget {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(16),
                   title: Text(
-                    'Order: ${order.orderId.substring(0, 8).toUpperCase()}',
+                    'Order: ${order.orderNumber ?? order.shortReference.substring(1)}',
                     style: const AppTypography.label(),
                   ),
                   subtitle: Column(

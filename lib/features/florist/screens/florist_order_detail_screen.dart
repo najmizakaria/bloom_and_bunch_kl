@@ -392,16 +392,14 @@ class _FloristOrderDetailContentState
   }
 
   Widget _buildOrderHeading() {
-    final fullId = widget.order.orderId;
-    final shortId = fullId.length <= 8
-        ? fullId.toUpperCase()
-        : fullId.substring(0, 8).toUpperCase();
-
     return Wrap(
       spacing: 12,
       runSpacing: 8,
       children: [
-        Text('Order #$shortId', style: const AppTypography.sectionTitle()),
+        Text(
+          'Order ${widget.order.shortReference}',
+          style: const AppTypography.sectionTitle(),
+        ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(

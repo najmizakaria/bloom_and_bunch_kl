@@ -2,15 +2,15 @@
 const { createHash } = require('node:crypto');
 
 function createAdminEventHandlers({ db, FieldValue }) {
-  async function adminAlert(event, kind, title, orderId = null) {
+  async function adminAlert(event, kind, title, orderId = null, orderNumber = null) {
     const id = createHash('sha256').update(event.id).digest('hex');
     await db
       .doc('admin_alerts/' + id)
-      .set({ kind, title, orderId, createdAt: FieldValue.serverTimestamp() });
+      .set({ kind, title, orderId, orderNumber, createdAt: FieldValue.serverTimestamp() });
   }
 
   const alertAdminOrderCreated = (e) =>
-    adminAlert(e, 'orders', 'New order received', e.params.orderId);
+    adminAlert(e, 'orders', 'New order received', e.params.orderId, e.data.data().orderNumber);
 
   const alertAdminOrderChanged = async (e) => {
     const before = e.data.before.data(),
@@ -25,6 +25,7 @@ function createAdminEventHandlers({ db, FieldValue }) {
         'orders',
         after.support?.status === 'open' ? 'Order needs support' : `Order ${after.orderStatus === 'Ready for Delivery' ? 'Ready to ship' : after.orderStatus}`,
         e.params.orderId,
+        after.orderNumber,
       );
   };
 
@@ -51,6 +52,7 @@ function createAdminEventHandlers({ db, FieldValue }) {
         actorId: b.updatedBy ?? 'system',
         action: 'order_updated',
         target: e.params.orderId,
+        orderNumber: b.orderNumber ?? null,
         status: b.orderStatus,
         paymentStatus: b.paymentStatus ?? '',
         createdAt: FieldValue.serverTimestamp(),

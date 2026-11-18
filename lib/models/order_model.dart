@@ -6,6 +6,10 @@ class OrderModel {
   static String _normalizedStatus(String? s) =>
       s == 'Pending' || s == null ? 'Awaiting Preparation' : s;
   final String orderId;
+  final String? orderNumber;
+  String get shortReference =>
+      orderNumber ??
+      '#${orderId.substring(0, orderId.length.clamp(0, 8)).toUpperCase()}';
   final String customerId;
   final String? floristId;
   final String? riderId;
@@ -67,6 +71,7 @@ class OrderModel {
 
   const OrderModel({
     required this.orderId,
+    this.orderNumber,
     required this.customerId,
     this.floristId,
     this.riderId,
@@ -111,6 +116,7 @@ class OrderModel {
 
     return OrderModel(
       orderId: documentId,
+      orderNumber: map['orderNumber'] as String?,
       messageCard: map['messageCard'] is Map
           ? Map<String, dynamic>.from(map['messageCard'] as Map)
           : null,

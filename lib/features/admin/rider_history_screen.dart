@@ -291,7 +291,13 @@ class AdminDeliveryRecords extends StatelessWidget {
               DataRow(
                 cells: [
                   DataCell(
-                    SizedBox(width: 156, child: AdminIdentifier(order['id'])),
+                    SizedBox(
+                      width: 156,
+                      child: AdminIdentifier(
+                        order['id'],
+                        orderNumber: order['orderNumber'],
+                      ),
+                    ),
                   ),
                   DataCell(
                     SizedBox(
@@ -339,7 +345,10 @@ class AdminDeliveryRecords extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AdminIdentifier(order['id']),
+                      AdminIdentifier(
+                        order['id'],
+                        orderNumber: order['orderNumber'],
+                      ),
                       const SizedBox(height: 8),
                       Text(
                         _name(order),

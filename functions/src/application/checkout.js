@@ -158,6 +158,15 @@ function createCheckoutHandlers({
             );
           capacity.push({ ref, acceptedGroups: used + count });
         }
+      const counterRef = db.doc('order_counters/store');
+      const counter = await tx.get(counterRef);
+      let orderSequence = counter.exists ? counter.get('lastOrderNumber') : 0;
+      if (
+        !Number.isSafeInteger(orderSequence) || orderSequence < 0 ||
+        !Number.isSafeInteger(orderSequence + quote.groups.length)
+      ) d.fail('Order numbering is unavailable.', 'internal');
+      tx.set(counterRef, { lastOrderNumber: orderSequence + quote.groups.length });
+
       // A shared profile write serializes checkout against account deletion.
       if (payload.cartSync === true)
         tx.set(cartRef, {
@@ -197,7 +206,7 @@ function createCheckoutHandlers({
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
-      const orderIds = [];
+      const orderIds = [], receiptGroups = [];
       for (const pricing of quote.groups) {
         const ref = db.collection('orders').doc(),
           group = pricing.items,
@@ -214,9 +223,11 @@ function createCheckoutHandlers({
         for (const item of prepared)
           for (const [key, count] of Object.entries(item.recipeStems ?? {}))
             groupMaterials[key] = (groupMaterials[key] ?? 0) + count * item.quantity;
+        const orderNumber = '#ORDER' + String(++orderSequence).padStart(4, '0');
         const order = {
           schemaVersion: 3,
           deliveryWorkflowVersion: 3,
+          orderNumber,
           customerId: uid,
           checkoutGroupId: checkoutId,
           riderId: null,
@@ -261,12 +272,13 @@ function createCheckoutHandlers({
           createdAt: FieldValue.serverTimestamp(),
         });
         orderIds.push(ref.id);
+        receiptGroups.push({ ...pricing, orderNumber });
       }
       tx.create(requestRef, { fingerprint, orderIds, createdAt: FieldValue.serverTimestamp() });
       tx.create(db.doc('users/' + uid + '/receipts/' + checkoutId), {
         checkoutId,
         orderIds,
-        groups: quote.groups,
+        groups: receiptGroups,
         subtotalSen: quote.subtotalSen,
         cardFeeSen: quote.cardFeeSen,
         totalSen: total,

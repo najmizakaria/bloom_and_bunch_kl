@@ -43,14 +43,6 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
     'Cancelled': 'Cancelled',
   };
 
-  String _shortOrderId(String orderId) {
-    if (orderId.length <= 8) {
-      return orderId.toUpperCase();
-    }
-
-    return orderId.substring(0, 8).toUpperCase();
-  }
-
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
     final month = date.month.toString().padLeft(2, '0');
@@ -104,11 +96,7 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       children: [
         for (final order in filtered)
-          _OrderCard(
-            order: order,
-            orderId: _shortOrderId(order.orderId),
-            orderDate: _formatDate(order.createdAt),
-          ),
+          _OrderCard(order: order, orderDate: _formatDate(order.createdAt)),
       ],
     );
   }
@@ -182,14 +170,9 @@ class FloristOrdersScreenState extends State<FloristOrdersScreen> {
 }
 
 class _OrderCard extends StatelessWidget {
-  const _OrderCard({
-    required this.order,
-    required this.orderId,
-    required this.orderDate,
-  });
+  const _OrderCard({required this.order, required this.orderDate});
 
   final OrderModel order;
-  final String orderId;
   final String orderDate;
 
   Color _statusColor() {
@@ -257,7 +240,7 @@ class _OrderCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'ORDER #$orderId',
+                      'ORDER ${order.shortReference}',
                       style: const AppTypography.productTitle(),
                     ),
                   ),

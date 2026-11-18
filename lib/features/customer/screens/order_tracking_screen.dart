@@ -78,12 +78,15 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
               (s.data!.data()!['orderStatus'] ?? 'Pending').toString(),
             );
         final id = widget.orderId;
+        final orderLabel =
+            d['orderNumber'] as String? ??
+            '#${id.substring(0, id.length.clamp(0, 8)).toUpperCase()}';
         final updated = (d['updatedAt'] as Timestamp?)?.toDate();
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
             Text(
-              'Order #${id.substring(0, id.length < 8 ? id.length : 8).toUpperCase()}',
+              'Order $orderLabel',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             if (updated != null)
@@ -225,7 +228,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                             ),
                           ),
                           child: Text(
-                            'Track your other delivery · ${other.data()['orderStatus']}',
+                            'Track ${other.data()['orderNumber'] ?? 'your other delivery'} · ${other.data()['orderStatus']}',
                           ),
                         ),
                   ],

@@ -155,7 +155,7 @@ class _StoreOperationsScreenState extends State<StoreOperationsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Order ${doc.id.substring(0, doc.id.length < 8 ? doc.id.length : 8)}',
+                              'Order ${doc.data()['orderNumber'] ?? doc.id.substring(0, doc.id.length.clamp(0, 8))}',
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
                             Text(

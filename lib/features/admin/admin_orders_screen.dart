@@ -120,7 +120,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                 TextField(
                   controller: _search,
                   decoration: InputDecoration(
-                    labelText: 'Search exact order ID',
+                    labelText: 'Search exact order number or ID',
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: IconButton(
                       tooltip: 'Search',
@@ -287,7 +287,11 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                               onSelectChanged: (_) =>
                                                   details(r['id']),
                                               cells: [
-                                                DataCell(Text(r['id'])),
+                                                DataCell(
+                                                  Text(
+                                                    r['orderNumber'] ?? r['id'],
+                                                  ),
+                                                ),
                                                 DataCell(
                                                   Text(
                                                     r['recipientName'] ?? '',
@@ -328,7 +332,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
                                         '${r['recipientName'] ?? 'Order'} · ${price(r)}',
                                       ),
                                       subtitle: Text(
-                                        '${r['id']}\n${status(r)}\nPayment: ${r['paymentStatus'] ?? 'Unknown'} · ${r['orderMode'] ?? 'Legacy'}',
+                                        '${r['orderNumber'] ?? r['id']}\n${status(r)}\nPayment: ${r['paymentStatus'] ?? 'Unknown'} · ${r['orderMode'] ?? 'Legacy'}',
                                       ),
                                       trailing: const Icon(Icons.chevron_right),
                                       onTap: () => details(r['id']),

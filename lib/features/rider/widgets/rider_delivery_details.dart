@@ -64,7 +64,7 @@ class RiderDeliveryDetails extends StatelessWidget {
             _RiderDeliveryMap(order: order),
             const SizedBox(height: 16),
             Text(
-              'Delivery ${timing.reference}',
+              'Delivery ${order.shortReference}',
               style: const AppTypography.productTitle(),
             ),
             const SizedBox(height: 6),

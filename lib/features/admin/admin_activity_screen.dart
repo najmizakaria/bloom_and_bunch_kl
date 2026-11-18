@@ -45,7 +45,7 @@ class AdminActivityScreen extends StatelessWidget {
                   '${doc.data()['title'] ?? doc.data()['action'] ?? 'Activity'}',
                 ),
                 subtitle: Text(
-                  '${doc.data()['target'] ?? doc.data()['orderId'] ?? ''}\n${doc.data()['actorId'] ?? 'System'} · ${doc.data()['createdAt'] is Timestamp ? malaysiaTime((doc.data()['createdAt'] as Timestamp).toDate()) : 'Time not recorded'}',
+                  '${doc.data()['orderNumber'] ?? doc.data()['target'] ?? doc.data()['orderId'] ?? ''}\n${doc.data()['actorId'] ?? 'System'} · ${doc.data()['createdAt'] is Timestamp ? malaysiaTime((doc.data()['createdAt'] as Timestamp).toDate()) : 'Time not recorded'}',
                 ),
                 isThreeLine: true,
                 onTap: doc.data()['orderId'] != null

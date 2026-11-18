@@ -257,9 +257,11 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                     final items = data['items'] as List<dynamic>? ?? const [];
                     final createdAt = (data['createdAt'] as Timestamp?)
                         ?.toDate();
-                    final orderLabel = doc.id.length > 8
-                        ? doc.id.substring(doc.id.length - 8).toUpperCase()
-                        : doc.id.toUpperCase();
+                    final orderLabel =
+                        data['orderNumber'] as String? ??
+                        (doc.id.length > 8
+                            ? '#${doc.id.substring(doc.id.length - 8).toUpperCase()}'
+                            : '#${doc.id.toUpperCase()}');
 
                     return Card(
                       child: Padding(
@@ -275,7 +277,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '#$orderLabel',
+                                        orderLabel,
                                         style: const AppTypography.label(),
                                       ),
                                       const SizedBox(height: 3),

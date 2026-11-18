@@ -54,7 +54,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
               'Bloom & Bunch KL',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            Text('Checkout ${widget.checkoutId}'),
+            if (!groups.any((group) => group['orderNumber'] is String))
+              Text('Checkout ${widget.checkoutId}'),
             StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: _orders,
               builder: (context, orders) {
@@ -78,6 +79,8 @@ class _CheckoutReceiptScreenState extends State<CheckoutReceiptScreen> {
             ),
             for (final group in groups) ...[
               const Divider(height: 32),
+              if (group['orderNumber'] case final String orderNumber)
+                Text(orderNumber),
               Text(
                 'Delivery · ${group['date']}',
                 style: const TextStyle(fontWeight: FontWeight.bold),

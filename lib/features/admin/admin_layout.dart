@@ -161,30 +161,40 @@ class AdminEmpty extends StatelessWidget {
 }
 
 class AdminIdentifier extends StatelessWidget {
-  const AdminIdentifier(this.id, {super.key});
+  const AdminIdentifier(this.id, {super.key, this.orderNumber});
   final String id;
+  final String? orderNumber;
   @override
   Widget build(BuildContext context) => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
       Flexible(
         child: Tooltip(
-          message: id,
+          message: orderNumber ?? id,
           child: Text(
-            id.length > 12 ? '#${id.substring(0, 8)}…' : '#$id',
+            orderNumber ??
+                (id.length > 12 ? '#${id.substring(0, 8)}…' : '#$id'),
             overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
       IconButton(
-        tooltip: 'Copy full order ID',
+        tooltip: orderNumber == null
+            ? 'Copy full order ID'
+            : 'Copy order number',
         icon: const Icon(Icons.copy_outlined, size: 18),
         onPressed: () async {
-          await Clipboard.setData(ClipboardData(text: id));
+          await Clipboard.setData(ClipboardData(text: orderNumber ?? id));
           if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('Order ID copied.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  orderNumber == null
+                      ? 'Order ID copied.'
+                      : 'Order number copied.',
+                ),
+              ),
+            );
           }
         },
       ),

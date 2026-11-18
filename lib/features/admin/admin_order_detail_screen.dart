@@ -105,7 +105,7 @@ class _AdminOrderDetailScreenState extends State<AdminOrderDetailScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             SelectableText(
-              'Order ${widget.orderId}',
+              'Order ${order.orderNumber ?? order.orderId}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             Text(
