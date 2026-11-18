@@ -8,21 +8,26 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/malaysia_time.dart';
 import '../../../core/utils/order_tracking_display.dart';
 import '../../../core/services/order_service.dart';
+import '../../../core/services/payment_service.dart';
 import '../../../core/widgets/delivery_progress.dart';
 import '../../../core/constants/fulfillment_constants.dart';
 import '../../support/order_support.dart';
 import '../widgets/order_thumbnail.dart';
+import '../widgets/order_payment_countdown.dart';
 import '../widgets/order_tracking_progress.dart';
 import 'payment_screen.dart';
 import 'checkout_receipt_screen.dart';
+import 'order_history_screen.dart';
 
 class OrderTrackingScreen extends StatefulWidget {
   final String orderId;
   final List<String> relatedOrderIds;
+  final bool fromOrderHistory;
   const OrderTrackingScreen({
     super.key,
     required this.orderId,
     this.relatedOrderIds = const [],
+    this.fromOrderHistory = false,
   });
   @override
   State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
@@ -30,6 +35,52 @@ class OrderTrackingScreen extends StatefulWidget {
 
 class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   bool _confirming = false;
+  bool _paymentExpired = false, _leavingExpiredOrder = false;
+  late final _missingOrderPayment = _checkMissingOrder();
+
+  Future<bool> _checkMissingOrder() async {
+    try {
+      return (await PaymentService().check(widget.orderId)).status == 'expired';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _expiredOrder() {
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (current && !_leavingExpiredOrder) {
+      _leavingExpiredOrder = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (ModalRoute.of(context)?.isCurrent == false) {
+          _leavingExpiredOrder = false;
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment expired. Your unpaid order was removed.'),
+          ),
+        );
+        final navigator = Navigator.of(context);
+        if (widget.fromOrderHistory && navigator.canPop()) {
+          navigator.pop();
+        } else {
+          navigator.pushReplacement(
+            MaterialPageRoute<void>(builder: (_) => const OrderHistoryScreen()),
+          );
+        }
+      });
+    }
+    return const Center(child: Text('Payment expired'));
+  }
+
+  void _openPayment() => Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => PaymentScreen(orderId: widget.orderId),
+    ),
+  );
+
   Future<void> _confirmReceived() async {
     if (_confirming) return;
     setState(() => _confirming = true);
@@ -47,8 +98,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   }
 
   late Stream<DocumentSnapshot<Map<String, dynamic>>> _stream = _watch();
-  Stream<DocumentSnapshot<Map<String, dynamic>>> _watch() =>
-      FirebaseFirestore.instance.doc('orders/${widget.orderId}').snapshots();
+  Stream<DocumentSnapshot<Map<String, dynamic>>> _watch() => FirebaseFirestore
+      .instance
+      .doc('orders/${widget.orderId}')
+      .snapshots(includeMetadataChanges: true);
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: AppColors.softBlushStart,
@@ -61,6 +114,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     body: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: _stream,
       builder: (context, s) {
+        if (_paymentExpired) return _expiredOrder();
         if (s.hasError) {
           return Center(
             child: Column(
@@ -77,7 +131,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         }
         if (!s.hasData) return const Center(child: CircularProgressIndicator());
         if (!s.data!.exists) {
-          return const Center(child: Text('Order not found.'));
+          if (s.data!.metadata.isFromCache) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return FutureBuilder<bool>(
+            future: _missingOrderPayment,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              return snapshot.data == true
+                  ? _expiredOrder()
+                  : const Center(child: Text('Order not found.'));
+            },
+          );
         }
         final d = s.data!.data()!,
             status = OrderStatuses.normalize(
@@ -85,6 +152,8 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             );
         final onlinePayment = isOnlinePaymentMode(d['orderMode']);
         final paymentStatus = d['paymentStatus']?.toString();
+        final stripePayment = isStripePaymentMode(d['orderMode']);
+        final paymentDeadline = d['paymentExpiresAt'];
         final checkoutId = d['checkoutGroupId'];
         final id = widget.orderId;
         final orderLabel = trackingOrderNumber(
@@ -170,15 +239,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                 status != OrderStatuses.cancelled &&
                 d['customerId'] == FirebaseAuth.instance.currentUser?.uid) ...[
               const SizedBox(height: 12),
-              FilledButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => PaymentScreen(orderId: widget.orderId),
-                  ),
+              if (stripePayment)
+                OrderPaymentCountdown(
+                  expiresAt: paymentDeadline is Timestamp
+                      ? paymentDeadline.toDate()
+                      : null,
+                  checkPayment: () => PaymentService().check(id),
+                  onPay: _openPayment,
+                  onExpired: () => setState(() => _paymentExpired = true),
+                )
+              else
+                FilledButton(
+                  onPressed: _openPayment,
+                  child: const Text('View payment / pay'),
                 ),
-                child: const Text('View payment / pay'),
-              ),
             ],
             if (paymentStatus == 'paid' &&
                 d['customerId'] == FirebaseAuth.instance.currentUser?.uid &&
@@ -211,8 +285,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           onPressed: () => Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
-                              builder: (_) =>
-                                  OrderTrackingScreen(orderId: other.id),
+                              builder: (_) => OrderTrackingScreen(
+                                orderId: other.id,
+                                fromOrderHistory: widget.fromOrderHistory,
+                              ),
                             ),
                           ),
                           child: Text(

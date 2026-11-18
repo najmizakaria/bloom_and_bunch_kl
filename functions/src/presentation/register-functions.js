@@ -5,7 +5,8 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/firestore');
 
 // Public names and deployment options are part of the existing client contract.
-function registerFunctions({ callable, options, paymentEnabled, paymentSecret, stripeSecret, stripeWebhookSecret, handlers }) {
+function registerFunctions({ callable, options, paymentEnabled, paymentSecret, stripeSecret, stripeWebhookSecret,
+  stripeLiveEnabled, stripeLiveSecret, stripeLiveWebhookSecret, handlers }) {
   const api = {};
   const {
     checkout,
@@ -58,25 +59,29 @@ function registerFunctions({ callable, options, paymentEnabled, paymentSecret, s
     api[name] = callable((req) => admin[handler](req));
 
   const paymentOptions = { secrets: [paymentSecret] };
-  const checkoutPaymentOptions = { secrets: [paymentSecret, stripeSecret] };
+  const checkoutPaymentOptions = { secrets: [paymentSecret, stripeSecret, ...(stripeLiveEnabled ? [stripeLiveSecret] : [])] };
   api.createToyyibpayPayment = callable((req) => payments.create(req), paymentOptions);
   api.checkToyyibpayPayment = callable((req) => payments.status(req), paymentOptions);
   api.createCheckoutPayment = callable((req) => payments.create(req), checkoutPaymentOptions);
   api.checkCheckoutPayment = callable((req) => payments.status(req), checkoutPaymentOptions);
   api.adminCheckPayment = callable((req) => payments.adminStatus(req), checkoutPaymentOptions);
-  api.stripeSandboxWebhook = onRequest({ ...options, secrets: [stripeSecret, stripeWebhookSecret] }, async (req, res) => {
-    res.set('Cache-Control', 'no-store');
-    if (req.method !== 'POST') {
-      res.status(405).send('POST required');
-      return;
-    }
-    try {
-      await payments.stripeWebhook(req.rawBody, req.get('stripe-signature'));
-      res.status(200).send('OK');
-    } catch (error) {
-      res.status(error.code === 'permission-denied' ? 400 : 503).send('Stripe event not applied');
-    }
-  });
+  function stripeWebhook(secrets, live) {
+    return onRequest({ ...options, secrets }, async (req, res) => {
+      res.set('Cache-Control', 'no-store');
+      if (req.method !== 'POST') {
+        res.status(405).send('POST required');
+        return;
+      }
+      try {
+        await payments.stripeWebhook(req.rawBody, req.get('stripe-signature'), live);
+        res.status(200).send('OK');
+      } catch (error) {
+        res.status(error.code === 'permission-denied' ? 400 : 503).send('Stripe event not applied');
+      }
+    });
+  }
+  api.stripeSandboxWebhook = stripeWebhook([stripeSecret, stripeWebhookSecret], false);
+  if (stripeLiveEnabled) api.stripeLiveWebhook = stripeWebhook([stripeLiveSecret, stripeLiveWebhookSecret], true);
   api.toyyibpayCallback = onRequest({ ...options, ...paymentOptions }, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     if (req.method !== 'POST') {
@@ -97,7 +102,7 @@ function registerFunctions({ callable, options, paymentEnabled, paymentSecret, s
     {
       region: options.region,
       maxInstances: 1,
-      secrets: [paymentSecret, stripeSecret],
+      ...checkoutPaymentOptions,
       schedule: '* * * * *',
     },
     async () => {

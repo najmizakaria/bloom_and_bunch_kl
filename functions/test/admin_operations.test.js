@@ -49,10 +49,11 @@ test('admin orders paginate, combine filters and find an exact order outside the
  const exact=await api.adminOrders.run(req('adm_owner',{...p,search:'adm_page_00'}));assert.equal(exact.orders[0].id,'adm_page_00');
  const mismatched=await api.adminOrders.run(req('adm_owner',{...p,payment:'paid',search:'adm_page_00'}));assert.deepEqual(mismatched.orders,[]);
 });
-test('summary separates real manual receipts from unpaid and sandbox amounts',{skip:!enabled},async()=>{
+test('summary separates live Stripe, manual, unpaid and sandbox amounts',{skip:!enabled},async()=>{
  const now=Timestamp.now();const before=await api.adminSummary.run(req('adm_owner'));
- for(const [id,mode,status,total]of [['paid','manual','paid',12.34],['unpaid','manual','pending',99],['sandbox','toyyibpay_sandbox','paid',45],['demo','demo','not_required',80]])await db.doc('orders/adm_metrics_'+id).set({orderMode:mode,paymentStatus:status,totalAmount:total,paidAt:now,createdAt:now,orderStatus:'Completed'});
+ for(const [id,mode,status,total]of [['paid','manual','paid',12.34],['unpaid','manual','pending',99],['sandbox','toyyibpay_sandbox','paid',45],['live','stripe_live','paid',68],['demo','demo','not_required',80]])await db.doc('orders/adm_metrics_'+id).set({orderMode:mode,paymentStatus:status,totalAmount:total,paidAt:now,createdAt:now,orderStatus:'Completed'});
  const after=await api.adminSummary.run(req('adm_owner'));assert.equal(after.todayPaidSen-before.todayPaidSen,1234);assert.equal(after.monthPaidSen-before.monthPaidSen,1234);assert.equal(after.sandboxPaidSen-before.sandboxPaidSen,4500);
+ assert.equal(after.liveStripePaidSen-before.liveStripePaidSen,6800);
 });
 test('store operations persist valid changes, reject payment mode changes and audit the update',{skip:!enabled},async()=>{
  await assert.rejects(()=>api.saveAdminStorePolicy.run(req('adm_owner',{policy:{mode:'manual'}})));

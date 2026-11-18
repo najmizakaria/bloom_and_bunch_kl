@@ -80,3 +80,36 @@ test('Stripe webhook uses the signature over the original request bytes', () => 
   assert.throws(() => gateway.verifyWebhook(Buffer.from(payload + ' '), header),
     (error) => error.code === 'permission-denied');
 });
+
+test('live checkout uses cards and rejects charges until manual payouts are ready', async () => {
+  let payoutsEnabled = false;
+  let schedule = 'manual';
+  const calls = [];
+  const livePayment = { ...payment, environment: 'live' };
+  const liveSession = { ...session, id: 'cs_live_session1', livemode: true,
+    url: 'https://checkout.stripe.com/g/pay/cs_live_session1#hosted' };
+  const gateway = createStripeGateway({
+    live: true,
+    returnUrl: 'https://bloomandbunchkl.com/payment-return.html',
+    client: {
+      accounts: { retrieve: async () => ({country: 'MY', charges_enabled: true, payouts_enabled: payoutsEnabled}) },
+      balanceSettings: { retrieve: async () => ({payments: {payouts: {schedule: {interval: schedule}}}}) },
+      checkout: { sessions: {
+        create: async (fields) => { calls.push(fields); return liveSession; },
+        retrieve: async () => session,
+      } },
+    },
+  });
+  await assert.rejects(() => gateway.create(livePayment), /configures payouts/);
+  payoutsEnabled = true;
+  schedule = 'daily';
+  await assert.rejects(() => gateway.create(livePayment), /configures payouts/);
+  assert.equal(calls.length, 0);
+  schedule = 'manual';
+  assert.equal((await gateway.create(livePayment)).stripeSessionId, liveSession.id);
+  assert.deepEqual(calls[0].payment_method_types, ['card']);
+  assert.equal(calls[0].payment_method_configuration, undefined);
+  await assert.rejects(() => gateway.retrieve(livePayment), {code:'failed-precondition'});
+  await assert.rejects(() => gateway.create(payment), {code:'failed-precondition'});
+  assert.equal(calls.length, 1);
+});

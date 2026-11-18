@@ -336,9 +336,11 @@ class PaymentReceipt {
     Map<String, dynamic>? deliveryOrder,
   }) : amount = _money((data['totalSen'] as num?) ?? 0),
        paidOn = paidAt == null ? null : malaysiaTime(paidAt),
-       testPayment = isOnlinePaymentMode(data['orderMode']),
+       testPayment =
+           isOnlinePaymentMode(data['orderMode']) &&
+           data['orderMode'] != stripeLiveMode,
        paymentMethod = switch (data['orderMode']) {
-         stripeSandboxMode => 'Stripe',
+         stripeSandboxMode || stripeLiveMode => 'Stripe',
          'toyyibpay_sandbox' => 'ToyyibPay',
          _ => null,
        },
@@ -364,7 +366,7 @@ class PaymentReceipt {
                for (final item
                    in (group['items'] as List? ?? const []).whereType<Map>())
                  _item(
-                  item['name']?.toString() ?? 'Item',
+                   item['name']?.toString() ?? 'Item',
                    (item['quantity'] as num).toInt(),
                    ((item['unitPrice'] as num) * 100).round(),
                  ),

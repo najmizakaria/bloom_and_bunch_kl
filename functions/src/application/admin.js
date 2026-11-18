@@ -98,6 +98,7 @@ function createAdminHandlers({
         count(o.where('orderStatus', '==', 'Completed')),
         count(db.collection('products')),
         count(o.where('orderStatus', '==', 'Rider assigned')),
+        received(b.month, 'stripe_live'),
       ]);
       return Object.fromEntries(
         [
@@ -115,6 +116,7 @@ function createAdminHandlers({
           'completed',
           'legacyProducts',
           'assigned',
+          'liveStripePaidSen',
         ]
           .map((key, i) => [key, results[i]])
           .concat([['generatedAt', Date.now()]]),
@@ -143,7 +145,7 @@ function createAdminHandlers({
         q = q.where('fulfillmentType', '==', p.fulfillment);
       }
       if (p.mode) {
-        if (!['demo', 'manual', 'toyyibpay_sandbox', 'stripe_sandbox', 'sandbox'].includes(p.mode))
+        if (!['demo', 'manual', 'toyyibpay_sandbox', 'stripe_sandbox', 'stripe_live', 'sandbox'].includes(p.mode))
           d.fail('Invalid payment mode.');
         q = p.mode === 'sandbox'
           ? q.where('orderMode', 'in', ['toyyibpay_sandbox', 'stripe_sandbox'])

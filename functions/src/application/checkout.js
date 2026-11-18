@@ -130,7 +130,7 @@ function createCheckoutHandlers({
       const policy = await readStorePolicy(tx);
       const onlinePayment = payments.isOnlineMode(policy.mode);
       if (onlinePayment) assertPaymentsEnabled(policy.mode);
-      if (policy.mode === payments.STRIPE_MODE && payload.paymentProvider !== 'stripe')
+      if (payments.isStripeMode(policy.mode) && payload.paymentProvider !== 'stripe')
         d.fail('Update the app to use Stripe Checkout.', 'failed-precondition');
       const quote = storePolicy.quote(plan, submittedAddress, new Date(), policy, {
         requireDates: true,
@@ -213,6 +213,7 @@ function createCheckoutHandlers({
         });
       }
       const orderIds = [], receiptGroups = [];
+      const expiresAt = onlinePayment ? Timestamp.fromMillis(Date.now() + payments.HOLD_MS) : null;
       for (const pricing of quote.groups) {
         const ref = db.collection('orders').doc(),
           group = pricing.items,
@@ -254,7 +255,7 @@ function createCheckoutHandlers({
           paymentStatus: quote.mode === 'demo' ? 'not_required' : 'pending',
           paymentInstructions: quote.paymentInstructions,
           ...(onlinePayment
-            ? { paymentId: payments.paymentId(uid, checkoutId) }
+            ? { paymentId: payments.paymentId(uid, checkoutId), paymentExpiresAt: expiresAt }
             : {}),
           estimatedDispatchDate: pricing.date,
           quoteId: quote.quoteId,
@@ -296,8 +297,7 @@ function createCheckoutHandlers({
         createdAt: FieldValue.serverTimestamp(),
       });
       if (onlinePayment) {
-        const id = payments.paymentId(uid, checkoutId),
-          expiresAt = Timestamp.fromMillis(Date.now() + payments.HOLD_MS);
+        const id = payments.paymentId(uid, checkoutId);
         tx.create(db.doc('payments/' + id), {
           id,
           customerId: uid,
@@ -305,11 +305,11 @@ function createCheckoutHandlers({
           orderIds,
           totalSen: total,
           status: 'awaiting_bill',
-          provider: quote.mode === payments.STRIPE_MODE ? 'stripe' : 'toyyibpay',
-          environment: 'sandbox',
+          provider: payments.isStripeMode(quote.mode) ? 'stripe' : 'toyyibpay',
+          environment: quote.mode === payments.STRIPE_LIVE_MODE ? 'live' : 'sandbox',
           paymentMethod: quote.paymentMethod,
           expiresAt,
-          nextCheckAt: quote.mode === payments.STRIPE_MODE
+          nextCheckAt: payments.isStripeMode(quote.mode)
             ? expiresAt : Timestamp.fromMillis(expiresAt.toMillis() + 5 * 60000),
           capacityReserved: policy.dailyDeliveryCapacity > 0,
           createdAt: FieldValue.serverTimestamp(),

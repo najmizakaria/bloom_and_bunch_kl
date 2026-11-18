@@ -101,6 +101,16 @@ class AdminOverview extends StatelessWidget {
                   ),
                 ),
                 metric(
+                  'Stripe payments received this month',
+                  amount('liveStripePaidSen'),
+                  () => orders(
+                    payment: 'paid',
+                    mode: 'stripe_live',
+                    dates: month,
+                    dateField: 'paidAt',
+                  ),
+                ),
+                metric(
                   'Orders created this month',
                   '${data['monthOrders'] ?? 0}',
                   () => orders(dates: month),

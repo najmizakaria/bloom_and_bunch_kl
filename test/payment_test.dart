@@ -11,6 +11,7 @@ PaymentSession session(
   String? url,
   bool phoneRequired = false,
   String? provider,
+  bool sandbox = true,
 }) => PaymentSession(
   id: 'payment',
   status: status,
@@ -19,6 +20,7 @@ PaymentSession session(
   paymentUrl: url,
   payerPhoneRequired: phoneRequired,
   provider: provider,
+  sandbox: sandbox,
   expiresAt: DateTime.now().add(const Duration(minutes: 30)),
 );
 
@@ -256,7 +258,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  test('payment URLs accept only sandbox HTTPS bill links', () {
+  test('checkout links must match the payment environment', () {
     expect(
       session('pending', url: 'https://dev.toyyibpay.com/bill').checkoutUri,
       isNotNull,
@@ -277,6 +279,26 @@ void main() {
       expect(
         session('pending', provider: 'stripe', url: url).checkoutUri,
         Uri.parse(url),
+      );
+      final live =
+          'https://checkout.stripe.com/$path/pay/cs_live_bouquet#hosted';
+      expect(
+        session(
+          'pending',
+          provider: 'stripe',
+          sandbox: false,
+          url: live,
+        ).checkoutUri,
+        Uri.parse(live),
+      );
+      expect(
+        session(
+          'pending',
+          provider: 'stripe',
+          sandbox: false,
+          url: url,
+        ).checkoutUri,
+        isNull,
       );
     }
     for (final url in [

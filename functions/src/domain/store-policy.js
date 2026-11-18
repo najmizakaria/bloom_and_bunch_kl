@@ -1,5 +1,5 @@
 'use strict';
-const { isOnlineMode } = require('./payments');
+const { isOnlineMode, STRIPE_LIVE_MODE } = require('./payments');
 const { createHash } = require('node:crypto');
 const d = require('./domain');
 
@@ -194,7 +194,9 @@ function createStorePolicy(configured) {
       mode: policy.mode,
       ...(isOnlineMode(policy.mode) ? { paymentMethod: 'card' } : {}),
       paymentInstructions:
-        isOnlineMode(policy.mode)
+        policy.mode === STRIPE_LIVE_MODE
+          ? 'Complete card payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
+          : isOnlineMode(policy.mode)
           ? 'Test payments only. Complete sandbox payment before preparation or delivery. Unpaid reservations expire after 30 minutes.'
           : policy.paymentInstructions,
       areaLabel: policy.serviceArea?.label ?? 'Store delivery area',

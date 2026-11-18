@@ -28,19 +28,19 @@ before(async () => {
 });
 after(async () => { if (db) await db.terminate(); });
 
-async function fixture(id, extra = {}, stripeGateway) {
+async function fixture(id, extra = {}, stripeGateway, database = db) {
   const orderIds = [id + '_ready', id + '_planned'];
   const common = {customerId: 'pay_buyer', checkoutGroupId: id, paymentId: id,
-    orderMode: stripeGateway ? 'stripe_sandbox' : MODE,
+    orderMode: stripeGateway ? (extra.environment === 'live' ? 'stripe_live' : 'stripe_sandbox') : MODE,
     paymentStatus: 'pending', riderId: null, latitude: 3.139, longitude: 101.687,
     deliveryAddress: '12 Test Street, Kuala Lumpur', createdAt: new Date(), estimatedDispatchDate: '2026-10-16'};
-  await db.doc('bouquets/' + id).set({name: 'Bouquet', readyStock: 8, stockCount: 8});
-  await db.doc('flowers/' + id).set({stockQuantity: 10, reservedQuantity: 4});
-  await db.doc('orders/' + orderIds[0]).set({...common, totalAmount: 50, fulfillmentType: 'ready_now',
+  await database.doc('bouquets/' + id).set({name: 'Bouquet', readyStock: 8, stockCount: 8});
+  await database.doc('flowers/' + id).set({stockQuantity: 10, reservedQuantity: 4});
+  await database.doc('orders/' + orderIds[0]).set({...common, totalAmount: 50, fulfillmentType: 'ready_now',
     orderStatus: 'Ready for Delivery', materialState: 'not_required', items: [{bouquetId: id, quantity: 2}]});
-  await db.doc('orders/' + orderIds[1]).set({...common, totalAmount: 30, fulfillmentType: 'pre_order',
+  await database.doc('orders/' + orderIds[1]).set({...common, totalAmount: 30, fulfillmentType: 'pre_order',
     orderStatus: 'Awaiting Preparation', materialState: 'reserved', materialRequirements: {[id]: 4}, items: []});
-  await db.doc('payments/' + id).set({id, customerId: 'pay_buyer', checkoutId: id, orderIds,
+  await database.doc('payments/' + id).set({id, customerId: 'pay_buyer', checkoutId: id, orderIds,
     totalSen: 8000, status: 'awaiting_bill', expiresAt: Timestamp.fromMillis(clock + 1800000),
     nextCheckAt: Timestamp.fromMillis(clock + 2100000), ...extra});
   let calls = 0, rows = [], mayDeactivate = true, payerValue;
@@ -48,9 +48,9 @@ async function fixture(id, extra = {}, stripeGateway) {
     async create(_payment, payer) { calls++; payerValue = payer; return {billCode: 'bill_' + id, paymentUrl: 'https://dev.toyyibpay.com/bill_' + id}; },
     async transactions() { return rows; }, async deactivate() { return mayDeactivate; },
   };
-  const handlers = createPaymentHandlers({db, getGateway: () => gateway, getStripeGateway: () => stripeGateway,
+  const handlers = createPaymentHandlers({db: database, getGateway: () => gateway, getStripeGateway: () => stripeGateway,
     getSecret: () => 'test-secret', now: () => clock,
-    writeAvailableJob(tx, orderId) { tx.set(db.doc('delivery_jobs/' + orderId), {orderId, orderStatus: 'Ready for Delivery'}); },
+    writeAvailableJob(tx, orderId) { tx.set(database.doc('delivery_jobs/' + orderId), {orderId, orderStatus: 'Ready for Delivery'}); },
   });
   return {handlers, gateway, orderIds, get calls() { return calls; }, get payer() { return payerValue; },
     set rows(value) { rows = value; }, set mayDeactivate(value) { mayDeactivate = value; }};
@@ -129,6 +129,35 @@ test('Stripe confirmation wins a cleanup race and duplicate webhooks are safe', 
   assert.equal((await db.doc('bouquets/' + id).get()).get('readyStock'), 8);
 });
 
+test('live Stripe settlement rejects sandbox events and queues payout after delivery', {skip: !enabled}, async () => {
+  const {initializeApp, deleteApp} = require('firebase-admin/app');
+  const app = initializeApp({projectId: `demo-bloom-live-${process.pid}`}, 'live-payment-test');
+  const isolatedDb = require('firebase-admin/firestore').getFirestore(app);
+  const id = createHash('sha256').update('stripe-live-paid').digest('hex');
+  const session = {id: 'cs_live_paid', client_reference_id: id, status: 'complete',
+    payment_status: 'paid', payment_intent: 'pi_live_paid'};
+  let liveEvent = false;
+  const gateway = {retrieve: async () => session,
+    verifyWebhook: () => ({livemode: liveEvent, type: 'checkout.session.completed', data: {object: session}})};
+  try {
+    await isolatedDb.doc('users/pay_buyer').set({role: 'customer'});
+    const f = await fixture(id, {provider: 'stripe', environment: 'live', stripeSessionId: session.id, status: 'pending'}, gateway, isolatedDb);
+    const payment = isolatedDb.doc('payments/' + id);
+    await assert.rejects(() => f.handlers.stripeWebhook(null, null, true), {code: 'permission-denied'});
+    await f.handlers.stripeWebhook();
+    assert.equal((await payment.get()).get('status'), 'pending');
+
+    liveEvent = true;
+    await f.handlers.stripeWebhook(null, null, true);
+    assert.equal((await payment.get()).get('status'), 'paid');
+    assert.equal((await payment.get()).get('payoutStatus'), 'awaiting_delivery');
+    assert.equal((await f.handlers.status(req('pay_buyer', id))).sandbox, false);
+  } finally {
+    await isolatedDb.terminate();
+    await deleteApp(app);
+  }
+});
+
 test('ToyyibPay and Stripe mixed checkouts create one payment each and hold delivery jobs', {skip: !enabled}, async () => {
   const policy = require('../store-policy').configured, previous = {...policy};
   const configuration = process.env.STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION;
@@ -171,9 +200,13 @@ test('ToyyibPay and Stripe mixed checkouts create one payment each and hold deli
     assert.equal(stripePayment.nextCheckAt.toMillis(), stripePayment.expiresAt.toMillis());
     assert.equal(stripeResult.orderIds.length, 2);
     for (const orderId of stripeResult.orderIds) {
-      assert.equal((await db.doc('orders/' + orderId).get()).get('paymentId'), stripeId);
+      const order = await db.doc('orders/' + orderId).get();
+      assert.equal(order.get('paymentId'), stripeId);
+      assert.equal(order.get('paymentExpiresAt').toMillis(), stripePayment.expiresAt.toMillis());
       assert.equal((await db.doc('delivery_jobs/' + orderId).get()).exists, false);
     }
+    policy.mode = 'stripe_live';
+    await assert.rejects(() => api.quoteCheckout.run({auth: request.auth, data: {items, address}}), /Live Stripe Checkout is not enabled/);
     policy.mode = MODE;
     process.env.TOYYIBPAY_ENABLED = 'false';
     await assert.rejects(() => api.quoteCheckout.run({auth: {uid: 'pay_buyer'}, data: {items, address}}), e => e.code === 'failed-precondition');

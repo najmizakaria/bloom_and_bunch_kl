@@ -9,7 +9,7 @@ class CheckoutQuote {
     : data = Map<String, dynamic>.from(value);
   String get id => data['quoteId'] as String;
   bool get usesToyyibpay => data['mode'] == 'toyyibpay_sandbox';
-  bool get usesStripe => data['mode'] == stripeSandboxMode;
+  bool get usesStripe => isStripePaymentMode(data['mode']);
   bool get usesOnlinePayment => isOnlinePaymentMode(data['mode']);
   bool get supportsCardPayment => data['paymentMethod'] == 'card';
   int get totalSen => (data['totalSen'] as num).toInt();

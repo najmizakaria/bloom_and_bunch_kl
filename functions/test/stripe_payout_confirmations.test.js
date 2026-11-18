@@ -17,6 +17,8 @@ test('all deliveries must be confirmed and clear of issues before payout', () =>
   assert.equal(payoutGate(payment, [{ ...confirmed, support: { status: 'open' } }]), 'awaiting_delivery');
   assert.equal(payoutGate(payment, [{ ...confirmed, orderStatus: 'Cancelled' }]), 'review');
   assert.equal(payoutGate(payment, [{ ...confirmed, customerId: 'different' }]), 'review');
+  assert.equal(payoutGate({ ...payment, environment: 'live' }, [confirmed]), 'review');
+  assert.equal(payoutGate({ ...payment, environment: 'live' }, [{ ...confirmed, orderMode: 'stripe_live' }]), 'eligible');
 });
 
 test('Stripe payout uses the available net MYR amount and a stable idempotency key', async () => {

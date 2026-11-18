@@ -10,6 +10,7 @@ class PaymentSession {
     this.expiresAt,
     this.payerPhoneRequired = false,
     this.provider,
+    this.sandbox = true,
   });
   final String id, status;
   final int totalSen;
@@ -18,6 +19,7 @@ class PaymentSession {
   final DateTime? expiresAt;
   final bool payerPhoneRequired;
   final String? provider;
+  final bool sandbox;
   bool get usesStripe => provider == 'stripe';
 
   bool get paid => status == 'paid';
@@ -37,7 +39,9 @@ class PaymentSession {
               uri.host == 'checkout.stripe.com' &&
               uri.userInfo.isEmpty &&
               uri.port == 443 &&
-              RegExp(r'^/[cg]/pay/cs_test_[a-zA-Z0-9]+$').hasMatch(uri.path)
+              RegExp(
+                '^/[cg]/pay/cs_${sandbox ? 'test' : 'live'}_[a-zA-Z0-9]+\$',
+              ).hasMatch(uri.path)
           ? uri
           : null;
     }
@@ -60,6 +64,7 @@ class PaymentSession {
     orderIds: List<String>.from(data['orderIds'] as List),
     paymentUrl: data['paymentUrl'] as String?,
     provider: data['provider'] as String?,
+    sandbox: data['sandbox'] != false,
     payerPhoneRequired: data['payerPhoneRequired'] == true,
     expiresAt: data['expiresAt'] == null
         ? null

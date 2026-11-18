@@ -1,14 +1,15 @@
 'use strict';
 
-const { STRIPE_MODE } = require('../domain/payments');
+const { STRIPE_MODE, STRIPE_LIVE_MODE } = require('../domain/payments');
 const CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const REMINDER_AFTER_MS = 24 * 60 * 60 * 1000;
 const PAYOUT_RETRY_WINDOW_MS = 20 * 60 * 60 * 1000;
 
 function payoutGate(payment, orders) {
+  const orderMode = payment.environment === 'live' ? STRIPE_LIVE_MODE : STRIPE_MODE;
   if (!orders.length || orders.some((order) => !order ||
       order.paymentId !== payment.id || order.customerId !== payment.customerId ||
-      order.orderMode !== STRIPE_MODE || order.paymentStatus !== 'paid' || order.orderStatus === 'Cancelled'))
+      order.orderMode !== orderMode || order.paymentStatus !== 'paid' || order.orderStatus === 'Cancelled'))
     return 'review';
   return orders.every((order) => order.orderStatus === 'Completed' &&
       order.deliveredAt && order.customerAcceptedAt && order.support?.status !== 'open')
@@ -20,7 +21,7 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
     return db.runTransaction(async (tx) => {
       const payment = (await tx.get(ref)).data();
       if (!payment || payment.status !== 'paid' || payment.provider !== 'stripe' ||
-          payment.environment !== 'sandbox' || !(payment.payoutNextCheckAt?.toMillis() <= now())) return null;
+          !['sandbox', 'live'].includes(payment.environment) || !(payment.payoutNextCheckAt?.toMillis() <= now())) return null;
       const orders = await Promise.all(payment.orderIds.map((id) => tx.get(db.doc('orders/' + id))));
       tx.update(ref, { payoutNextCheckAt: Timestamp.fromMillis(now() + CHECK_INTERVAL_MS) });
       return { payment, orders };
@@ -38,7 +39,7 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
       payoutNextCheckAt: FieldValue.delete(),
     });
     batch.set(db.doc('admin_alerts/payout-review-' + payment.id),
-      alert('Stripe sandbox payout needs review', payment.orderIds[0] ?? null));
+      alert('Stripe payout needs review', payment.orderIds[0] ?? null));
     await batch.commit();
   }
 
@@ -71,11 +72,12 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
   }
 
   async function processPayout(ref, payment, orders) {
+    const gateway = () => getStripeGateway(false, payment.environment === 'live');
     if (payment.stripePayoutId) {
-      return savePayout(ref, payment, await getStripeGateway().retrievePayout(payment.stripePayoutId));
+      return savePayout(ref, payment, await gateway().retrievePayout(payment.stripePayoutId));
     }
     if (payment.payoutStartedAt) {
-      const existing = await getStripeGateway().findPayout(payment);
+      const existing = await gateway().findPayout(payment);
       if (existing) return savePayout(ref, payment, existing);
     }
     const gate = payoutGate(payment, orders.map((order) => order.data()));
@@ -90,8 +92,8 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
     // attempt needs reconciliation before any new bank transfer is requested.
     if (payment.payoutStartedAt?.toMillis() <= now() - PAYOUT_RETRY_WINDOW_MS)
       return review(ref, payment, 'The previous Stripe payout attempt could not be confirmed.');
-    const gateway = getStripeGateway();
-    const eligible = await gateway.payoutAmount(payment);
+    const stripe = gateway();
+    const eligible = await stripe.payoutAmount(payment);
     if (eligible.review) return review(ref, payment, eligible.review);
     if (!eligible.amount) return;
     if (payment.payoutStartedAt && payment.payoutAmountSen !== eligible.amount)
@@ -109,7 +111,7 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
       return true;
     });
     if (canSubmit) {
-      const payout = await gateway.createPayout(payment, eligible.amount);
+      const payout = await stripe.createPayout(payment, eligible.amount);
       await savePayout(ref, payment, payout);
     }
   }
@@ -126,7 +128,7 @@ function createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldV
         if ([401, 403].includes(error.statusCode) || error.type === 'StripeInvalidRequestError' || error.code === 'failed-precondition')
           await review(snapshot.ref, claimed.payment, 'Stripe payout settings or permissions need review.');
         else
-          console.error('Sandbox payout check deferred', error.code ?? error.type ?? 'unknown');
+          console.error('Stripe payout check deferred', error.code ?? error.type ?? 'unknown');
       }
     }
   };

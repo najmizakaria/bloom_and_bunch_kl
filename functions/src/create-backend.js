@@ -16,7 +16,7 @@ const d = require('./domain/domain');
 const storePolicy = require('../store-policy');
 const toyyibpay = require('./infrastructure/payments/toyyibpay');
 const { createStripeGateway } = require('./infrastructure/payments/stripe');
-const { MODE, STRIPE_MODE } = require('./domain/payments');
+const { MODE, STRIPE_MODE, STRIPE_LIVE_MODE } = require('./domain/payments');
 const { createCheckoutReader } = require('./infrastructure/firebase/checkout-reader');
 const { createDeliveryJobWriter } = require('./infrastructure/firebase/delivery-jobs');
 const { createCallable } = require('./presentation/callable');
@@ -44,6 +44,10 @@ function createBackend({ db }) {
   const paymentSecret = defineSecret('TOYYIBPAY_SANDBOX_SECRET_KEY');
   const stripeSecret = defineSecret('STRIPE_SANDBOX_SECRET_KEY');
   const stripeWebhookSecret = defineSecret('STRIPE_SANDBOX_WEBHOOK_SECRET');
+  const stripeLiveSecret = defineSecret('STRIPE_LIVE_SECRET_KEY');
+  const stripeLiveWebhookSecret = defineSecret('STRIPE_LIVE_WEBHOOK_SECRET');
+  const stripeLiveEnabled = process.env.STRIPE_LIVE_ENABLED === 'true' && process.env.FUNCTIONS_EMULATOR !== 'true';
+  const stripeLiveReturnUrl = 'https://bloomandbunchkl.com/payment-return.html';
   const stripeConfiguration = defineString('STRIPE_SANDBOX_PAYMENT_METHOD_CONFIGURATION', { default: '' });
   const stripeReturnUrl = defineString('STRIPE_SANDBOX_RETURN_URL', {
     default: 'https://bloomandbunchkl.com/payment-return.html',
@@ -56,6 +60,10 @@ function createBackend({ db }) {
   };
 
   function assertPaymentsEnabled(mode = MODE) {
+    if (mode === STRIPE_LIVE_MODE) {
+      if (!stripeLiveEnabled) d.fail('Live Stripe Checkout is not enabled.', 'failed-precondition');
+      return;
+    }
     if (mode === STRIPE_MODE) {
       if (!/^pmc_[A-Za-z0-9]+$/.test(stripeConfiguration.value()) ||
           !/^https:\/\//.test(stripeReturnUrl.value()))
@@ -131,13 +139,14 @@ function createBackend({ db }) {
     Timestamp,
     gatewayApi: toyyibpay,
     notifyReceiptReminder: notifications.notifyReceiptReminder,
-    getStripeGateway: (verifyWebhook = false) => {
-      assertPaymentsEnabled(STRIPE_MODE);
+    getStripeGateway: (verifyWebhook = false, live = false) => {
+      assertPaymentsEnabled(live ? STRIPE_LIVE_MODE : STRIPE_MODE);
       return createStripeGateway({
-        secret: stripeSecret.value(),
+        live,
+        secret: live ? stripeLiveSecret.value() : stripeSecret.value(),
         configuration: stripeConfiguration.value(),
-        returnUrl: stripeReturnUrl.value(),
-        ...(verifyWebhook ? { webhookSecret: stripeWebhookSecret.value() } : {}),
+        returnUrl: live ? stripeLiveReturnUrl : stripeReturnUrl.value(),
+        ...(verifyWebhook ? { webhookSecret: (live ? stripeLiveWebhookSecret : stripeWebhookSecret).value() } : {}),
       });
     },
     getSecret: () => paymentSecret.value(),
@@ -165,6 +174,9 @@ function createBackend({ db }) {
     paymentSecret,
     stripeSecret,
     stripeWebhookSecret,
+    stripeLiveEnabled,
+    stripeLiveSecret,
+    stripeLiveWebhookSecret,
     handlers: {
       checkout,
       fulfillment,

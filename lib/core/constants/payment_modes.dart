@@ -1,4 +1,8 @@
 const stripeSandboxMode = 'stripe_sandbox';
+const stripeLiveMode = 'stripe_live';
+
+bool isStripePaymentMode(Object? mode) =>
+    mode == stripeSandboxMode || mode == stripeLiveMode;
 
 bool isOnlinePaymentMode(Object? mode) =>
-    mode == stripeSandboxMode || mode == 'toyyibpay_sandbox';
+    isStripePaymentMode(mode) || mode == 'toyyibpay_sandbox';

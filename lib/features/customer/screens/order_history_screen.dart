@@ -365,6 +365,7 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                                       MaterialPageRoute<void>(
                                         builder: (_) => OrderTrackingScreen(
                                           orderId: doc.id,
+                                          fromOrderHistory: true,
                                         ),
                                       ),
                                     ),

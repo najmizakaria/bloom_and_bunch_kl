@@ -193,8 +193,6 @@ class _PaymentScreenState extends State<PaymentScreen>
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const AppNote('Test payments only'),
-          const SizedBox(height: 16),
           if (payment != null)
             Text(
               'Total RM ${(payment.totalSen / 100).toStringAsFixed(2)}',
@@ -271,10 +269,6 @@ class _PaymentScreenState extends State<PaymentScreen>
             TextButton(
               onPressed: _orderId == null ? null : _viewOrder,
               child: const Text('View order'),
-            ),
-          if (payment?.paid != true)
-            const AppNote(
-              'You can reopen payment from your order details. Returning from the bank page alone does not confirm payment.',
             ),
         ],
       ),

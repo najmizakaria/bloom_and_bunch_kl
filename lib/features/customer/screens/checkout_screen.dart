@@ -198,7 +198,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           builder: (_) => onlinePayment
               ? PaymentScreen(
                   orderId: ids.first,
-                  autoOpen: mode == stripeSandboxMode,
+                  autoOpen: isStripePaymentMode(mode),
                 )
               : OrderTrackingScreen(orderId: ids.first, relatedOrderIds: ids),
         ),

@@ -1,6 +1,6 @@
 'use strict';
 const d = require('../domain/domain');
-const { MODE, STRIPE_MODE, HOLD_MS, isOnlineMode, paymentId, requiresPayment } = require('../domain/payments');
+const { MODE, STRIPE_MODE, STRIPE_LIVE_MODE, HOLD_MS, isOnlineMode, paymentId, requiresPayment } = require('../domain/payments');
 const { createPayoutSweep } = require('./payouts');
 const STRIPE_RECOVERY_GRACE_MS = 60000;
 
@@ -18,6 +18,7 @@ function createPaymentHandlers({
   now = () => Date.now(),
 }) {
   const refFor = (id) => db.doc('payments/' + d.id(id));
+  const stripeGatewayFor = (payment) => getStripeGateway(false, payment.environment === 'live');
   const sweepPayouts = createPayoutSweep({ db, getStripeGateway, notifyReceiptReminder, FieldValue, Timestamp, now });
   const view = (p) => ({
     paymentId: p.id,
@@ -28,7 +29,7 @@ function createPaymentHandlers({
     paymentUrl: p.provider === 'stripe' && p.expiresAt.toMillis() <= now()
       ? null : p.paymentUrl ?? null,
     expiresAt: p.expiresAt.toMillis(),
-    sandbox: true,
+    sandbox: p.environment !== 'live',
   });
 
   async function owned(req, includeExpired = false) {
@@ -86,7 +87,7 @@ function createPaymentHandlers({
         nextCheckAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       };
-      if (!review && p.provider === 'stripe' && p.environment === 'sandbox') {
+      if (!review && p.provider === 'stripe' && ['sandbox', 'live'].includes(p.environment)) {
         updates.payoutStatus = 'awaiting_delivery';
         updates.payoutNextCheckAt = Timestamp.fromMillis(now());
       }
@@ -117,7 +118,7 @@ function createPaymentHandlers({
     if (p.provider === 'stripe') {
       if (p.status === 'expired') return view(p);
       if (p.expiresAt.toMillis() <= now()) await expire(snapshot);
-      else if (p.stripeSessionId) await applyStripeSession(snapshot, await getStripeGateway().retrieve(p));
+      else if (p.stripeSessionId) await applyStripeSession(snapshot, await stripeGatewayFor(p).retrieve(p));
       return view((await snapshot.ref.get()).data());
     }
     if (!p.billCode) return view(p);
@@ -130,7 +131,7 @@ function createPaymentHandlers({
 
   async function createStripeSession(snapshot) {
     const ref = snapshot.ref;
-    const gateway = getStripeGateway();
+    const gateway = stripeGatewayFor(snapshot.data());
     const claim = await db.runTransaction(async (tx) => {
       const p = (await tx.get(ref)).data();
       const user = (await tx.get(db.doc('users/' + p.customerId))).data();
@@ -148,7 +149,8 @@ function createPaymentHandlers({
     let session;
     try {
       session = await gateway.create(claim.p);
-    } catch (_) {
+    } catch (error) {
+      if (error.code === 'failed-precondition') throw error;
       d.fail('Could not open Stripe Checkout. Retry this order to continue.', 'unavailable');
     }
     return db.runTransaction(async (tx) => {
@@ -167,17 +169,18 @@ function createPaymentHandlers({
       return expire(snapshot, true);
   }
 
-  async function stripeWebhook(rawBody, signature) {
-    const gateway = getStripeGateway(true);
+  async function stripeWebhook(rawBody, signature, live = false) {
+    const gateway = getStripeGateway(true, live);
     const event = gateway.verifyWebhook(rawBody, signature);
-    if (event.livemode !== false)
-      d.fail('Expected a Stripe sandbox event.', 'permission-denied');
+    if (event.livemode !== live)
+      d.fail('Stripe webhook environment does not match.', 'permission-denied');
     if (!['checkout.session.completed', 'checkout.session.expired'].includes(event.type)) return;
     const session = event.data.object;
     const id = session.client_reference_id;
     if (!/^[a-f0-9]{64}$/.test(id ?? '')) return;
     const snapshot = await refFor(id).get();
-    if (snapshot.data()?.provider !== 'stripe') return;
+    const payment = snapshot.data();
+    if (payment?.provider !== 'stripe' || (payment.environment === 'live') !== live) return;
     return applyStripeSession(snapshot, await gateway.retrieve(snapshot.data(), session.id));
   }
 
@@ -258,14 +261,14 @@ function createPaymentHandlers({
         // Let a create request already in flight finish before checking Stripe.
         const deadline = p.expiresAt.toMillis(), reconcileAfter = deadline + STRIPE_RECOVERY_GRACE_MS;
         if (now() < reconcileAfter) return;
-        const existing = await getStripeGateway().findSession(p, {
+        const existing = await stripeGatewayFor(p).findSession(p, {
           gte: Math.floor((deadline - HOLD_MS) / 1000),
           lte: Math.ceil(reconcileAfter / 1000),
         });
         sessionId = existing?.id;
       }
       if (sessionId) {
-        const session = await getStripeGateway().expire({ ...p, stripeSessionId: sessionId });
+        const session = await stripeGatewayFor(p).expire({ ...p, stripeSessionId: sessionId });
         if (session.payment_status === 'paid') return settle(p.id, session.payment_intent, session.id);
         if (session.status !== 'expired' || session.payment_status !== 'unpaid') return;
       } else if (!['awaiting_bill', 'creating'].includes(p.status)) {
@@ -291,7 +294,7 @@ function createPaymentHandlers({
       const orders = await Promise.all(p.orderIds.map((id) => tx.get(db.doc('orders/' + id))));
       if (stripe && orders.some((order) => order.data()?.paymentStatus === 'paid')) return;
       if (stripe && orders.some((order) => order.exists &&
-        (order.data().orderMode !== STRIPE_MODE || order.data().paymentId !== p.id ||
+        (order.data().orderMode !== (p.environment === 'live' ? STRIPE_LIVE_MODE : STRIPE_MODE) || order.data().paymentId !== p.id ||
           order.data().customerId !== p.customerId)))
         d.fail('Stripe order mismatch.', 'failed-precondition');
       const changes = new Map();
@@ -400,7 +403,7 @@ function createPaymentHandlers({
         d.fail('Administrator access required.', 'permission-denied');
       const order = await db.doc('orders/' + d.id(req.data?.orderId)).get();
       if (!order.exists || !isOnlineMode(order.data().orderMode) || !order.data().paymentId)
-        d.fail('Sandbox payment not found.', 'failed-precondition');
+        d.fail('Online payment not found.', 'failed-precondition');
       const snapshot = await refFor(order.data().paymentId).get();
       if (!snapshot.exists) d.fail('Payment record missing.', 'not-found');
       const result = await reconcile(snapshot);

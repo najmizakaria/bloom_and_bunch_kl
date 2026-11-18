@@ -5,7 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final mode in ['demo', 'toyyibpay_sandbox', 'stripe_sandbox', 'manual']) {
+  for (final mode in [
+    'demo',
+    'toyyibpay_sandbox',
+    'stripe_sandbox',
+    'stripe_live',
+    'manual',
+  ]) {
     testWidgets(
       'mixed checkout shows totals without a payment section at double text ($mode)',
       (tester) async {
