@@ -1,4 +1,5 @@
 import 'package:bloom_and_bunch_kl/core/widgets/page_navigation.dart';
+import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'florist_dashboard_screen.dart';
 import 'florist_orders_screen.dart';
@@ -68,6 +69,10 @@ class _FloristMainNavigationScreenState
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _selectedIndex,
+          backgroundColor: _selectedIndex == 1
+              ? AppColors.softBlushStart
+              : null,
+          indicatorColor: _selectedIndex == 1 ? AppColors.softBlushEnd : null,
           onDestinationSelected: (index) {
             setState(() {
               _selectedIndex = index;

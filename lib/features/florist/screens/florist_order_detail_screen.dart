@@ -3,11 +3,14 @@ import '../../../core/widgets/live_order_detail.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_colors.dart';
 import 'package:bloom_and_bunch_kl/core/theme/app_typography.dart';
 import '../../../core/services/order_service.dart';
+import '../../../core/utils/order_tracking_display.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../models/order_model.dart';
 import 'order_materials_panel.dart';
 import '../../customer/screens/message_card_screen.dart';
+import '../../customer/widgets/order_thumbnail.dart';
 import '../../support/order_rider_assignment.dart';
 
 class FloristOrderDetailScreen extends StatelessWidget {
@@ -84,6 +87,8 @@ class _FloristOrderDetailContentState
   }
 
   int get _currentStep {
+    if (_currentStatus == 'Cancelled') return -1;
+    if (widget.order.paymentOnHold) return 0;
     switch (_currentStatus) {
       case 'Awaiting Preparation':
         return 0;
@@ -131,7 +136,7 @@ class _FloristOrderDetailContentState
 
   String get _statusDescription {
     if (widget.order.paymentOnHold && _currentStatus != 'Cancelled') {
-      return 'Preparation and rider collection are on hold until payment is verified.';
+      return 'Preparation can start after payment is verified.';
     }
     switch (_currentStatus) {
       case 'Awaiting Preparation':
@@ -139,7 +144,7 @@ class _FloristOrderDetailContentState
       case 'Processing':
         return 'The florist is currently preparing this order.';
       case 'Ready for Delivery':
-        return 'The order is packed and awaiting a rider. Check the handoff details below.';
+        return 'Packed and ready for rider collection.';
       case 'Rider assigned':
         return 'A rider is assigned. Collection has not been confirmed yet.';
       case 'Out for Delivery':
@@ -289,8 +294,13 @@ class _FloristOrderDetailContentState
       backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: const PageBackButton(),
-        centerTitle: false,
+        centerTitle: true,
         title: const Text('Order Details'),
+        titleTextStyle:
+            Theme.of(context).appBarTheme.titleTextStyle?.copyWith(
+              color: AppColors.onPrimary,
+            ) ??
+            const AppTypography.screenTitle(color: AppColors.onPrimary),
         actions: [
           if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
             IconButton(
@@ -306,6 +316,8 @@ class _FloristOrderDetailContentState
         ],
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        scrolledUnderElevation: 0,
       ),
       bottomNavigationBar: _buildBottomAction(),
       body: SingleChildScrollView(
@@ -314,7 +326,7 @@ class _FloristOrderDetailContentState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildOrderHeading(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             _buildStatusCard(),
             OrderRiderAssignment(order: widget.order),
             if (widget.order.riderId?.isNotEmpty == true &&
@@ -340,13 +352,13 @@ class _FloristOrderDetailContentState
               ),
             if (['Awaiting Preparation', 'Processing'].contains(_currentStatus))
               OrderMaterialsPanel(order: widget.order),
+            if (widget.order.requiresPrepTime) ...[
+              const SizedBox(height: 12),
+              _buildPreparationWarning(),
+            ],
             const SizedBox(height: 16),
-
-            if (widget.order.requiresPrepTime) _buildPreparationWarning(),
-
-            const SizedBox(height: 20),
             _buildSectionTitle('What to Prepare'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
 
             if (items.isEmpty)
               const Card(
@@ -364,12 +376,8 @@ class _FloristOrderDetailContentState
             else
               ...items.map(_buildItemCard),
 
-            const SizedBox(height: 20),
-            _buildSectionTitle('Delivery Information'),
-            if (widget.order.scheduledDeliveryDate != null)
-              Text('Requested delivery: ${widget.order.scheduledDeliveryDate}'),
             if (widget.order.messageCard != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
               _buildSectionTitle('Message card to include'),
               MessageCardPreview(
                 designName: widget.order.messageCard!['designName'] as String,
@@ -379,7 +387,9 @@ class _FloristOrderDetailContentState
                 senderName: widget.order.messageCard!['senderName'] as String,
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+            _buildSectionTitle('Delivery Information'),
+            const SizedBox(height: 8),
             _buildDeliveryCard(),
 
             const SizedBox(height: 20),
@@ -398,10 +408,13 @@ class _FloristOrderDetailContentState
       children: [
         Text(
           'Order ${widget.order.shortReference}',
-          style: const AppTypography.sectionTitle(),
+          style: const AppTypography.productTitle(
+            color: AppColors.primaryDark,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
             color: _statusColor().withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
@@ -416,42 +429,46 @@ class _FloristOrderDetailContentState
   }
 
   Widget _buildStatusCard() {
+    final step = _currentStep;
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('Order Progress', style: AppTypography.productTitle()),
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                _ProgressStep(
-                  label: 'Received',
-                  icon: Icons.receipt_long_outlined,
-                  reached: _currentStep >= 0,
-                  active: _currentStep == 0,
-                ),
-                _ProgressLine(reached: _currentStep >= 1),
-                _ProgressStep(
-                  label: 'Preparing',
-                  icon: Icons.local_florist_outlined,
-                  reached: _currentStep >= 1,
-                  active: _currentStep == 1,
-                ),
-                _ProgressLine(reached: _currentStep >= 2),
-                _ProgressStep(
-                  label: 'Ready to ship',
-                  icon: Icons.inventory_2_outlined,
-                  reached: _currentStep >= 2,
-                  active: _currentStep == 2,
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
+            if (step >= 0) ...[
+              const SizedBox(height: 10),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _ProgressStep(
+                    label: 'Received',
+                    icon: Icons.receipt_long_outlined,
+                    reached: true,
+                    active: step == 0,
+                  ),
+                  _ProgressLine(reached: step >= 1),
+                  _ProgressStep(
+                    label: 'Preparing',
+                    icon: Icons.local_florist_outlined,
+                    reached: step >= 1,
+                    active: step == 1,
+                  ),
+                  _ProgressLine(reached: step >= 2),
+                  _ProgressStep(
+                    label: 'Ready to ship',
+                    icon: Icons.inventory_2_outlined,
+                    reached: step >= 2,
+                    active: step == 2,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: _statusColor().withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
@@ -466,8 +483,8 @@ class _FloristOrderDetailContentState
                   const SizedBox(height: 3),
                   Text(
                     _statusDescription,
-                    style: AppTypography.supporting(
-                      color: Colors.grey.shade700,
+                    style: const AppTypography.caption(
+                      color: AppColors.textMuted,
                     ),
                   ),
                 ],
@@ -519,32 +536,26 @@ class _FloristOrderDetailContentState
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  backgroundColor: isCustom
-                      ? AppColors.secondarySurface
-                      : AppColors.inputFill,
-                  child: Icon(
-                    isCustom ? Icons.auto_awesome : Icons.local_florist,
-                    color: isCustom ? AppColors.primaryDark : AppColors.primary,
-                  ),
-                ),
+                OrderThumbnail(items: [item]),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '${item['name'] ?? 'Item'} × $quantity',
-                        style: const AppTypography.productTitle(),
+                        style: const AppTypography.label(
+                          color: AppColors.textDark,
+                        ),
                       ),
                       const SizedBox(height: 3),
                       Text(
@@ -562,13 +573,23 @@ class _FloristOrderDetailContentState
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
+                Flexible(
+                  flex: 2,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      'RM ${(unitPrice * quantity).toStringAsFixed(2)}',
+                      textAlign: TextAlign.end,
+                      style: const AppTypography.price(
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
 
-            Text(
-              'RM ${unitPrice.toStringAsFixed(2)}',
-              style: const AppTypography.price(),
-            ),
             if (isCustom || stems.isNotEmpty) ...[
               const Divider(height: 24),
               const Text(
@@ -671,29 +692,46 @@ class _FloristOrderDetailContentState
   }
 
   Widget _buildDeliveryCard() {
+    final order = widget.order;
+    final earlyDispatch = order.earlyDispatchDate;
+    final dispatch = earlyDispatch ?? order.estimatedDispatchDate;
+    final timing = order.deliveryTimeSlot.trim();
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           children: [
             _buildDeliveryRow(
               Icons.schedule,
-              'Delivery slot',
-              widget.order.deliveryTimeSlot,
+              dispatch == null
+                  ? 'Delivery slot'
+                  : earlyDispatch != null
+                  ? 'Early dispatch'
+                  : 'Estimated dispatch',
+              dispatch == null ? timing : trackingDate(dispatch),
+              note: dispatch != null && timing.isNotEmpty ? timing : null,
             ),
-            const Divider(height: 24),
+            if (order.scheduledDeliveryDate case final String date) ...[
+              const Divider(height: 20),
+              _buildDeliveryRow(
+                Icons.event_outlined,
+                'Requested delivery',
+                trackingDate(date),
+              ),
+            ],
+            const Divider(height: 20),
             _buildDeliveryRow(
               Icons.person_outline,
               'Recipient',
               widget.order.recipientName,
             ),
-            const Divider(height: 24),
+            const Divider(height: 20),
             _buildDeliveryRow(
               Icons.phone_outlined,
               'Phone',
               widget.order.recipientPhone,
             ),
-            const Divider(height: 24),
+            const Divider(height: 20),
             _buildDeliveryRow(
               Icons.location_on_outlined,
               'Address',
@@ -705,25 +743,39 @@ class _FloristOrderDetailContentState
     );
   }
 
-  Widget _buildDeliveryRow(IconData icon, String label, String value) {
+  Widget _buildDeliveryRow(
+    IconData icon,
+    String label,
+    String value, {
+    String? note,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: AppColors.primary, size: 21),
-        const SizedBox(width: 12),
+        Icon(icon, color: AppColors.primary, size: 20),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const AppTypography.caption(color: Colors.grey),
+                style: const AppTypography.caption(color: AppColors.textMuted),
               ),
               const SizedBox(height: 3),
               Text(
                 value.isEmpty ? 'Not provided' : value,
-                style: const AppTypography.label(),
+                style: const AppTypography.label(color: AppColors.primaryDark),
               ),
+              if (note != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  note,
+                  style: const AppTypography.caption(
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -755,29 +807,31 @@ class _FloristOrderDetailContentState
     }
 
     return SafeArea(
+      top: false,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-        decoration: BoxDecoration(color: Colors.white),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 50),
-          child: ElevatedButton.icon(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        color: AppColors.cardWhite,
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
             onPressed: _isUpdating ? null : _confirmStatusUpdate,
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.onPrimary,
+              minimumSize: const Size(48, 50),
             ),
             icon: _isUpdating
                 ? const SizedBox(
-                    width: 21,
-                    height: 21,
+                    width: 18,
+                    height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
                   )
-                : Icon(_actionIcon),
+                : Icon(_actionIcon, size: 18),
             label: Text(
-              _isUpdating ? 'Updating...' : _actionLabel,
+              _isUpdating ? 'Updating…' : _actionLabel,
               style: const AppTypography.label(),
             ),
           ),
@@ -829,8 +883,8 @@ class _ProgressStep extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 250),
-              width: 42,
-              height: 42,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 color: reached ? AppColors.primary : Colors.white,
                 shape: BoxShape.circle,
@@ -839,15 +893,15 @@ class _ProgressStep extends StatelessWidget {
               child: Icon(
                 reached ? Icons.check : icon,
                 color: reached ? Colors.white : Colors.grey,
-                size: 20,
+                size: 17,
               ),
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 5),
             Text(
               label,
               textAlign: TextAlign.center,
               style: AppTypography.caption(
-                color: reached ? AppColors.primary : Colors.grey,
+                color: reached ? AppColors.primary : AppColors.textMuted,
                 fontWeight: active ? FontWeight.bold : FontWeight.normal,
               ),
             ),
@@ -868,7 +922,7 @@ class _ProgressLine extends StatelessWidget {
     return Expanded(
       child: Container(
         height: 3,
-        margin: const EdgeInsets.only(bottom: 23),
+        margin: const EdgeInsets.only(top: 16),
         color: reached ? AppColors.primary : Colors.grey.shade300,
       ),
     );

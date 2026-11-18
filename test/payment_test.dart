@@ -188,16 +188,37 @@ void main() {
   testWidgets('florist preparation unlocks only after verified payment', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final changes = StreamController<OrderModel?>();
     addTearDown(changes.close);
     OrderModel order(String payment) => OrderModel.fromMap({
-      'orderMode': 'toyyibpay_sandbox',
+      'orderMode': 'stripe_sandbox',
       'paymentStatus': payment,
       'orderStatus': 'Awaiting Preparation',
       'customerId': 'buyer',
+      'estimatedDispatchDate': '2026-11-19',
+      'deliveryTimeSlot': 'Delivery depends on rider availability.',
+      'items': [
+        {
+          'type': 'ready',
+          'name': 'Lavender Blush',
+          'imageUrl': 'https://example.test/florist-lavender.png',
+          'quantity': 2,
+          'unitPrice': 11,
+        },
+      ],
     }, 'test');
     await tester.pumpWidget(
       MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: const TextScaler.linear(1.5)),
+          child: child!,
+        ),
         home: FloristOrderDetailScreen(
           order: order('pending'),
           watch: (_) => changes.stream,
@@ -208,9 +229,31 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Awaiting Payment'), findsWidgets);
     expect(find.text('Start Preparing'), findsNothing);
+    final header = tester.widget<AppBar>(find.byType(AppBar));
+    expect(header.centerTitle, isTrue);
+    expect(header.titleTextStyle?.color, Colors.white);
+    final photo = find.image(
+      const NetworkImage('https://example.test/florist-lavender.png'),
+    );
+    expect(photo, findsOneWidget);
+    expect(
+      tester.getTopRight(photo).dx,
+      lessThan(tester.getTopLeft(find.text('Lavender Blush × 2')).dx),
+    );
+    expect(find.text('RM 22.00'), findsOneWidget);
+    expect(find.text('Thu, 19 Nov 2026'), findsOneWidget);
+    expect(
+      find.text('Delivery depends on rider availability.'),
+      findsOneWidget,
+    );
     changes.add(order('paid'));
     await tester.pumpAndSettle();
     expect(find.text('Start Preparing'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Start Preparing'),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
   test('payment URLs accept only sandbox HTTPS bill links', () {
