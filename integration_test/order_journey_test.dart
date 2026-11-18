@@ -323,6 +323,7 @@ void main() {
     );
     await tester.pumpWidget(const MaterialApp(home: RiderHomeScreen()));
     await openAvailableDelivery(tester, order.id);
+    await waitFor(tester, find.text('Accept Delivery'));
     await tester.tap(find.text('Accept Delivery'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Accept delivery').last);
@@ -355,7 +356,14 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.text('Open map and delivery actions'));
-    await waitFor(tester, find.text('Confirm collection'));
+    await waitFor(tester, find.byType(RiderOrderDetailScreen));
+    await waitFor(
+      tester,
+      find.descendant(
+        of: find.byType(RiderOrderDetailScreen),
+        matching: find.text('Confirm collection'),
+      ),
+    );
     await tester.tap(find.text('Confirm collection'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Confirm collection').last);
@@ -1065,6 +1073,7 @@ void main() {
       expect(find.textContaining('Own purchase area'), findsNothing);
       expect(find.textContaining('Preparation preview area'), findsNothing);
       await openAvailableDelivery(tester, 'fixture_queue_ready');
+      await waitFor(tester, find.text('Accept Delivery'));
       await tester.tap(find.text('Accept Delivery'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Accept delivery').last);
