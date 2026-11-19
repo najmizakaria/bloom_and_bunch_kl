@@ -107,7 +107,7 @@ test('live checkout uses cards and rejects charges until manual payouts are read
   assert.equal(calls.length, 0);
   schedule = 'manual';
   assert.equal((await gateway.create(livePayment)).stripeSessionId, liveSession.id);
-  assert.deepEqual(calls[0].payment_method_types, ['card']);
+  assert.deepEqual(calls[0].allowed_payment_method_types, ['card']);
   assert.equal(calls[0].payment_method_configuration, undefined);
   await assert.rejects(() => gateway.retrieve(livePayment), {code:'failed-precondition'});
   await assert.rejects(() => gateway.create(payment), {code:'failed-precondition'});

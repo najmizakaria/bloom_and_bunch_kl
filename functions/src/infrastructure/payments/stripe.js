@@ -57,7 +57,7 @@ function createStripeGateway({ secret, returnUrl, configuration, webhookSecret, 
             product_data: { name: 'Bloom & Bunch KL order' } },
           quantity: 1,
         }],
-        ...(live ? { payment_method_types: ['card'] } : {
+        ...(live ? { allowed_payment_method_types: ['card'] } : {
           payment_method_configuration: configuration,
           integration_identifier: 'bloom-bunch-checkout-qkdpwzrm',
         }),

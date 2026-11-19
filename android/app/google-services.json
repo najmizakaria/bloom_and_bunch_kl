@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "467512389115-abviknhkqr654ptj1vkd2iodp5hcg1at.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bloom_and_bunch_kl",
+            "certificate_hash": "d529762ba960fbe6021f979c3d8e66870efd1072"
+          }
+        },
+        {
           "client_id": "467512389115-uvtg68kqgm76tkfmaegtccct4isarmtr.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
